@@ -53,7 +53,7 @@ Agent Quota Desktop 是一个本地优先的独立桌面额度聚合产品。mac
 - 未安装任何应用依赖；仓库只为文档合同验证登记 exact-pinned AJV 依赖与 lock，本地 `node_modules/` 不入库
 - 未创建 Desktop host、renderer、sidecar、服务端或 Web 前端代码；当前全部内容仍是静态设计/机器合同
 - 未接入任何真实 API Key、登录凭据或飞书应用
-- 未执行 Git commit，也未创建远程 GitHub 仓库
+- 已完成初始 Git commit 并推送至远程 GitHub 仓库（NOmoreJoke/agent-quota）；建立 `main`/`dev`/`feature/*` 三层分支，并对 `main` 启用分支保护（要求 PR、禁止直推与强推）
 
 ## 已确定的实施基线
 
