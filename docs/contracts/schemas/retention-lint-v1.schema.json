@@ -1,0 +1,1073 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-quota.local/contracts/schemas/retention-lint-v1.schema.json",
+  "title": "Agent Quota retention source lint v1",
+  "type": "object",
+  "x-aq-array-order": {
+    "$schema": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata",
+    "dialect": "aq-array-order-v1",
+    "version": 1,
+    "default": "sequence_exact",
+    "overrides": [
+      {
+        "schema_pointer": "/$defs/allowedContext/oneOf/1/properties/forbidden_terms",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/allowedContext/oneOf/1/properties/required_terms",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/allowedContext/oneOf/2/properties/forbidden_terms",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/durationUnit/properties/tokens",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/fixtureArtifact/properties/cases",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/fixture_id"
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/numberForm/oneOf/1/properties/values",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/persistenceOperationEnum",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+      "schema_pointer": "/$defs/persistenceTerms",
+      "policy": "utf8_key",
+      "key_json_pointers": [
+        ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/retentionContext/properties/before_or_after_terms",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/excluded_fixture_files",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/fixture_artifacts",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/path"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/inputs",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/live_leaf_exceptions",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/path",
+          "/leaf_sha256"
+        ]
+      }
+    ],
+    "coverage_rule": "every-schema-object-with-type-array-resolves-to-exactly-one-policy; duplicate-or-dangling-override-reject"
+  },
+  "required": [
+    "$schema",
+    "$id",
+    "schema",
+    "artifact_id",
+    "parser",
+    "inputs",
+    "live_leaf_exceptions",
+    "excluded_fixture_files",
+    "fixture_artifacts",
+    "repository_path_contract",
+    "locations",
+    "retention_entry_registry",
+    "inventory",
+    "scan",
+    "detector_grammar",
+    "verdicts"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-quota.local/contracts/schemas/retention-lint-v1.schema.json"
+    },
+    "$id": {
+      "const": "https://agent-quota.local/contracts/retention-lint-v1.json"
+    },
+    "schema": {
+      "const": "aq-retention-lint-v1"
+    },
+    "artifact_id": {
+      "const": "retention-lint-v1"
+    },
+    "parser": {
+      "$ref": "#/$defs/parser"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repoPath"
+      },
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true
+    },
+    "live_leaf_exceptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/liveLeafException"
+      },
+      "minItems": 1,
+      "maxItems": 128
+    },
+    "excluded_fixture_files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repoPath"
+      },
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true
+    },
+    "fixture_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fixtureRef"
+      },
+      "minItems": 1,
+      "maxItems": 16
+    },
+    "repository_path_contract": {
+      "$ref": "#/$defs/repositoryPathContract"
+    },
+    "locations": {
+      "$ref": "#/$defs/locations"
+    },
+    "retention_entry_registry": {
+      "$ref": "#/$defs/retentionEntryRegistry"
+    },
+    "inventory": {
+      "$ref": "#/$defs/inventory"
+    },
+    "scan": {
+      "$ref": "#/$defs/scan"
+    },
+    "detector_grammar": {
+      "$ref": "#/$defs/detector"
+    },
+    "verdicts": {
+      "$ref": "#/$defs/verdicts"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "repoPath": {
+      "type": "string",
+      "pattern": "^(?:README\\.md|docs(?:/[a-z0-9][a-z0-9_.-]*)+)$",
+      "maxLength": 256
+    },
+    "repositoryPathContract": {
+      "type": "object",
+      "required": ["type", "canonical_pattern", "root", "loader", "final_fd"],
+      "properties": {
+        "type": { "const": "RepoPath" },
+        "canonical_pattern": { "const": "^(?:README\\.md|docs(?:/[a-z0-9][a-z0-9_.-]*)+)$" },
+        "root": { "const": "repository-checkout-root-opened-no-follow" },
+        "loader": { "const": "split-and-validate-then-openat-o_nofollow-each-segment" },
+        "final_fd": { "const": "regular-file-beneath-fixed-root-and-canonical-bytes-equal" }
+      },
+      "additionalProperties": false
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "liveLeafException": {
+      "type": "object",
+      "required": ["path", "leaf_sha256", "reason"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "leaf_sha256": { "$ref": "#/$defs/sha256" },
+        "reason": {
+          "enum": [
+            "normative-non-surface-prose",
+            "runtime-duration-not-retention-owner"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "parser": {
+      "type": "object",
+      "required": [
+        "implementation",
+        "version_exact",
+        "reader",
+        "base_reader",
+        "extension_set",
+        "ast_format",
+        "pandoc_api_version",
+        "table_node",
+        "inline_leaf_nodes",
+        "block_leaf_nodes",
+        "version_or_extension_mismatch"
+      ],
+      "properties": {
+        "implementation": {
+          "const": "pandoc"
+        },
+        "version_exact": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "reader": {
+          "const": "commonmark+pipe_tables"
+        },
+        "base_reader": {
+          "const": "commonmark"
+        },
+        "extension_set": {
+          "const": [
+            "pipe_tables"
+          ]
+        },
+        "ast_format": {
+          "const": "pandoc-json"
+        },
+        "pandoc_api_version": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "table_node": {
+          "const": "Block.Table"
+        },
+        "inline_leaf_nodes": {
+          "const": [
+            "Code",
+            "Math",
+            "RawInline",
+            "Str"
+          ]
+        },
+        "block_leaf_nodes": {
+          "const": [
+            "CodeBlock",
+            "RawBlock",
+            "TableCell"
+          ]
+        },
+        "version_or_extension_mismatch": {
+          "const": "reject"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixtureRef": {
+      "type": "object",
+      "required": [
+        "path",
+        "canonical_sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "canonical_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "heading": {
+      "type": "object",
+      "required": [
+        "level",
+        "sibling_ordinal",
+        "normalized_text",
+        "identifier"
+      ],
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "sibling_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "normalized_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "identifier": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "additionalProperties": false
+    },
+    "headingPath": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/heading"
+      },
+      "minItems": 1,
+      "maxItems": 8
+    },
+    "tableLocation": {
+      "type": "object",
+      "required": [
+        "file",
+        "heading_path",
+        "table_ordinal",
+        "section",
+        "column_ordinal"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "heading_path": {
+          "$ref": "#/$defs/headingPath"
+        },
+        "table_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "section": {
+          "const": "body"
+        },
+        "column_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "paragraphLocation": {
+      "type": "object",
+      "required": [
+        "file",
+        "heading_path",
+        "paragraph_ordinal",
+        "required_code_span_prefix"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "heading_path": {
+          "$ref": "#/$defs/headingPath"
+        },
+        "paragraph_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "required_code_span_prefix": {
+          "const": "ACTION_TTL ="
+        }
+      },
+      "additionalProperties": false
+    },
+    "locations": {
+      "type": "object",
+      "required": [
+        "retention_table_ttl_cells",
+        "action_ttl_owner"
+      ],
+      "properties": {
+        "retention_table_ttl_cells": {
+          "$ref": "#/$defs/tableLocation"
+        },
+        "action_ttl_owner": {
+          "$ref": "#/$defs/paragraphLocation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "retentionEntryRegistry": {
+      "type": "object",
+      "required": ["location_ref", "expected_headers", "id_column_ordinal", "id_pattern", "id_uniqueness", "inventory_owner_membership"],
+      "properties": {
+        "location_ref": { "const": "locations.retention_table_ttl_cells" },
+        "expected_headers": {
+          "type": "array",
+          "const": ["条目 ID", "数据", "保存期限与起点", "到期动作"]
+        },
+        "id_column_ordinal": { "const": 1 },
+        "id_pattern": { "const": "^RET-[A-Z0-9]+(?:-[A-Z0-9]+)*$" },
+        "id_uniqueness": { "const": "byte-exact-and-global-within-located-table" },
+        "inventory_owner_membership": { "const": "byte-exact-member-of-located-retention-id-set" }
+      },
+      "additionalProperties": false
+    },
+    "inventory": {
+      "type": "object",
+      "required": [
+        "file",
+        "heading_path",
+        "table_ordinal",
+        "surface_id_column",
+        "owner_column",
+        "expected_headers",
+        "expected_owner_joins"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "heading_path": {
+          "$ref": "#/$defs/headingPath"
+        },
+        "table_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "surface_id_column": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "owner_column": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "expected_headers": {
+          "type": "array",
+          "const": ["surface_id", "owner/介质", "唯一生命周期源"]
+        },
+        "expected_owner_joins": {
+          "type": "array",
+          "const": [
+            {"surface_id": "migration_temp_claim", "owner_id": "RET-MIGRATION-TEMP-CLAIM"},
+            {"surface_id": "migration_temp_file", "owner_id": "RET-MIGRATION-TEMP-CLAIM"},
+            {"surface_id": "subject_metadata_observed", "owner_id": "RET-SUBJECT-METADATA-OBSERVED"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "scan": {
+      "type": "object",
+      "required": [
+        "unicode_normalization",
+        "case_fold",
+        "include_nodes",
+        "join_adjacent_inline_nodes_within_leaf",
+        "heading_slug_used",
+        "fixture_selection_rule",
+        "fixture_id_behavior_override"
+      ],
+      "properties": {
+        "unicode_normalization": {
+          "const": "NFKC"
+        },
+        "case_fold": {
+          "const": true
+        },
+        "include_nodes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "code",
+              "code_block",
+              "html",
+              "table_cell",
+              "text"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "join_adjacent_inline_nodes_within_leaf": {
+          "const": true
+        },
+        "heading_slug_used": {
+          "const": false
+        },
+        "fixture_selection_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "fixture_id_behavior_override": {
+          "const": "forbidden"
+        }
+      },
+      "additionalProperties": false
+    },
+    "numberForm": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "form",
+            "pattern"
+          ],
+          "properties": {
+            "form": {
+              "enum": [
+                "ascii_decimal_integer",
+                "ascii_scientific",
+                "chinese_number"
+              ]
+            },
+            "pattern": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "form",
+            "values"
+          ],
+          "properties": {
+            "form": {
+              "const": "english_number_words"
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z]+$"
+              },
+              "minItems": 1,
+              "maxItems": 128,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "durationUnit": {
+      "type": "object",
+      "required": [
+        "canonical",
+        "tokens"
+      ],
+      "properties": {
+        "canonical": {
+          "enum": [
+            "day",
+            "hour",
+            "millisecond",
+            "minute",
+            "month",
+            "second",
+            "week",
+            "year"
+          ]
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "durationAst": {
+      "type": "object",
+      "required": [
+        "node",
+        "children",
+        "maximum_joined_nodes"
+      ],
+      "properties": {
+        "node": {
+          "const": "Duration"
+        },
+        "children": {
+          "const": [
+            "Number",
+            "optional_space_or_inline_boundary",
+            "Unit"
+          ]
+        },
+        "maximum_joined_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        }
+      },
+      "additionalProperties": false
+    },
+    "retentionContext": {
+      "type": "object",
+      "required": [
+        "same_leaf_max_token_distance",
+        "before_or_after_terms"
+      ],
+      "properties": {
+        "same_leaf_max_token_distance": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "before_or_after_terms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "allowedContext": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "context_id",
+            "matcher"
+          ],
+          "properties": {
+            "context_id": {
+              "pattern": "^[a-z][a-z0-9-]+$"
+            },
+            "matcher": {
+              "enum": [
+                "locations.action_ttl_owner",
+                "locations.retention_table_ttl_cells"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "context_id",
+            "required_terms",
+            "forbidden_terms"
+          ],
+          "properties": {
+            "context_id": {
+              "pattern": "^[a-z][a-z0-9-]+$"
+            },
+            "required_terms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 32,
+              "uniqueItems": true
+            },
+            "forbidden_terms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "context_id",
+            "required_ast",
+            "forbidden_terms"
+          ],
+          "properties": {
+            "context_id": {
+              "pattern": "^[a-z][a-z0-9-]+$"
+            },
+            "required_ast": {
+              "const": "Code span SYMBOL immediately adjacent to '=' and Duration"
+            },
+            "forbidden_terms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "persistenceDirectivePattern": {
+      "const": "persist:v1:<surface_id>:<operation>:<owner_id>"
+    },
+    "persistenceDirectiveSegmentOrder": {
+      "type": "array",
+      "const": ["literal:persist", "literal:v1", "capture:surface_id", "enum:operation", "capture:owner_id"]
+    },
+    "persistenceOperationEnum": {
+      "type": "array",
+      "const": ["create", "delete", "update", "write"]
+    },
+    "persistenceOwnerJoinKey": {
+      "type": "array",
+      "const": ["surface_id", "owner_id"]
+    },
+    "persistenceSignalLexer": {
+      "type": "object",
+      "required": [
+        "grammar_id",
+        "version",
+        "mode",
+        "token_boundary",
+        "token_classes",
+        "phrase_rules",
+        "signal_rule",
+        "directive_ast_ref",
+        "signal_without_valid_directive"
+      ],
+      "properties": {
+        "grammar_id": { "const": "aq-persistence-signal-grammar-v3" },
+        "version": { "const": 3 },
+        "mode": {
+          "const": "advisory-rejection-only-never-creates-a-storage-surface"
+        },
+        "token_boundary": {
+          "const": "Unicode-word-boundary-after-NFKC-casefold-with-longest-match"
+        },
+        "token_classes": {
+          "type": "object",
+          "required": ["medium", "sensitive_object", "write_action"],
+          "properties": {
+            "medium": { "$ref": "#/$defs/persistenceTerms" },
+            "sensitive_object": { "$ref": "#/$defs/persistenceTerms" },
+            "write_action": { "$ref": "#/$defs/persistenceTerms" }
+          },
+          "additionalProperties": false
+        },
+        "phrase_rules": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/persistencePhraseRule" }
+        },
+        "signal_rule": {
+          "const": "first-matching-phrase-rule-over-longest-token-class-spans"
+        },
+        "directive_ast_ref": {
+          "const": "#/detector_grammar/persistence_directive_ast"
+        },
+        "signal_without_valid_directive": {
+          "const": "reject"
+        }
+      },
+      "additionalProperties": false
+    },
+    "persistenceTerms": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "persistencePhraseRule": {
+      "type": "object",
+      "required": ["rule_id", "required_classes", "accepted_orders", "max_intervening_tokens"],
+      "properties": {
+        "rule_id": { "enum": ["sensitive-write-medium", "write-medium"] },
+        "required_classes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "items": { "enum": ["medium", "sensitive_object", "write_action"] },
+          "uniqueItems": true
+        },
+        "accepted_orders": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 3,
+            "items": { "enum": ["medium", "sensitive_object", "write_action"] },
+            "uniqueItems": true
+          }
+        },
+        "max_intervening_tokens": { "type": "integer", "minimum": 1, "maximum": 8 }
+      },
+      "additionalProperties": false
+    },
+    "persistenceDirectiveAst": {
+      "type": "object",
+      "required": ["node", "source_node", "exact_pattern", "segment_order", "surface_id_pattern", "owner_id_pattern", "operation_enum", "owner_join_key", "inventory_owner_cardinality", "record_boundary", "adjacent_prose_authorization", "residual_signal_rule", "ordinary_prose_semantics", "unknown_directive_or_surface"],
+      "properties": {
+        "node": { "const": "PersistentDeclarationRecordV1" },
+        "source_node": { "const": "one-exact-Pandoc-Code-span" },
+        "exact_pattern": { "$ref": "#/$defs/persistenceDirectivePattern" },
+        "segment_order": { "$ref": "#/$defs/persistenceDirectiveSegmentOrder" },
+        "surface_id_pattern": { "const": "[a-z][a-z0-9_]{0,63}" },
+        "owner_id_pattern": { "const": "RET-[A-Z0-9]+(?:-[A-Z0-9]+)*" },
+        "operation_enum": { "$ref": "#/$defs/persistenceOperationEnum" },
+        "owner_join_key": { "$ref": "#/$defs/persistenceOwnerJoinKey" },
+        "inventory_owner_cardinality": { "const": 1 },
+        "record_boundary": { "const": "one-exact-Pandoc-Code-span" },
+        "adjacent_prose_authorization": { "const": "forbidden" },
+        "residual_signal_rule": { "const": "remove-each-exact-record-once-then-reject-any-persistence-signal-unless-the-entire-leaf-digest-is-an-existing-exact-exception" },
+        "ordinary_prose_semantics": { "const": "non-normative-and-cannot-create-a-storage-surface" },
+        "unknown_directive_or_surface": { "const": "reject" }
+      },
+      "additionalProperties": false
+    },
+    "detector": {
+      "type": "object",
+      "required": [
+        "tokenization_order",
+        "number_forms",
+        "duration_units",
+        "duration_ast",
+        "retention_context",
+        "allowed_duration_contexts",
+        "decision_precedence",
+        "retention_signal_overrides_runtime_allow",
+        "persistence_signal_lexer",
+        "persistence_directive_ast",
+        "cross_leaf_match",
+        "unrecognized_number_or_unit_adjacent_to_retention_context",
+        "unrecognized_persistent_medium_or_verb_pair"
+      ],
+      "properties": {
+        "tokenization_order": {
+          "const": [
+            "parse_pandoc_ast",
+            "select_included_leaf_nodes",
+            "join_adjacent_inline_nodes_with_single_space",
+            "NFKC",
+            "default_unicode_casefold",
+            "lex_longest_match"
+          ]
+        },
+        "number_forms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/numberForm"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "duration_units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/durationUnit"
+          },
+          "minItems": 8,
+          "maxItems": 8
+        },
+        "duration_ast": {
+          "$ref": "#/$defs/durationAst"
+        },
+        "retention_context": {
+          "$ref": "#/$defs/retentionContext"
+        },
+        "allowed_duration_contexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/allowedContext"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "decision_precedence": {
+          "const": [
+            "retention-signal-reject-outside-exact-owner",
+            "persistence-signal-requires-exact-persist-directive-and-inventory-owner",
+            "bounded-non-retention-runtime-allow",
+            "named-non-retention-constant-allow"
+          ]
+        },
+        "retention_signal_overrides_runtime_allow": {
+          "const": true
+        },
+        "persistence_signal_lexer": {
+          "$ref": "#/$defs/persistenceSignalLexer"
+        },
+        "persistence_directive_ast": {
+          "$ref": "#/$defs/persistenceDirectiveAst"
+        },
+        "cross_leaf_match": {
+          "const": "reject_as_ambiguous"
+        },
+        "unrecognized_number_or_unit_adjacent_to_retention_context": {
+          "const": "reject_as_ambiguous"
+        },
+        "unrecognized_persistent_medium_or_verb_pair": {
+          "const": "ordinary-prose-non-normative"
+        }
+      },
+      "additionalProperties": false
+    },
+    "verdicts": {
+      "type": "object",
+      "required": [
+        "duration_outside_exact_location",
+        "unknown_ret_id",
+        "duplicate_ret_id",
+        "unknown_surface_id",
+        "surface_without_exactly_one_owner",
+        "new_persistent_surface_without_persist_tag",
+        "inventory_surface_without_live_reference",
+        "detector_ambiguous",
+        "parser_or_ast_version_mismatch"
+      ],
+      "properties": {
+        "duration_outside_exact_location": {
+          "const": "reject"
+        },
+        "unknown_ret_id": {
+          "const": "reject"
+        },
+        "duplicate_ret_id": {
+          "const": "reject"
+        },
+        "unknown_surface_id": {
+          "const": "reject"
+        },
+        "surface_without_exactly_one_owner": {
+          "const": "reject"
+        },
+        "new_persistent_surface_without_persist_tag": {
+          "const": "reject"
+        },
+        "inventory_surface_without_live_reference": {
+          "const": "reject"
+        },
+        "detector_ambiguous": {
+          "const": "reject"
+        },
+        "parser_or_ast_version_mismatch": {
+          "const": "reject"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixtureCase": {
+      "type": "object",
+      "required": [
+        "fixture_id",
+        "source",
+        "expected"
+      ],
+      "properties": {
+        "fixture_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,127}$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "expected": {
+          "enum": [
+            "accept",
+            "reject"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixtureArtifact": {
+      "type": "object",
+      "required": [
+        "$schema",
+        "$id",
+        "schema",
+        "excluded_from_lint_inputs",
+        "cases"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "https://agent-quota.local/contracts/schemas/retention-lint-v1.schema.json#/$defs/fixtureArtifact"
+        },
+        "$id": {
+          "const": "https://agent-quota.local/contracts/fixtures/retention-lint-malicious-v1.json"
+        },
+        "schema": {
+          "const": "aq-retention-lint-fixtures-v1"
+        },
+        "excluded_from_lint_inputs": {
+          "const": true
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fixtureCase"
+          },
+          "minItems": 1,
+          "maxItems": 256
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,585 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json",
+  "title": "Agent Quota contract registry v1",
+  "type": "object",
+  "x-aq-array-order": {
+    "$schema": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata",
+    "dialect": "aq-array-order-v1",
+    "version": 1,
+    "default": "sequence_exact",
+    "overrides": [
+      {
+        "schema_pointer": "/$defs/arrayOrderMetadata/properties/overrides",
+        "policy": "utf8_key",
+        "key_json_pointers": ["/schema_pointer"]
+      },
+      {
+        "schema_pointer": "/$defs/arrayOrderOverride/properties/key_json_pointers",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+        "schema_pointer": "/$defs/canonicalizer/properties/input_paths",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+        "schema_pointer": "/properties/artifacts",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/artifact_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/fixtures",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/fixture_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/normative_decision_inputs",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/path"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/semantic_validators",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/validator_id"
+        ]
+      }
+    ],
+    "coverage_rule": "every-schema-object-with-type-array-resolves-to-exactly-one-policy; duplicate-or-dangling-override-reject"
+  },
+  "required": [
+    "$schema",
+    "$id",
+    "schema",
+    "registry_id",
+    "meta_schema_uri",
+    "normative_decision_inputs",
+    "array_order_dialect",
+    "canonicalizer",
+    "digest_recipes",
+    "raw_bounds",
+    "path_resolution",
+    "validation_order",
+    "schema_binding",
+    "artifacts",
+    "fixtures",
+    "semantic_validators",
+    "closure_rules"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json"
+    },
+    "$id": {
+      "const": "https://agent-quota.local/contracts/contract-registry-v1.json"
+    },
+    "schema": {
+      "const": "aq-contract-registry-v1"
+    },
+    "registry_id": {
+      "const": "contract-registry-v1"
+    },
+    "meta_schema_uri": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "normative_decision_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": { "$ref": "#/$defs/normativeDecisionInput" }
+    },
+    "array_order_dialect": {
+      "$ref": "#/$defs/arrayOrderDialect"
+    },
+    "canonicalizer": {
+      "$ref": "#/$defs/canonicalizer"
+    },
+    "digest_recipes": {
+      "$ref": "#/$defs/digests"
+    },
+    "raw_bounds": {
+      "$ref": "#/$defs/bounds"
+    },
+    "path_resolution": {
+      "$ref": "#/$defs/pathResolution"
+    },
+    "validation_order": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      },
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true
+    },
+    "schema_binding": {
+      "$ref": "#/$defs/schemaBinding"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      },
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fixture"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "semantic_validators": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/semanticValidator"
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "closure_rules": {
+      "$ref": "#/$defs/closure"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repoPath": {
+      "type": "string",
+      "pattern": "^docs(?:/[a-z0-9][a-z0-9_.-]*)+$",
+      "maxLength": 256
+    },
+    "artifactPath": {
+      "allOf": [
+        { "$ref": "#/$defs/repoPath" },
+        { "pattern": "^docs/contracts/[a-z0-9][a-z0-9-]*\\.json$", "maxLength": 128 }
+      ]
+    },
+    "schemaPath": {
+      "allOf": [
+        { "$ref": "#/$defs/repoPath" },
+        { "pattern": "^docs/contracts/schemas/[a-z0-9][a-z0-9-]*\\.schema\\.json$", "maxLength": 160 }
+      ]
+    },
+    "fixturePath": {
+      "allOf": [
+        { "$ref": "#/$defs/repoPath" },
+        { "pattern": "^docs/contracts/fixtures/[a-z0-9][a-z0-9-]*\\.json$", "maxLength": 160 }
+      ]
+    },
+    "normativeDecisionInput": {
+      "type": "object",
+      "required": ["path", "category", "record_kind", "decision_status", "history_membership", "first_line", "projection_marker", "raw_sha256"],
+      "properties": {
+        "path": { "const": "docs/audits/gui-product-decision-resolution.md" },
+        "category": { "const": "non-history-normative-decision-input" },
+        "record_kind": { "const": "normative-product-decision-non-history" },
+        "decision_status": { "const": "confirmed-current-pending-independent-r20" },
+        "history_membership": { "const": "forbidden-not-audit-not-resolution" },
+        "first_line": { "const": "# GUI 产品决策处置记录（非审计轮次）" },
+        "projection_marker": { "const": "AQ-NORMATIVE-PRODUCT-DECISION-V1" },
+        "raw_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "arrayOrderDialect": {
+      "type": "object",
+      "required": ["dialect", "version", "meta_schema_uri", "default_policy", "override_policy"],
+      "properties": {
+        "dialect": { "const": "aq-array-order-v1" },
+        "version": { "const": 1 },
+        "meta_schema_uri": { "const": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata" },
+        "default_policy": { "const": "sequence_exact" },
+        "override_policy": { "const": "utf8_key" }
+      },
+      "additionalProperties": false
+    },
+    "arrayOrderOverride": {
+      "type": "object",
+      "required": ["schema_pointer", "policy", "key_json_pointers"],
+      "properties": {
+        "schema_pointer": { "type": "string", "pattern": "^/", "maxLength": 512 },
+        "policy": { "const": "utf8_key" },
+        "key_json_pointers": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "pattern": "^(?:$|/)", "maxLength": 256 }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "arrayOrderMetadata": {
+      "type": "object",
+      "required": ["$schema", "dialect", "version", "default", "overrides", "coverage_rule"],
+      "properties": {
+        "$schema": { "const": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata" },
+        "dialect": { "const": "aq-array-order-v1" },
+        "version": { "const": 1 },
+        "default": { "const": "sequence_exact" },
+        "overrides": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/arrayOrderOverride" } },
+        "coverage_rule": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "additionalProperties": false
+    },
+    "canonicalizer": {
+      "type": "object",
+      "required": ["implementation_path", "implementation_version", "validator_path", "validator_version", "execution_mode", "trust_status", "production_authority", "self_pin_update", "input_paths", "registry_anchor_recipe"],
+      "properties": {
+        "implementation_path": { "const": "docs/contracts/canonicalize-registry-v1.py" },
+        "implementation_version": { "const": "aq-canonicalizer-v1" },
+        "validator_path": { "const": "docs/contracts/validate-contracts-v1.py" },
+        "validator_version": { "const": "aq-contract-validator-v1" },
+        "execution_mode": { "const": "read-only-verifier" },
+        "trust_status": { "const": "audit-evidence-only-not-a-release-authority" },
+        "production_authority": { "const": "externally-pinned-signed-release-or-vcs-commit-plus-tool-raw-sha256-and-prior-root-authorization" },
+        "self_pin_update": { "const": "forbidden" },
+        "input_paths": { "type": "array", "minItems": 13, "maxItems": 13, "items": { "$ref": "#/$defs/repoPath" }, "uniqueItems": true },
+        "registry_anchor_recipe": { "const": "SHA256(ASCII('agent-quota:contract-registry:v1\\x00')||aq-jcs-nfc-v1(registry-with-current-pins))" }
+      },
+      "additionalProperties": false
+    },
+    "digests": {
+      "type": "object",
+      "required": [
+        "artifact_canonical",
+        "schema_canonical",
+        "raw"
+      ],
+      "properties": {
+        "artifact_canonical": {
+          "const": "SHA256(ASCII('agent-quota:contract-artifact:v1\\x00')||aq-jcs-nfc-v1(document))"
+        },
+        "schema_canonical": {
+          "const": "SHA256(ASCII('agent-quota:contract-schema:v1\\x00')||aq-jcs-nfc-v1(schema_document))"
+        },
+        "raw": {
+          "const": "SHA256(raw_bytes)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "required": [
+        "registry_raw_bytes_max",
+        "artifact_raw_bytes_max",
+        "schema_raw_bytes_max",
+        "json_depth_max",
+        "json_nodes_max",
+        "string_utf8_bytes_max",
+        "array_items_max",
+        "integer_min",
+        "integer_max",
+        "floats",
+        "non_finite_numbers",
+        "duplicate_keys"
+      ],
+      "properties": {
+        "registry_raw_bytes_max": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 1048576
+        },
+        "artifact_raw_bytes_max": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 1048576
+        },
+        "schema_raw_bytes_max": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 1048576
+        },
+        "json_depth_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "json_nodes_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "string_utf8_bytes_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "array_items_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "integer_min": {
+          "type": "integer"
+        },
+        "integer_max": {
+          "type": "integer"
+        },
+        "floats": {
+          "const": "reject"
+        },
+        "non_finite_numbers": {
+          "const": "reject"
+        },
+        "duplicate_keys": {
+          "const": "reject_before_schema"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pathResolution": {
+      "type": "object",
+      "required": [
+        "fixed_root",
+        "segment_validation",
+        "decode_or_normalize",
+        "open_algorithm",
+        "symlink_policy",
+        "final_identity_check"
+      ],
+      "properties": {
+        "fixed_root": {
+          "const": "repository-root-opened-once-as-directory-handle"
+        },
+        "segment_validation": {
+          "const": "ASCII-lowercase-contract-path-components-with-no-dot-dot-empty-or-separator-encoding"
+        },
+        "decode_or_normalize": {
+          "const": "forbidden"
+        },
+        "open_algorithm": {
+          "const": "openat-each-component-relative-to-fixed-root"
+        },
+        "symlink_policy": {
+          "const": "O_NOFOLLOW-every-component"
+        },
+        "final_identity_check": {
+          "const": "resolved-relative-path-bytes-must-equal-registered-path-bytes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "schemaBinding": {
+      "type": "object",
+      "required": [
+        "schema_path",
+        "schema_uri",
+        "schema_raw_sha256",
+        "schema_canonical_sha256"
+      ],
+      "properties": {
+        "schema_path": {
+          "const": "docs/contracts/schemas/contract-registry-v1.schema.json"
+        },
+        "schema_uri": {
+          "const": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json"
+        },
+        "schema_raw_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "schema_canonical_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "artifact_path",
+        "artifact_schema_uri",
+        "artifact_raw_sha256",
+        "artifact_canonical_sha256",
+        "schema_path",
+        "schema_raw_sha256",
+        "schema_canonical_sha256"
+      ],
+      "properties": {
+        "artifact_id": {
+          "enum": [
+            "core-safety-contract-v1",
+            "lease-policy-v1",
+            "local-key-purpose-registry-v1",
+            "operation-contract-v1",
+            "retention-lint-v1"
+          ]
+        },
+        "artifact_path": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "artifact_schema_uri": {
+          "type": "string",
+          "pattern": "^https://agent-quota\\.local/contracts/schemas/[a-z0-9-]+\\.schema\\.json$",
+          "maxLength": 256
+        },
+        "artifact_raw_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "artifact_canonical_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "schema_path": {
+          "$ref": "#/$defs/schemaPath"
+        },
+        "schema_raw_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "schema_canonical_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixture": {
+      "type": "object",
+      "required": [
+        "fixture_id",
+        "fixture_path",
+        "schema_uri",
+        "raw_sha256",
+        "canonical_sha256"
+      ],
+      "properties": {
+        "fixture_id": {
+          "enum": [
+            "core-safety-v1",
+            "retention-lint-malicious-v1"
+          ]
+        },
+        "fixture_path": {
+          "$ref": "#/$defs/fixturePath"
+        },
+        "schema_uri": {
+          "type": "string",
+          "pattern": "^https://agent-quota\\.local/contracts/schemas/[a-z0-9-]+\\.schema\\.json#/.+$",
+          "maxLength": 256
+        },
+        "raw_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "canonical_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "semanticValidator": {
+      "type": "object",
+      "required": [
+        "validator_id",
+        "applies_to",
+        "rule",
+        "verdict"
+      ],
+      "properties": {
+        "validator_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,127}$"
+        },
+        "applies_to": {
+          "enum": [
+            "all",
+            "core-safety-contract-v1",
+            "lease-policy-v1",
+            "local-key-purpose-registry-v1",
+            "operation-contract-v1",
+            "retention-lint-v1"
+          ]
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 768
+        },
+        "verdict": {
+          "const": "reject"
+        }
+      },
+      "additionalProperties": false
+    },
+    "closure": {
+      "type": "object",
+      "required": [
+        "artifact_id_unique",
+        "artifact_path_unique",
+        "artifact_schema_uri_matches_document_schema",
+        "schema_id_matches_bound_uri",
+        "schema_meta_schema_exact",
+        "schema_hash_mismatch",
+        "artifact_hash_mismatch",
+        "unknown_artifact",
+        "unknown_schema",
+        "array_order",
+        "array_uniqueness",
+        "semantic_validator_id_unique",
+        "unused_semantic_validator",
+        "path_outside_fixed_root",
+        "path_redecode_or_normalize",
+        "symlink_or_case_alias"
+      ],
+      "properties": {
+        "artifact_id_unique": {
+          "const": true
+        },
+        "artifact_path_unique": {
+          "const": true
+        },
+        "artifact_schema_uri_matches_document_schema": {
+          "const": true
+        },
+        "schema_id_matches_bound_uri": {
+          "const": true
+        },
+        "schema_meta_schema_exact": {
+          "const": true
+        },
+        "schema_hash_mismatch": {
+          "const": "reject"
+        },
+        "artifact_hash_mismatch": {
+          "const": "reject"
+        },
+        "unknown_artifact": {
+          "const": "reject"
+        },
+        "unknown_schema": {
+          "const": "reject"
+        },
+        "array_order": {
+          "const": "schema-x-aq-array-order-exact-policy"
+        },
+        "array_uniqueness": {
+          "const": "policy-key-tuple-or-canonical-item-bytes"
+        },
+        "semantic_validator_id_unique": {
+          "const": true
+        },
+        "unused_semantic_validator": {
+          "const": "reject"
+        },
+        "path_outside_fixed_root": {
+          "const": "reject"
+        },
+        "path_redecode_or_normalize": {
+          "const": "reject"
+        },
+        "symlink_or_case_alias": {
+          "const": "reject"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

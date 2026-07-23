@@ -1,0 +1,236 @@
+{
+  "$schema": "https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json",
+  "$id": "https://agent-quota.local/contracts/local-key-purpose-registry-v1.json",
+  "schema": "aq-local-key-purpose-registry-v1",
+  "artifact_id": "local-key-purpose-registry-v1",
+  "root_key_bytes": 32,
+  "derived_key_bytes": 32,
+  "kdf": {
+    "algorithm": "HKDF-SHA-256",
+    "extract_salt_recipe": "SHA256(ASCII('agent-quota:local-purpose-extract:v1\\x00') || aq-jcs-nfc-v1({installation_id,purpose,generation}))",
+    "expand_info_recipe": "ASCII('agent-quota:local-purpose-expand:v1\\x00') || u16be(len(UTF8-NFC(purpose))) || UTF8-NFC(purpose) || u64be(generation)",
+    "generation_range": [1, 9223372036854775807],
+    "integer_encoding": "unsigned-big-endian",
+    "string_encoding": "UTF-8-NFC",
+    "output_length_bytes": 32
+  },
+  "purposes": [
+    {
+      "purpose": "access-identity-v1",
+      "rotation": "replace_generation",
+      "verify_only_allowed": false
+    },
+    {
+      "purpose": "action-signing-v1",
+      "rotation": "verify_only",
+      "verify_only_allowed": true
+    },
+    {
+      "purpose": "cache-identity-v1",
+      "rotation": "replace_generation",
+      "verify_only_allowed": false
+    },
+    {
+      "purpose": "idempotency-binding-v1",
+      "rotation": "verify_only",
+      "verify_only_allowed": true
+    },
+    {
+      "purpose": "pseudonym-v1",
+      "rotation": "verify_only",
+      "verify_only_allowed": true
+    },
+    {
+      "purpose": "query-generation-v1",
+      "rotation": "replace_generation",
+      "verify_only_allowed": false
+    },
+    {
+      "purpose": "rate-ledger-v1",
+      "rotation": "verify_only",
+      "verify_only_allowed": true
+    },
+    {
+      "purpose": "rate-limit-cohort-v1",
+      "rotation": "verify_only",
+      "verify_only_allowed": true
+    }
+  ],
+  "consumers": [
+    {"consumer_id":"access-generation-digest-v1","purpose":"access-identity-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_only"},
+    {"consumer_id":"action-sign-and-verify-v1","purpose":"action-signing-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_then_verify_only_descending"},
+    {"consumer_id":"cache-identity-prf-v1","purpose":"cache-identity-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_only"},
+    {"consumer_id":"idempotency-binding-digest-v1","purpose":"idempotency-binding-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_then_verify_only_descending"},
+    {"consumer_id":"pseudonymous-reference-v1","purpose":"pseudonym-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_then_verify_only_descending"},
+    {"consumer_id":"query-contract-generation-v1","purpose":"query-generation-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_only"},
+    {"consumer_id":"rate-ledger-record-digest-v1","purpose":"rate-ledger-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_then_verify_only_descending"},
+    {"consumer_id":"rate-limit-cohort-prf-v1","purpose":"rate-limit-cohort-v1","new_value_policy":"active_generation_only","verification_lookup_policy":"active_then_verify_only_descending"}
+  ],
+  "key_entry_semantics": {
+    "key_id_recipe": "'aqk_' || lowercase_hex(SHA256(ASCII('agent-quota:local-key-id:v1\\x00') || u16be(len(UTF8-NFC(installation_id))) || UTF8-NFC(installation_id) || u16be(len(UTF8-NFC(purpose))) || UTF8-NFC(purpose) || u64be(generation) || public_salt_16 || key_material_32))",
+    "public_salt": {
+      "bytes": 16,
+      "generation": "CSPRNG-per-key-entry",
+      "secret": false,
+      "role": "key-id-domain-separation-only",
+      "kdf_input": false
+    },
+    "load_validation": [
+      "decode-fixed-length-fields",
+      "recompute-key-id",
+      "constant-time-key-id-compare",
+      "sort-by-purpose-then-generation",
+      "reject-duplicate-purpose-generation",
+      "reject-multiple-active-per-purpose",
+      "reject-missing-active-for-registered-purpose",
+      "reject-unregistered-purpose",
+      "reject-verify-only-for-purpose-that-forbids-it"
+    ],
+    "entry_order": "UTF8-NFC(purpose)-bytes-ascending-then-generation-ascending",
+    "unique_tuple": ["purpose", "generation"],
+    "active_cardinality_per_purpose": 1,
+    "generation_transition": {
+      "replace_generation": "remove-old-active-and-add-new-active-at-old-generation-plus-one-atomically",
+      "verify_only": "change-old-active-to-verify_only-and-add-new-active-at-old-generation-plus-one-atomically",
+      "generation_reuse": "reject",
+      "generation_skip": "reject"
+    }
+  },
+  "verification_lookup_policies": [
+    {"policy_id":"active_only","generation_order":"active_generation_only","max_generations":1,"deduplicate_by":"final_record_digest","retire_when":"replacement_committed_and_no_persistent_reference"},
+    {"policy_id":"active_then_verify_only_descending","generation_order":"active_first_then_verify_only_generation_descending","max_generations":4,"deduplicate_by":"final_record_digest","retire_when":"all_named_surface_retention_windows_expired_and_reference_count_zero"}
+  ],
+  "persistent_surfaces": [
+    {"surface_id":"action-consumption-records","consumer_ids":["action-sign-and-verify-v1"],"combination_order":"consumer_order_then_generation_order","max_candidate_combinations":4,"retirement_condition":"RET-IDEM-FEISHU-CARD-and-RET-KEY-VERIFY-expired-and-reference-count-zero"},
+    {"surface_id":"idempotency-records","consumer_ids":["idempotency-binding-digest-v1"],"combination_order":"consumer_order_then_generation_order","max_candidate_combinations":4,"retirement_condition":"channel-RET-IDEM-window-expired-and-reference-count-zero"},
+    {"surface_id":"pseudonymous-associations","consumer_ids":["pseudonymous-reference-v1"],"combination_order":"consumer_order_then_generation_order","max_candidate_combinations":4,"retirement_condition":"owning-RET-window-expired-and-reference-count-zero"},
+    {"surface_id":"rate-ledger-records","consumer_ids":["rate-ledger-record-digest-v1","rate-limit-cohort-prf-v1"],"combination_order":"consumer_id_utf8_ascending_cartesian_then_generation_descending","max_candidate_combinations":16,"retirement_condition":"RET-RATE-LEDGER-expired-and-reference-count-zero"}
+  ],
+  "local_keyring_wire": {
+    "envelope_schema_id":"https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json#/$defs/localKeyRingEnvelope",
+    "payload_schema_id":"https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json#/$defs/localKeyRingPayload",
+    "kdf_literal":"HKDF-SHA-256",
+    "aead_literal":"AES-256-GCM",
+    "aead_key_bytes":32,
+    "nonce_bytes":12,
+    "tag_bytes":16,
+    "byte_encoding":"base64url-rfc4648-without-padding",
+    "byte_fields":["ciphertext_and_tag","key_material","nonce","public_salt"],
+    "ciphertext_field_semantics":"ciphertext_concatenated_with_16_byte_gcm_tag",
+    "validation_order":["raw_bounds","strict_json_duplicate_reject","schema_validate","base64url_alphabet_and_no_padding","decode_all_byte_fields","decoded_length_checks","aad_recompute","nonce_recompute","aead_open","payload_schema_validate","purpose_consumer_closure"],
+    "aad_recipe":"ASCII('agent-quota:keyring:v1\\x00') || aq-jcs-nfc-v1({schema,installation_id,binding_key_id,aead_generation,envelope_sequence})",
+    "nonce_recipe":"HMAC-SHA-256(nonce_key,ASCII('agent-quota:keyring-envelope:v1\\x00')||u64be(envelope_sequence))[0:12]",
+    "golden_primitive_vector":{"key_base64url":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","nonce_base64url":"AAAAAAAAAAAAAAAA","aad_utf8_hex":"6167656e742d71756f74613a6b657972696e673a7631007b7d","plaintext_utf8_hex":"7b7d","ciphertext_and_tag_base64url":"tdqD-WEcGlHaUjTXlF8R0dPZ"},
+    "golden_payload_envelope": {
+      "aead_key_base64url": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "nonce_key_base64url": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "payload": {
+        "schema": "aq-local-keyring-payload-v1",
+        "installation_id": "aqi_00000000000000000000000000000000",
+        "aead_generation": 1,
+        "envelope_sequence": 1,
+        "key_entries": [
+          {
+            "purpose": "access-identity-v1",
+            "generation": 1,
+            "key_id": "aqk_182f4a8ad4c8974ad68c700895588833f1969985f55e98ab93c6816272e99cf2",
+            "public_salt": "AQEBAQEBAQEBAQEBAQEBAQ",
+            "state": "active",
+            "key_material": "ERERERERERERERERERERERERERERERERERERERERERE"
+          },
+          {
+            "purpose": "action-signing-v1",
+            "generation": 1,
+            "key_id": "aqk_c0706aa45a5673659440d0be836aad41e180be8647d4066d71d70e9a19d76919",
+            "public_salt": "AgICAgICAgICAgICAgICAg",
+            "state": "active",
+            "key_material": "EhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhI"
+          },
+          {
+            "purpose": "cache-identity-v1",
+            "generation": 1,
+            "key_id": "aqk_6ebc408d1fe1474501936461e1128736601cddd68a8e6cca3c7a13c6132bff16",
+            "public_salt": "AwMDAwMDAwMDAwMDAwMDAw",
+            "state": "active",
+            "key_material": "ExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExM"
+          },
+          {
+            "purpose": "idempotency-binding-v1",
+            "generation": 1,
+            "key_id": "aqk_d93d67a07bdaa7c418597e0b7cb0e5d81c4022c991665ca7e72a07b6493a15fc",
+            "public_salt": "BAQEBAQEBAQEBAQEBAQEBA",
+            "state": "active",
+            "key_material": "FBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQ"
+          },
+          {
+            "purpose": "pseudonym-v1",
+            "generation": 1,
+            "key_id": "aqk_6a76e7de54e4cbf730be91ecfa356abb1072f1d1c981194e63e6acdf80961158",
+            "public_salt": "BQUFBQUFBQUFBQUFBQUFBQ",
+            "state": "active",
+            "key_material": "FRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRU"
+          },
+          {
+            "purpose": "query-generation-v1",
+            "generation": 1,
+            "key_id": "aqk_bdbdd0ad8dbdb83a34e3a3f6140a2ac4e644b931b19374713f7bd87b00acd4bc",
+            "public_salt": "BgYGBgYGBgYGBgYGBgYGBg",
+            "state": "active",
+            "key_material": "FhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY"
+          },
+          {
+            "purpose": "rate-ledger-v1",
+            "generation": 1,
+            "key_id": "aqk_994d1b318e2aaa7808c559c44c6afee8f2e4a8237b4d8e9136e02eaaf1c58f94",
+            "public_salt": "BwcHBwcHBwcHBwcHBwcHBw",
+            "state": "active",
+            "key_material": "FxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxc"
+          },
+          {
+            "purpose": "rate-limit-cohort-v1",
+            "generation": 1,
+            "key_id": "aqk_6a5ddc75908a5216c9621bbe348d74897948bff9c52a17625e2008f4fe6ddd0a",
+            "public_salt": "CAgICAgICAgICAgICAgICA",
+            "state": "active",
+            "key_material": "GBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBg"
+          }
+        ]
+      },
+      "envelope": {
+        "schema": "aq-local-keyring-envelope-v1",
+        "installation_id": "aqi_00000000000000000000000000000000",
+        "binding_key_id": "aqbk_0000000000000000000000000000000000000000000000000000000000000000",
+        "aead_generation": 1,
+        "envelope_sequence": 1,
+        "kdf": "HKDF-SHA-256",
+        "aead": "AES-256-GCM",
+        "nonce": "x3d3thnO--SfnphT",
+        "ciphertext_and_tag": "3q26oQhzbNk_xvMSq9waXLcaqZmDjz_D9j6mGLK7zud_egc4sN62qh38b0_DtmE14n4pIcCCxgi5KeTbgt5ua4i4mTLDa0PgNCTwN_ZWPjfsXHAKLAzymDKWpVRyx7impecp0EZ2fpEvhY7NMexMHpQ2vZ3YNzI_huV8TR7zEf6vW1SRx6pnfjZqURQzxTHZ7zghqvTkcSTs5NLJjAySx12oKEJEPBmVVSGBzeqnD15PjI-a167F-CZny90mZPMYebEWWMnMMqDZrZ87XN1mfYb2ad8ZPfrfTW3fYnIcD7_2JY-0kJSjI56mq8GX0aJ5rVOZy-UKGH_J5tKgxFP3a1SIv2Tj2uAlQpqkPbCFH70lh4-lVEL3NyuVOSBHmlVRr9jqSfr-dPfWHAmd70ojyX3n2mHcXFab-B8NCF6d4IB-E8uM8BVFW-UkACr0q4U1npJUlwf-kpuINYdwWt1Wy8d6NaZ1DBs3NKTIUPMp5lCf7_2zB-rxogpH8RtJfPLj4MU0eDEHZQENW52tI4n-M7U451P8Un-fsVxGn26sj8nOrM-Zg9SFdzqhLsHQaM2NsptHQZB-nXsVUfpTd79TxquJ8jtyyHBMrLs-ZbkqDcqSuXaEyiszTxpjB1l_VHIDvIs7w1CIRwzbnFXqJiZh6OBd-AwGfvmXadTx_IAggz2j3ILsEYmQIbdf-wLsryJOK5VZBFIYFDYZwbWKF54mD422QpIdsB2Qn4CR-QyCi5pIdGNvjmSfhwwdhMywC_H82AanqHdQ2S1vOQ7Bm22EI5pRdLgdcMiafFOae4ulFE7gbHIzU4N8QaZsvVRCR7thiqyIu7YgNW-LHXezU8nyUM5H82ShIY2sxB8zg4Nljw_PZ1YTIcPSoFgyi44EbHXIWq14TwBjC9x_V29uAbDYSISJNOyRZX4sxfxJd3pHAxBtPWH8G-mfYLyII0pt1xyovjPUaeB0ydVeijpCw2sv6UFq409njGteL_PaBPhkpbYjbEF7PvmCH8j-_yjJOEEIKJ3kT6wAGVSl4LsxAieetmmd371FvOiuyXSYLUe-ALZh-ddzGwTD160l2UsQyTrom1QqJ1gWI75v53XrzS8hspMyNPvcXFiDC1_GKNGY0SFgdYax5vxRL1k2grPyndac7cFB3CzHIKlDzwsG7sVpAW2ZmHgjy7cSxTcM0SKiIsgcmxVQtYHHTvosjQqFKYvO5tItQi8LpFydiHjsAuZh5eUhlspjRfnCPmy3vmHTEneHFZ9KmKjUl30Ssy2x5fk_yy85Y5SyTrhzEx8PBVUtj1hrY353C8bBPobCJLDpYSYj3Z9lzo0OkBPftZNfiftAmJYUZ8NqSuu6icMjOg5R7e4Sxb3DKIpNUycF_PvEICip03lHwPTRZqXnMY3bjkyAys4gUvBv5Uj822-ULxZtZDBh9mQtMf3mYl7-_OTAVv4t8rZTKa8Kl0zwvfzB7S7hg8L1yLuK_toZWusRuFBKrFRLUs2C9b-WQAcAoPWQjcz7eQbXjMim7e7VVfDVLcdW0Gb-mERyTMRGrvMb7Ho-B4wHXaIYK9Xv0fMmCJ6UvfCsFzTFuzn3vwouzzvsRAI8pZmDkwcDys1doaWOdi-D5S8JTSeeBarwvMThcPsu_xYfXoKNrt8vdYPEqnQkSGH2nFXM4roFGHE_1Ozq0XwPtDenD0J-brQTAeBrlsVbPe_WRcRdpe52uOLBwrE-9bwObNw0XUwLvmGg98Zo4DeXm8Wh3fPx0TuyVMDq5nZkLBNEl7UeAOGQJgAFRO1PVtF8k1kjDMYGmVwtszRqFPBr4q4qArzCm7CsWa8UpvaFMIKK8EjhYQQFXBuRB89UBww4I26upaRWToUkfAPDcLhoYcOp--JezGwtKXzn2AwGM_MxEmVrw7JwScx7H7tMrv3D8h8wz3l6OeaMhi55q8yh2KGfrYvZDk8FSLd5BcXcrwVCBPCAtuFNiuZhRVMt86-3rz0nMCmyi6ndSFePpZVRRpqVbjiDYoAHN1jKB2W6ox9fMvzxFo7eUWntx3xmUxIqnSsKpbBC7tH7pYDw9itmK06OGWHZl2RZ49SVfFnAYaSo3Uo-yLyf9Tg5_aYEIJzVUvThnIn5Vg4Q1_KnJwzQ2KiSnzWC8jwM8K4QSDc8Sn5UMtNkh-TerNDU6YIlwXDqOvLaue6rvnhxk23eAYt1LlOAA8n9WoeRHD2E_nPK6xNTRHZBl_hA8_LM7VGyl7LjUYGqndkZAFbrI0RsyvbdBYtJFohYNMEkExilT6jjl1cvVDv-cFoUtxYpBtjzRxwLBS5V03uQ8CtvvoS7vdqGsAp97bnTuKalP-Po698DgNkZ8CsYWcehN3KK2-X-uFgpVjh1nt7lXdz8Lq5BNF8xOlcfHjoXQTBZS_yYJTI1USxezED3uQMyUgy4kBovUhEswRcXipAzcOtd4vkyVK_MNQmDf9YrRs67q0VWnBEtSWs4t8M5Dn91p9AHvHGpsdechz5vneJeq_FBA4a-bNyKZW6BCk71NH5FXsXPYRYJUByvsJYR2hHYJ26Taw5TGMWBt_lqT0DLB4AbTyQVTlGZ4KcB1s6e6jaX13kkxx3ubKg-GnLN_xQQiMPfSOgebGxW6ITB0FepIAPUkENlee7GVSAB9uCoJEn-JJgT9f3SYVAM5RrhhX3iq_VDsvGaXxKHihp_vzi1vqU0hrRzPDgkolazi2xeAILl-Yv5Z95vkRphULD6UL8aOShKpC_c3klUG0BW_sAg24xzewDqJeQPoCg-lLJ6tFfEDLhcYxzbLpTPhMObLl0D3L5fzJYPUzdk35P1AYpvJPEmkkre7T8"
+      }
+    }
+  },
+  "closure_rules": {
+    "purpose_order": "UTF-8 byte ascending",
+    "purpose_unique": true,
+    "unknown_purpose": "reject",
+    "duplicate_purpose": "reject",
+    "same_derived_key_for_distinct_purpose_generation": "reject",
+    "consumer_may_use_only_named_purpose": true,
+    "consumer_id_unique": true,
+    "purpose_to_consumer_nonempty": true,
+    "consumer_to_purpose_exactly_one": true,
+    "consumer_purpose_reference_closure": "reject",
+    "persistent_surface_consumer_reference_closure": "reject",
+    "every_verify_only_consumer_has_bounded_lookup": true,
+    "new_values_never_use_verify_only_generation": true,
+    "candidate_combination_overflow": "reject",
+    "candidate_deduplication_before_lookup": true,
+    "root_key_direct_use": "reject",
+    "key_id_recompute_on_load": true,
+    "public_salt_used_as_secret_or_kdf_input": "reject",
+    "generation_transition_mismatch": "reject",
+    "golden_payload_envelope_required": true,
+    "payload_purpose_set_equals_registry": true,
+    "exactly_one_active_per_registered_purpose": true
+  }
+}

@@ -1,0 +1,1243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-quota.local/contracts/schemas/operation-contract-v1.schema.json",
+  "title": "Agent Quota operation contract v1",
+  "type": "object",
+  "required": [
+    "$schema",
+    "$id",
+    "schema",
+    "artifact_id",
+    "operations",
+    "modes",
+    "stages",
+    "request_kinds",
+    "io_classes",
+    "error_codes",
+    "predicate_ids",
+    "predicate_definitions",
+    "paths",
+    "safe_param_schemas",
+    "error_rows",
+    "contract_failure",
+    "io_step_definitions",
+    "provider_io_data_dependencies",
+    "projection_contract",
+    "closure_rules",
+    "rate_reserve_result_contract",
+    "identity_bootstrap_contract"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-quota.local/contracts/schemas/operation-contract-v1.schema.json"
+    },
+    "$id": {
+      "const": "https://agent-quota.local/contracts/operation-contract-v1.json"
+    },
+    "schema": {
+      "const": "aq-operation-contract-v1"
+    },
+    "artifact_id": {
+      "const": "operation-contract-v1"
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/operation"
+      },
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "modes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mode"
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/stage"
+      },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "request_kinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/requestKind"
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "io_classes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "provider_io",
+          "pure_local"
+        ]
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "error_codes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/errorCode"
+      },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "predicate_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "predicate_definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/predicate"
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/path"
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "safe_param_schemas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safeSchema"
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "error_rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/errorRow"
+      },
+      "minItems": 1,
+      "maxItems": 512
+    },
+    "contract_failure": {
+      "$ref": "#/$defs/contractFailure"
+    },
+    "io_step_definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ioStep"
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "provider_io_data_dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/providerIoDataDependency"
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "projection_contract": {
+      "$ref": "#/$defs/projectionContract"
+    },
+    "closure_rules": {
+      "$ref": "#/$defs/closureRules"
+    },
+    "rate_reserve_result_contract": {
+      "$ref": "#/$defs/rateReserveResultContract"
+    },
+    "identity_bootstrap_contract": {
+      "$ref": "#/$defs/identityBootstrapContract"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,127}$",
+      "maxLength": 128
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "operation": {
+      "enum": [
+        "alert_ack",
+        "configure",
+        "consent_grant",
+        "consent_revoke",
+        "delete",
+        "discover",
+        "doctor",
+        "migrate",
+        "purge",
+        "refresh",
+        "status"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "http",
+        "none",
+        "official_cli_zero_binding",
+        "offline"
+      ]
+    },
+    "stage": {
+      "enum": [
+        "alert_ack_commit",
+        "alert_evaluate",
+        "authorize",
+        "cache_commit",
+        "cache_read",
+        "config_gate",
+        "config_validate",
+        "consent_commit",
+        "consent_validate",
+        "contract_validate",
+        "credential_resolve",
+        "deletion_plan",
+        "discovery",
+        "discovery_context_build",
+        "discovery_request_plan_build",
+        "endpoint_validate",
+        "fetch_context_build",
+        "fetch_request_plan_build",
+        "idempotency_finalize",
+        "idempotency_prepare",
+        "identity_and_discovery_context_build",
+        "identity_and_discovery_request_plan_build",
+        "identity_and_fetch_context_build",
+        "identity_and_fetch_request_plan_build",
+        "identity_derive",
+        "identity_verify_and_accept",
+        "manifest_validate",
+        "migration_commit",
+        "migration_plan",
+        "operation_context_build",
+        "probe",
+        "probe_context_build",
+        "probe_request_plan_build",
+        "probe_result_validate",
+        "projection",
+        "provider_fetch",
+        "purge_commit",
+        "purge_plan",
+        "rate_ledger_commit",
+        "rate_ledger_reserve"
+      ]
+    },
+    "requestKind": {
+      "enum": [
+        "discovery",
+        "fetch",
+        "identity_and_fetch",
+        "probe"
+      ]
+    },
+    "errorCode": {
+      "enum": [
+        "adapter_contract_violation",
+        "adapter_not_distributable",
+        "budget_deferred",
+        "config_unavailable",
+        "consent_expired",
+        "consent_required",
+        "credential_backend_unavailable",
+        "invalid_config",
+        "invalid_discovery_result",
+        "local_keyring_unavailable",
+        "local_process_timeout",
+        "local_protocol_violation",
+        "migration_conflict",
+        "not_authorized",
+        "projection_failed",
+        "rate_ledger_unavailable",
+        "referenced_object_conflict",
+        "storage_unavailable",
+        "unsupported_platform"
+      ]
+    },
+    "predicateInput": {
+      "type": "object",
+      "required": [
+        "name",
+        "type",
+        "allowed_values"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "audience",
+            "consent_valid"
+          ]
+        },
+        "type": {
+          "enum": [
+            "boolean",
+            "enum"
+          ]
+        },
+        "allowed_values": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "term": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "input"
+          ],
+          "properties": {
+            "input": {
+              "enum": [
+                "audience",
+                "consent_valid"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "literal"
+          ],
+          "properties": {
+            "literal": {
+              "type": [
+                "boolean",
+                "string"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "value"
+          ],
+          "properties": {
+            "op": {
+              "const": "literal"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "args"
+          ],
+          "properties": {
+            "op": {
+              "const": "or"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 8
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "op": {
+              "enum": [
+                "equal",
+                "not_equal"
+              ]
+            },
+            "left": {
+              "$ref": "#/$defs/term"
+            },
+            "right": {
+              "$ref": "#/$defs/term"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "predicate": {
+      "type": "object",
+      "required": [
+        "predicate_id",
+        "inputs",
+        "expression",
+        "missing_input_verdict",
+        "control_flow",
+        "semantic_vectors"
+      ],
+      "properties": {
+        "predicate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/predicateInput"
+          },
+          "maxItems": 16
+        },
+        "expression": {
+          "$ref": "#/$defs/expression"
+        },
+        "missing_input_verdict": {
+          "const": "reject"
+        },
+        "control_flow": {
+          "$ref": "#/$defs/predicateControlFlow"
+        },
+        "semantic_vectors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/predicateSemanticVector"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "predicateBranchResult": {
+      "type": "object",
+      "required": ["action", "typed_result"],
+      "properties": {
+        "action": {"enum": ["execute_stage", "reject_operation", "skip_stage"]},
+        "typed_result": {"enum": ["llm_consent_not_applicable", "llm_consent_required", "predicate_evaluation_error", "predicate_false", "predicate_input_missing", "predicate_true"]}
+      },
+      "additionalProperties": false
+    },
+    "predicateControlFlow": {
+      "type": "object",
+      "required": ["true", "false", "missing", "error"],
+      "properties": {
+        "true": {"$ref": "#/$defs/predicateBranchResult"},
+        "false": {"$ref": "#/$defs/predicateBranchResult"},
+        "missing": {"$ref": "#/$defs/predicateBranchResult"},
+        "error": {"$ref": "#/$defs/predicateBranchResult"}
+      },
+      "additionalProperties": false
+    },
+    "predicateSemanticVector": {
+      "type": "object",
+      "required": ["vector_id", "input_status", "inputs", "predicate_result", "action", "typed_result", "authorization_boundary"],
+      "properties": {
+        "vector_id": {"$ref": "#/$defs/id"},
+        "input_status": {"enum": ["complete", "evaluation_error", "invalid", "missing"]},
+        "inputs": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["boolean", "string"]}},
+        "predicate_result": {"type": ["boolean", "null"]},
+        "action": {"enum": ["execute_stage", "reject_operation", "skip_stage"]},
+        "typed_result": {"enum": ["llm_consent_not_applicable", "llm_consent_required", "predicate_evaluation_error", "predicate_false", "predicate_input_missing", "predicate_true"]},
+        "authorization_boundary": {"enum": ["fail_closed", "feishu_private_authorization_required", "llm_consent_required", "local_access_context_authorization_required", "path_authorization_unchanged"]}
+      },
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "stage",
+        "predicate_id",
+        "io_class",
+        "request_kind"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stage"
+        },
+        "predicate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "io_class": {
+          "enum": [
+            "provider_io",
+            "pure_local"
+          ]
+        },
+        "request_kind": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/requestKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predicate_branch": {
+          "type": "object",
+          "required": ["node_type", "on_true", "on_false", "on_missing", "on_error", "typed_result_source"],
+          "properties": {
+            "node_type": {"const": "conditional_stage"},
+            "on_true": {"const": "execute_stage"},
+            "on_false": {"const": "skip_stage"},
+            "on_missing": {"const": "reject_operation"},
+            "on_error": {"const": "reject_operation"},
+            "typed_result_source": {"const": "predicate_control_flow"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "path": {
+      "type": "object",
+      "required": [
+        "path_id",
+        "operation",
+        "mode",
+        "steps"
+      ],
+      "properties": {
+        "path_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "$ref": "#/$defs/operation"
+        },
+        "mode": {
+          "$ref": "#/$defs/mode"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false
+    },
+    "safeField": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "allowed_values"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "kind": {
+          "const": "enum"
+        },
+        "allowed_values": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "safeSchema": {
+      "type": "object",
+      "required": [
+        "schema_id",
+        "fields"
+      ],
+      "properties": {
+        "schema_id": {
+          "$ref": "#/$defs/id"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safeField"
+          },
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false
+    },
+    "errorRow": {
+      "type": "object",
+      "required": [
+        "code",
+        "operation",
+        "stage",
+        "retryable",
+        "safe_param_schema_id"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/errorCode"
+        },
+        "operation": {
+          "$ref": "#/$defs/operation"
+        },
+        "stage": {
+          "$ref": "#/$defs/stage"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "safe_param_schema_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "additionalProperties": false
+    },
+    "contractFailure": {
+      "type": "object",
+      "required": [
+        "requested_operation_field",
+        "recognized_operation_nullable",
+        "unknown_operation_rendering",
+        "raw_operation_digest",
+        "raw_operation_max_bytes",
+        "raw_operation_echo",
+        "safe_param_schema_id"
+      ],
+      "properties": {
+        "requested_operation_field": {
+          "const": "recognized_operation"
+        },
+        "recognized_operation_nullable": {
+          "const": true
+        },
+        "unknown_operation_rendering": {
+          "const": "unknown"
+        },
+        "raw_operation_digest": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "raw_operation_max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "raw_operation_echo": {
+          "const": false
+        },
+        "safe_param_schema_id": {
+          "const": "envelope-code"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ioStep": {
+      "type": "object",
+      "required": [
+        "path_id",
+        "step_ordinal",
+        "request_kind",
+        "cohort_source",
+        "reuse_observation",
+        "reservation_cardinality"
+      ],
+      "properties": {
+        "path_id": {
+          "$ref": "#/$defs/id"
+        },
+        "step_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "request_kind": {
+          "$ref": "#/$defs/requestKind"
+        },
+        "cohort_source": {
+          "enum": [
+            "endpoint_group_conservative_unknown",
+            "endpoint_group_conservative_then_verified_same_row",
+            "verified_identity_plus_endpoint_group_umbrella"
+          ]
+        },
+        "reuse_observation": {
+          "type": "boolean"
+        },
+        "reservation_cardinality": {
+          "const": "exactly_one"
+        }
+      },
+      "additionalProperties": false
+    },
+    "closureRules": {
+      "type": "object",
+      "required": [
+        "path_operation_mode_unique",
+        "path_id_unique",
+        "predicate_must_be_registered",
+        "provider_io_requires_earlier_matching_unconsumed_reservation",
+        "one_provider_attempt_one_reservation",
+        "error_primary_key",
+        "unknown_enum",
+        "unused_predicate",
+        "predicate_definition_id_set_equals_predicate_ids",
+        "predicate_input_reference_closure",
+        "safe_enum_allowed_values_nonempty_sorted_unique",
+        "provider_io_to_io_step_definition_bijection",
+        "io_step_definition_path_ordinal_and_request_kind_must_match",
+        "unused_io_step_definition",
+        "markdown_is_generated_projection",
+        "rate_reserve_provider_paths_total_result_map",
+        "rate_reserve_rejection_never_fatal",
+        "rate_reserve_rejection_before_first_provider_byte",
+        "request_plan_has_no_receipt",
+        "final_context_requires_committed_receipt",
+        "provider_io_consumes_final_context_only",
+        "provider_io_data_dependency_bijection",
+        "joint_identity_response_request_digest_exact",
+        "official_cli_discovery_bootstrap_choice_unique"
+      ],
+      "properties": {
+        "path_operation_mode_unique": {
+          "const": true
+        },
+        "path_id_unique": {
+          "const": true
+        },
+        "predicate_must_be_registered": {
+          "const": true
+        },
+        "provider_io_requires_earlier_matching_unconsumed_reservation": {
+          "const": true
+        },
+        "one_provider_attempt_one_reservation": {
+          "const": true
+        },
+        "error_primary_key": {
+          "const": [
+            "code",
+            "operation",
+            "stage"
+          ]
+        },
+        "unknown_enum": {
+          "const": "reject"
+        },
+        "unused_predicate": {
+          "const": "reject"
+        },
+        "predicate_definition_id_set_equals_predicate_ids": {
+          "const": true
+        },
+        "predicate_input_reference_closure": {
+          "const": "reject"
+        },
+        "safe_enum_allowed_values_nonempty_sorted_unique": {
+          "const": true
+        },
+        "provider_io_to_io_step_definition_bijection": {
+          "const": true
+        },
+        "io_step_definition_path_ordinal_and_request_kind_must_match": {
+          "const": true
+        },
+        "unused_io_step_definition": {
+          "const": "reject"
+        },
+        "markdown_is_generated_projection": {
+          "const": true
+        },
+        "rate_reserve_provider_paths_total_result_map": {
+          "const": true
+        },
+        "rate_reserve_rejection_never_fatal": {
+          "const": true
+        },
+        "rate_reserve_rejection_before_first_provider_byte": {
+          "const": true
+        },
+        "request_plan_has_no_receipt": {
+          "const": true
+        },
+        "final_context_requires_committed_receipt": {
+          "const": true
+        },
+        "provider_io_consumes_final_context_only": {
+          "const": true
+        },
+        "provider_io_data_dependency_bijection": {
+          "const": true
+        },
+        "joint_identity_response_request_digest_exact": {
+          "const": true
+        },
+        "official_cli_discovery_bootstrap_choice_unique": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "reserveReason": {
+      "type": "object",
+      "required": [
+        "reason",
+        "code",
+        "safe_param_schema_id",
+        "safe_value"
+      ],
+      "properties": {
+        "reason": {
+          "enum": [
+            "blocked_until",
+            "db_unavailable",
+            "fence_conflict",
+            "floor",
+            "hour",
+            "lease_conflict",
+            "ledger_unavailable",
+            "transaction_failed"
+          ]
+        },
+        "code": {
+          "enum": [
+            "budget_deferred",
+            "rate_ledger_unavailable",
+            "storage_unavailable"
+          ]
+        },
+        "safe_param_schema_id": {
+          "enum": [
+            "budget-code",
+            "rate-ledger-code",
+            "store-code"
+          ]
+        },
+        "safe_value": {
+          "enum": [
+            "blocked_until",
+            "fence_conflict",
+            "floor",
+            "hour",
+            "lease_conflict",
+            "ledger_unavailable",
+            "sqlite_unavailable",
+            "transaction_failed"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rateReserveResultContract": {
+      "type": "object",
+      "required": [
+        "provider_path_ids",
+        "reason_map",
+        "public_envelope",
+        "provider_byte_count_on_any_rejection",
+        "credential_read_count_before_reserve",
+        "cache_write_count_on_any_rejection",
+        "fatal_fallback",
+        "success_path_counts",
+        "verified_cohort_attachment",
+        "verified_cohort_second_reservation"
+      ],
+      "properties": {
+        "provider_path_ids": {
+          "const": [
+            "discover-http-v1",
+            "discover-official-cli-v1",
+            "doctor-http-v1",
+            "doctor-official-cli-v1"
+          ]
+        },
+        "reason_map": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/reserveReason"
+          }
+        },
+        "public_envelope": {
+          "const": "OperationError"
+        },
+        "provider_byte_count_on_any_rejection": {
+          "const": 0
+        },
+        "credential_read_count_before_reserve": {
+          "const": 0
+        },
+        "cache_write_count_on_any_rejection": {
+          "const": 0
+        },
+        "fatal_fallback": {
+          "const": "forbidden"
+        },
+        "success_path_counts": {
+          "type": "object",
+          "required": [
+            "discover-http-v1",
+            "discover-official-cli-v1",
+            "doctor-http-v1",
+            "doctor-official-cli-v1"
+          ],
+          "properties": {
+            "discover-http-v1": {
+              "$ref": "#/$defs/httpSuccessPathCount"
+            },
+            "discover-official-cli-v1": {
+              "$ref": "#/$defs/officialCliSuccessPathCount"
+            },
+            "doctor-http-v1": {
+              "$ref": "#/$defs/httpSuccessPathCount"
+            },
+            "doctor-official-cli-v1": {
+              "$ref": "#/$defs/officialCliSuccessPathCount"
+            }
+          },
+          "additionalProperties": false
+        },
+        "verified_cohort_attachment": {
+          "const": "same-row-check-and-attach-with-no-capacity-increase"
+        },
+        "verified_cohort_second_reservation": {
+          "const": "forbidden"
+        }
+      },
+      "additionalProperties": false
+    },
+    "httpSuccessPathCount": {
+      "type": "object",
+      "required": [
+        "credential_resolution_count",
+        "credential_source_call_count",
+        "provider_attempt_count",
+        "reservation_row_count"
+      ],
+      "properties": {
+        "credential_resolution_count": {
+          "const": 1
+        },
+        "credential_source_call_count": {
+          "const": 1
+        },
+        "provider_attempt_count": {
+          "const": 1
+        },
+        "reservation_row_count": {
+          "const": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "officialCliSuccessPathCount": {
+      "type": "object",
+      "required": [
+        "credential_resolution_count",
+        "credential_source_call_count",
+        "provider_attempt_count",
+        "reservation_row_count"
+      ],
+      "properties": {
+        "credential_resolution_count": {
+          "const": 0
+        },
+        "credential_source_call_count": {
+          "const": 0
+        },
+        "provider_attempt_count": {
+          "const": 1
+        },
+        "reservation_row_count": {
+          "const": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "identityBootstrapContract": {
+      "type": "object",
+      "required": [
+        "official_cli_discovery_choice",
+        "identity_and_discovery_context_schema",
+        "identity_and_discovery_request_plan_schema",
+        "identity_and_discovery_response_schema",
+        "identity_and_fetch_context_schema",
+        "identity_and_fetch_request_plan_schema",
+        "identity_and_fetch_response_schema",
+        "request_digest_observation_binding",
+        "identity_acceptance_order",
+        "reservation_response_provider_read_cardinality",
+        "request_plan_receipt_field",
+        "final_context_receipt_state",
+        "provider_io_context_phase"
+      ],
+      "properties": {
+        "official_cli_discovery_choice": {
+          "const": "joint_identity_and_discovery_response"
+        },
+        "identity_and_discovery_context_schema": {
+          "const": "aq-identity-and-discovery-context-v1"
+        },
+        "identity_and_discovery_request_plan_schema": {
+          "const": "aq-identity-and-discovery-request-plan-v1"
+        },
+        "identity_and_discovery_response_schema": {
+          "const": "aq-identity-and-discovery-response-v1"
+        },
+        "identity_and_fetch_context_schema": {
+          "const": "aq-identity-and-fetch-context-v1"
+        },
+        "identity_and_fetch_request_plan_schema": {
+          "const": "aq-identity-and-fetch-request-plan-v1"
+        },
+        "identity_and_fetch_response_schema": {
+          "const": "aq-identity-and-fetch-response-v1"
+        },
+        "request_digest_observation_binding": {
+          "const": "exact-equality-before-accept"
+        },
+        "identity_acceptance_order": {
+          "const": "verify-evidence-then-request-digest-and-payload"
+        },
+        "reservation_response_provider_read_cardinality": {
+          "const": "one-one-one"
+        },
+        "request_plan_receipt_field": {
+          "const": "forbidden"
+        },
+        "final_context_receipt_state": {
+          "const": "committed"
+        },
+        "provider_io_context_phase": {
+          "const": "final-only"
+        }
+      },
+      "additionalProperties": false
+    },
+    "providerIoDataDependency": {
+      "type": "object",
+      "required": [
+        "path_id",
+        "request_plan_stage",
+        "reserve_stage",
+        "commit_stage",
+        "final_context_stage",
+        "provider_io_stage",
+        "timing_rule"
+      ],
+      "properties": {
+        "path_id": { "$ref": "#/$defs/id" },
+        "request_plan_stage": { "$ref": "#/$defs/stage" },
+        "reserve_stage": { "const": "rate_ledger_reserve" },
+        "commit_stage": { "const": "rate_ledger_commit" },
+        "final_context_stage": { "$ref": "#/$defs/stage" },
+        "provider_io_stage": { "$ref": "#/$defs/stage" },
+        "timing_rule": { "const": "receipt_produced_at<context_created_at<first_provider_byte_at" }
+      },
+      "additionalProperties": false
+    },
+    "projectionContract": {
+      "type": "object",
+      "required": [
+        "projection_id",
+        "verifier",
+        "source_json_pointers",
+        "markdown_marker",
+        "reverse_summary_recipe",
+        "projection_sha256"
+      ],
+      "properties": {
+        "projection_id": { "const": "operation-markdown-projection-v1" },
+        "verifier": { "const": "docs/contracts/canonicalize-registry-v1.py" },
+        "source_json_pointers": { "type": "array", "const": ["/error_codes", "/error_rows", "/paths", "/predicate_definitions", "/safe_param_schemas", "/stages"] },
+        "markdown_marker": { "const": "AQ-GENERATED-OPERATION-PROJECTION-V1" },
+        "reverse_summary_recipe": { "const": "SHA256(UTF8-NFC(generated-markdown-between-markers))" },
+        "projection_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-aq-array-order": {
+    "$schema": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata",
+    "dialect": "aq-array-order-v1",
+    "version": 1,
+    "default": "sequence_exact",
+    "overrides": [
+      {
+        "schema_pointer": "/$defs/predicate/properties/inputs",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/name"
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/predicateInput/properties/allowed_values",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/projectionContract/properties/source_json_pointers",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+        "schema_pointer": "/$defs/rateReserveResultContract/properties/reason_map",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/reason"
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/safeField/properties/allowed_values",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/safeSchema/properties/fields",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/name"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/error_codes",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/error_rows",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/code",
+          "/operation",
+          "/stage"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/io_classes",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/io_step_definitions",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/path_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/modes",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/operations",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/paths",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/path_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/predicate_definitions",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/predicate_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/predicate_ids",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/provider_io_data_dependencies",
+        "policy": "utf8_key",
+        "key_json_pointers": ["/path_id"]
+      },
+      {
+        "schema_pointer": "/properties/request_kinds",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/safe_param_schemas",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/schema_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/stages",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      }
+    ],
+    "coverage_rule": "enumerate every schema object with type=array; one exact override wins, otherwise default applies; duplicate or dangling override rejects"
+  }
+}

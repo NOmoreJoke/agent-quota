@@ -1,0 +1,707 @@
+{
+  "$schema": "https://agent-quota.local/contracts/schemas/lease-policy-v1.schema.json",
+  "$id": "https://agent-quota.local/contracts/lease-policy-v1.json",
+  "schema": "aq-lease-policy-v1",
+  "artifact_id": "lease-policy-v1",
+  "boundary_formula_id": "is-expired-v1",
+  "renew_formula_id": "renew-eligible-v1",
+  "takeover_formula_id": "takeover-eligible-and-next-fence-v1",
+  "provider_io_deadline_formula_id": "min-parent-and-transport-v1",
+  "clock_domains": [
+    {
+      "clock_id": "db_utc_ms",
+      "unit": "milliseconds",
+      "source": "sqlite-strftime-utc-in-BEGIN-IMMEDIATE",
+      "rollback_policy": "do-not-expire-early-until-next-successful-transaction-sample"
+    },
+    {
+      "clock_id": "process_monotonic_ns",
+      "unit": "nanoseconds",
+      "source": "single-process-monotonic-clock",
+      "rollback_policy": "fatal-process-invariant"
+    }
+  ],
+  "conversion_rule": {
+    "conversion_id": "monotonic-remaining-to-db-utc-v1",
+    "sample_order": [
+      "monotonic_before_ns",
+      "db_utc_ms",
+      "monotonic_after_ns"
+    ],
+    "input_type": "int64_ns",
+    "input_unit": "nanoseconds",
+    "input_clock_domain": "process_monotonic_ns",
+    "result_type": "int64_ms",
+    "result_unit": "milliseconds",
+    "result_clock_domain": "db_utc_ms",
+    "expression": {
+      "op": "checked_add",
+      "args": [
+        {
+          "operand": "conversion_db_utc_ms"
+        },
+        {
+          "op": "floor_div_ns_to_ms",
+          "args": [
+            {
+              "op": "subtract_clamped_zero_int64_ns",
+              "args": [
+                {
+                  "operand": "conversion_deadline_monotonic_ns"
+                },
+                {
+                  "operand": "monotonic_after_ns"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "overflow_verdict": "reject_without_state_change"
+  },
+  "operators": [
+    {
+      "op": "and",
+      "input_type": "boolean[]",
+      "output_type": "boolean",
+      "min_args": 2,
+      "max_args": 8,
+      "overflow": "not-applicable"
+    },
+    {
+      "op": "checked_add",
+      "input_type": "int64_ms[]",
+      "output_type": "int64_ms",
+      "min_args": 2,
+      "max_args": 3,
+      "overflow": "reject_without_state_change"
+    },
+    {
+      "op": "checked_increment_u63",
+      "input_type": "uint63",
+      "output_type": "uint63",
+      "min_args": 1,
+      "max_args": 1,
+      "overflow": "reject_without_state_change"
+    },
+    {
+      "op": "floor_div_ns_to_ms",
+      "input_type": "int64_ns",
+      "output_type": "int64_ms",
+      "min_args": 1,
+      "max_args": 1,
+      "overflow": "not-applicable"
+    },
+    {
+      "op": "greater_or_equal",
+      "input_type": "same_scalar_pair",
+      "output_type": "boolean",
+      "min_args": 2,
+      "max_args": 2,
+      "overflow": "not-applicable"
+    },
+    {
+      "op": "less_than",
+      "input_type": "same_scalar_pair",
+      "output_type": "boolean",
+      "min_args": 2,
+      "max_args": 2,
+      "overflow": "not-applicable"
+    },
+    {
+      "op": "min",
+      "input_type": "int64_ms[]",
+      "output_type": "int64_ms",
+      "min_args": 2,
+      "max_args": 4,
+      "overflow": "not-applicable"
+    },
+    {
+      "op": "min_int64_ns",
+      "input_type": "int64_ns[]",
+      "output_type": "int64_ns",
+      "min_args": 2,
+      "max_args": 4,
+      "overflow": "not-applicable"
+    },
+    {
+      "op": "subtract_clamped_zero_int64_ns",
+      "input_type": "int64_ns_pair",
+      "output_type": "int64_ns",
+      "min_args": 2,
+      "max_args": 2,
+      "overflow": "not-applicable"
+    },
+    {
+      "op": "subtract_nonnegative",
+      "input_type": "int64_ms_pair",
+      "output_type": "int64_ms",
+      "min_args": 2,
+      "max_args": 2,
+      "overflow": "reject_without_state_change"
+    }
+  ],
+  "operand_definitions": [
+    {
+      "operand_id": "acquired_db_utc_ms",
+      "type": "int64_ms",
+      "clock_id": "db_utc_ms",
+      "source": "persisted-lease-row"
+    },
+    {
+      "operand_id": "conversion_db_utc_ms",
+      "type": "int64_ms",
+      "clock_id": "db_utc_ms",
+      "source": "conversion-sample-db-utc-ms"
+    },
+    {
+      "operand_id": "conversion_deadline_monotonic_ns",
+      "type": "int64_ns",
+      "clock_id": "process_monotonic_ns",
+      "source": "conversion-input-deadline"
+    },
+    {
+      "operand_id": "crash_grace_ms",
+      "type": "int64_ms",
+      "clock_id": null,
+      "source": "typed-constant",
+      "constant": {
+        "type": "int64_ms",
+        "unit": "milliseconds",
+        "value": 2000
+      }
+    },
+    {
+      "operand_id": "db_now_ms",
+      "type": "int64_ms",
+      "clock_id": "db_utc_ms",
+      "source": "current-transaction-clock-sample"
+    },
+    {
+      "operand_id": "duration_ms",
+      "type": "int64_ms",
+      "clock_id": null,
+      "source": "selected-policy.duration_ms"
+    },
+    {
+      "operand_id": "expires_at_db_utc_ms",
+      "type": "int64_ms",
+      "clock_id": "db_utc_ms",
+      "source": "persisted-lease-row"
+    },
+    {
+      "operand_id": "max_lifetime_ms",
+      "type": "int64_ms",
+      "clock_id": null,
+      "source": "selected-policy.max_lifetime_ms"
+    },
+    {
+      "operand_id": "migration_writer_expiry_db_utc_ms",
+      "type": "int64_ms",
+      "clock_id": "db_utc_ms",
+      "source": "current-migration-writer-row"
+    },
+    {
+      "operand_id": "monotonic_after_ns",
+      "type": "int64_ns",
+      "clock_id": "process_monotonic_ns",
+      "source": "conversion-sample-after"
+    },
+    {
+      "operand_id": "old_fencing_token",
+      "type": "uint63",
+      "clock_id": null,
+      "source": "persisted-lease-row"
+    },
+    {
+      "operand_id": "parent_deadline_monotonic_ns",
+      "type": "int64_ns",
+      "clock_id": "process_monotonic_ns",
+      "source": "operation-parent-deadline"
+    },
+    {
+      "operand_id": "queue_deadline_monotonic_ns",
+      "type": "int64_ns",
+      "clock_id": "process_monotonic_ns",
+      "source": "queue-ticket-deadline"
+    },
+    {
+      "operand_id": "renew_before_ms",
+      "type": "int64_ms",
+      "clock_id": null,
+      "source": "selected-policy.renew_before_ms"
+    },
+    {
+      "operand_id": "transport_deadline_monotonic_ns",
+      "type": "int64_ns",
+      "clock_id": "process_monotonic_ns",
+      "source": "transport-aggregate-deadline"
+    }
+  ],
+  "formula_definitions": [
+    {
+      "formula_id": "db-now-plus-duration-capped-by-max-lifetime",
+      "result_type": "int64_ms",
+      "result_unit": "milliseconds",
+      "result_clock_domain": "db_utc_ms",
+      "expression": {
+        "op": "min",
+        "args": [
+          {
+            "op": "checked_add",
+            "args": [
+              {
+                "operand": "db_now_ms"
+              },
+              {
+                "operand": "duration_ms"
+              }
+            ]
+          },
+          {
+            "op": "checked_add",
+            "args": [
+              {
+                "operand": "acquired_db_utc_ms"
+              },
+              {
+                "operand": "max_lifetime_ms"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "db-now-plus-duration-capped-by-min-parent-transport-plus-crash-grace",
+      "result_type": "int64_ms",
+      "result_unit": "milliseconds",
+      "result_clock_domain": "db_utc_ms",
+      "expression": {
+        "op": "min",
+        "args": [
+          {
+            "op": "checked_add",
+            "args": [
+              {
+                "operand": "db_now_ms"
+              },
+              {
+                "operand": "duration_ms"
+              }
+            ]
+          },
+          {
+            "op": "checked_add",
+            "args": [
+              {
+                "operand": "acquired_db_utc_ms"
+              },
+              {
+                "operand": "max_lifetime_ms"
+              }
+            ]
+          },
+          {
+            "op": "checked_add",
+            "args": [
+              {
+                "convert": "monotonic-remaining-to-db-utc-v1",
+                "deadline": {
+                  "formula_ref": "min-parent-and-transport-v1"
+                }
+              },
+              {
+                "operand": "crash_grace_ms"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "equal-current-migration-writer-expiry-capped-by-claim-max-lifetime",
+      "result_type": "int64_ms",
+      "result_unit": "milliseconds",
+      "result_clock_domain": "db_utc_ms",
+      "expression": {
+        "op": "min",
+        "args": [
+          {
+            "operand": "migration_writer_expiry_db_utc_ms"
+          },
+          {
+            "op": "checked_add",
+            "args": [
+              {
+                "operand": "acquired_db_utc_ms"
+              },
+              {
+                "operand": "max_lifetime_ms"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "is-expired-v1",
+      "result_type": "boolean",
+      "result_unit": "boolean",
+      "result_clock_domain": null,
+      "expression": {
+        "op": "greater_or_equal",
+        "args": [
+          {
+            "operand": "db_now_ms"
+          },
+          {
+            "operand": "expires_at_db_utc_ms"
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "min-parent-and-queue-timeout",
+      "result_type": "int64_ns",
+      "result_unit": "nanoseconds",
+      "result_clock_domain": "process_monotonic_ns",
+      "expression": {
+        "op": "min_int64_ns",
+        "args": [
+          {
+            "operand": "parent_deadline_monotonic_ns"
+          },
+          {
+            "operand": "queue_deadline_monotonic_ns"
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "min-parent-and-transport",
+      "result_type": "int64_ns",
+      "result_unit": "nanoseconds",
+      "result_clock_domain": "process_monotonic_ns",
+      "expression": {
+        "formula_ref": "min-parent-and-transport-v1"
+      }
+    },
+    {
+      "formula_id": "min-parent-and-transport-plus-2000ms-crash-grace",
+      "result_type": "int64_ms",
+      "result_unit": "milliseconds",
+      "result_clock_domain": "db_utc_ms",
+      "expression": {
+        "op": "checked_add",
+        "args": [
+          {
+            "convert": "monotonic-remaining-to-db-utc-v1",
+            "deadline": {
+              "formula_ref": "min-parent-and-transport-v1"
+            }
+          },
+          {
+            "operand": "crash_grace_ms"
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "min-parent-and-transport-v1",
+      "result_type": "int64_ns",
+      "result_unit": "nanoseconds",
+      "result_clock_domain": "process_monotonic_ns",
+      "expression": {
+        "op": "min_int64_ns",
+        "args": [
+          {
+            "operand": "parent_deadline_monotonic_ns"
+          },
+          {
+            "operand": "transport_deadline_monotonic_ns"
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "not-applicable",
+      "result_type": "not_applicable",
+      "result_unit": "none",
+      "result_clock_domain": null,
+      "expression": {
+        "literal": {
+          "type": "not_applicable",
+          "unit": "none",
+          "value": null
+        }
+      }
+    },
+    {
+      "formula_id": "renew-eligible-v1",
+      "result_type": "boolean",
+      "result_unit": "boolean",
+      "result_clock_domain": null,
+      "expression": {
+        "op": "and",
+        "args": [
+          {
+            "op": "greater_or_equal",
+            "args": [
+              {
+                "operand": "db_now_ms"
+              },
+              {
+                "op": "subtract_nonnegative",
+                "args": [
+                  {
+                    "operand": "expires_at_db_utc_ms"
+                  },
+                  {
+                    "operand": "renew_before_ms"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "less_than",
+            "args": [
+              {
+                "operand": "db_now_ms"
+              },
+              {
+                "op": "checked_add",
+                "args": [
+                  {
+                    "operand": "acquired_db_utc_ms"
+                  },
+                  {
+                    "operand": "max_lifetime_ms"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "formula_id": "takeover-eligible-and-next-fence-v1",
+      "result_type": "takeover_pair",
+      "result_unit": "structured",
+      "result_clock_domain": null,
+      "expression": {
+        "eligible": {
+          "op": "greater_or_equal",
+          "args": [
+            {
+              "operand": "db_now_ms"
+            },
+            {
+              "operand": "expires_at_db_utc_ms"
+            }
+          ]
+        },
+        "next_fencing_token": {
+          "op": "checked_increment_u63",
+          "args": [
+            {
+              "operand": "old_fencing_token"
+            }
+          ]
+        },
+        "transaction": "BEGIN IMMEDIATE"
+      }
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "alert-dispatcher-v1",
+      "object_class": "alert_dispatcher",
+      "duration_ms": 30000,
+      "renew_before_ms": 10000,
+      "max_lifetime_ms": 120000,
+      "expiry_formula_id": "db-now-plus-duration-capped-by-max-lifetime",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "not-applicable",
+      "parent_deadline_formula_expected": {
+        "value_type": "not_applicable",
+        "unit": "none",
+        "clock_domain": null
+      },
+      "on_expiry": "higher-fence-takeover"
+    },
+    {
+      "policy_id": "execution-slot-v1",
+      "object_class": "execution_slot",
+      "duration_ms": 12000,
+      "renew_before_ms": 4000,
+      "max_lifetime_ms": 12000,
+      "expiry_formula_id": "db-now-plus-duration-capped-by-max-lifetime",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "min-parent-and-transport",
+      "parent_deadline_formula_expected": {
+        "value_type": "int64_ns",
+        "unit": "nanoseconds",
+        "clock_domain": "process_monotonic_ns"
+      },
+      "on_expiry": "higher-fence-release-only"
+    },
+    {
+      "policy_id": "migration-writer-v1",
+      "object_class": "migration_writer",
+      "duration_ms": 120000,
+      "renew_before_ms": 40000,
+      "max_lifetime_ms": 900000,
+      "expiry_formula_id": "db-now-plus-duration-capped-by-max-lifetime",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "not-applicable",
+      "parent_deadline_formula_expected": {
+        "value_type": "not_applicable",
+        "unit": "none",
+        "clock_domain": null
+      },
+      "on_expiry": "higher-fence-roll-forward-only"
+    },
+    {
+      "policy_id": "purge-writer-v1",
+      "object_class": "purge_writer",
+      "duration_ms": 120000,
+      "renew_before_ms": 40000,
+      "max_lifetime_ms": 900000,
+      "expiry_formula_id": "db-now-plus-duration-capped-by-max-lifetime",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "not-applicable",
+      "parent_deadline_formula_expected": {
+        "value_type": "not_applicable",
+        "unit": "none",
+        "clock_domain": null
+      },
+      "on_expiry": "higher-fence-resume-confirmed-plan-only"
+    },
+    {
+      "policy_id": "queue-ticket-v1",
+      "object_class": "refresh_queue_ticket",
+      "duration_ms": 2000,
+      "renew_before_ms": 500,
+      "max_lifetime_ms": 10000,
+      "expiry_formula_id": "db-now-plus-duration-capped-by-max-lifetime",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "min-parent-and-queue-timeout",
+      "parent_deadline_formula_expected": {
+        "value_type": "int64_ns",
+        "unit": "nanoseconds",
+        "clock_domain": "process_monotonic_ns"
+      },
+      "on_expiry": "higher-fence-cancel-if-not-started"
+    },
+    {
+      "policy_id": "rate-ledger-writer-v1",
+      "object_class": "rate_ledger_writer",
+      "duration_ms": 30000,
+      "renew_before_ms": 10000,
+      "max_lifetime_ms": 60000,
+      "expiry_formula_id": "db-now-plus-duration-capped-by-max-lifetime",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "not-applicable",
+      "parent_deadline_formula_expected": {
+        "value_type": "not_applicable",
+        "unit": "none",
+        "clock_domain": null
+      },
+      "on_expiry": "higher-fence-takeover"
+    },
+    {
+      "policy_id": "rate-reservation-v1",
+      "object_class": "rate_reservation_reserved",
+      "duration_ms": 12000,
+      "renew_before_ms": 4000,
+      "max_lifetime_ms": 12000,
+      "expiry_formula_id": "db-now-plus-duration-capped-by-min-parent-transport-plus-crash-grace",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "min-parent-and-transport-plus-2000ms-crash-grace",
+      "parent_deadline_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "on_expiry": "higher-fence-delete-only-if-provider-byte-count-zero-and-owner-lease-expired"
+    },
+    {
+      "policy_id": "temp-claim-v1",
+      "object_class": "migration_temp_claim",
+      "duration_ms": 120000,
+      "renew_before_ms": 40000,
+      "max_lifetime_ms": 900000,
+      "expiry_formula_id": "equal-current-migration-writer-expiry-capped-by-claim-max-lifetime",
+      "expiry_formula_expected": {
+        "value_type": "int64_ms",
+        "unit": "milliseconds",
+        "clock_domain": "db_utc_ms"
+      },
+      "parent_deadline_formula_id": "not-applicable",
+      "parent_deadline_formula_expected": {
+        "value_type": "not_applicable",
+        "unit": "none",
+        "clock_domain": null
+      },
+      "on_expiry": "higher-fence-state-machine-only"
+    }
+  ],
+  "closure_rules": {
+    "policy_id_unique": true,
+    "object_class_unique": true,
+    "unknown_policy": "reject",
+    "formula_id_unique": true,
+    "all_formula_references_resolve": true,
+    "unused_formula": "reject",
+    "all_operand_references_resolve": true,
+    "all_operator_references_resolve": true,
+    "operator_type_mismatch": "reject",
+    "clock_domain_mismatch": "reject",
+    "overflow": "reject_without_state_change",
+    "negative_or_fractional_milliseconds": "reject",
+    "duration_le_max_lifetime": true,
+    "renew_before_lt_duration": true,
+    "db_clock_backward": "do-not-expire-early-and-require-next-successful-BEGIN-IMMEDIATE-clock-sample",
+    "monotonic_clock_rollback": "fatal-process-invariant",
+    "conversion_expression_is_typed_ast": true,
+    "conversion_input_type_exact": "int64_ns",
+    "conversion_result_type_exact": "int64_ms",
+    "mixed_ms_ns_operator_arguments": "reject",
+    "typed_constant_source_text_is_not_parsed": true,
+    "all_literals_have_explicit_type_and_unit": true,
+    "signed_int64_bounds_source": "contract-registry-v1#/raw_bounds/integer_min|integer_max",
+    "signed_int64_schema_bounds_equal_registry": true
+  }
+}

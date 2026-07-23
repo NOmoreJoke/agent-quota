@@ -1,0 +1,277 @@
+{
+  "$schema": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json",
+  "$id": "https://agent-quota.local/contracts/contract-registry-v1.json",
+  "schema": "aq-contract-registry-v1",
+  "registry_id": "contract-registry-v1",
+  "meta_schema_uri": "https://json-schema.org/draft/2020-12/schema",
+  "normative_decision_inputs": [
+    {
+      "path": "docs/audits/gui-product-decision-resolution.md",
+      "category": "non-history-normative-decision-input",
+      "record_kind": "normative-product-decision-non-history",
+      "decision_status": "confirmed-current-pending-independent-r20",
+      "history_membership": "forbidden-not-audit-not-resolution",
+      "first_line": "# GUI 产品决策处置记录（非审计轮次）",
+      "projection_marker": "AQ-NORMATIVE-PRODUCT-DECISION-V1",
+      "raw_sha256": "fc3bdd90d8e5d66bd2b969b08e6f3c8d80f95e6a24702eb1a4c7fb5850cd559a"
+    }
+  ],
+  "array_order_dialect": {
+    "dialect": "aq-array-order-v1",
+    "version": 1,
+    "meta_schema_uri": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata",
+    "default_policy": "sequence_exact",
+    "override_policy": "utf8_key"
+  },
+  "canonicalizer": {
+    "implementation_path": "docs/contracts/canonicalize-registry-v1.py",
+    "implementation_version": "aq-canonicalizer-v1",
+    "validator_path": "docs/contracts/validate-contracts-v1.py",
+    "validator_version": "aq-contract-validator-v1",
+    "execution_mode": "read-only-verifier",
+    "trust_status": "audit-evidence-only-not-a-release-authority",
+    "production_authority": "externally-pinned-signed-release-or-vcs-commit-plus-tool-raw-sha256-and-prior-root-authorization",
+    "self_pin_update": "forbidden",
+    "input_paths": [
+      "docs/contracts/core-safety-contract-v1.json",
+      "docs/contracts/fixtures/core-safety-v1.json",
+      "docs/contracts/fixtures/retention-lint-malicious-v1.json",
+      "docs/contracts/lease-policy-v1.json",
+      "docs/contracts/local-key-purpose-registry-v1.json",
+      "docs/contracts/operation-contract-v1.json",
+      "docs/contracts/retention-lint-v1.json",
+      "docs/contracts/schemas/contract-registry-v1.schema.json",
+      "docs/contracts/schemas/core-safety-contract-v1.schema.json",
+      "docs/contracts/schemas/lease-policy-v1.schema.json",
+      "docs/contracts/schemas/local-key-purpose-registry-v1.schema.json",
+      "docs/contracts/schemas/operation-contract-v1.schema.json",
+      "docs/contracts/schemas/retention-lint-v1.schema.json"
+    ],
+    "registry_anchor_recipe": "SHA256(ASCII('agent-quota:contract-registry:v1\\x00')||aq-jcs-nfc-v1(registry-with-current-pins))"
+  },
+  "digest_recipes": {
+    "artifact_canonical": "SHA256(ASCII('agent-quota:contract-artifact:v1\\x00')||aq-jcs-nfc-v1(document))",
+    "schema_canonical": "SHA256(ASCII('agent-quota:contract-schema:v1\\x00')||aq-jcs-nfc-v1(schema_document))",
+    "raw": "SHA256(raw_bytes)"
+  },
+  "raw_bounds": {
+    "registry_raw_bytes_max": 65536,
+    "artifact_raw_bytes_max": 524288,
+    "schema_raw_bytes_max": 262144,
+    "json_depth_max": 64,
+    "json_nodes_max": 100000,
+    "string_utf8_bytes_max": 16384,
+    "array_items_max": 4096,
+    "integer_min": -9223372036854775808,
+    "integer_max": 9223372036854775807,
+    "floats": "reject",
+    "non_finite_numbers": "reject",
+    "duplicate_keys": "reject_before_schema"
+  },
+  "path_resolution": {
+    "fixed_root": "repository-root-opened-once-as-directory-handle",
+    "segment_validation": "ASCII-lowercase-contract-path-components-with-no-dot-dot-empty-or-separator-encoding",
+    "decode_or_normalize": "forbidden",
+    "open_algorithm": "openat-each-component-relative-to-fixed-root",
+    "symlink_policy": "O_NOFOLLOW-every-component",
+    "final_identity_check": "resolved-relative-path-bytes-must-equal-registered-path-bytes"
+  },
+  "validation_order": [
+    "registry_raw_bounds",
+    "utf8_decode_and_nfc",
+    "strict_json_parse",
+    "registry_schema_hash",
+    "registry_schema_validate",
+    "artifact_raw_bounds",
+    "artifact_raw_hash",
+    "schema_raw_bounds",
+    "schema_raw_and_canonical_hash",
+    "schema_meta_validate",
+    "artifact_schema_validate",
+    "semantic_closure_validate"
+  ],
+  "schema_binding": {
+    "schema_path": "docs/contracts/schemas/contract-registry-v1.schema.json",
+    "schema_uri": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json",
+    "schema_raw_sha256": "42de9280df16f7a209889160f353650465c2b58dcc285709177e0186dc26fb30",
+    "schema_canonical_sha256": "17925bb7dbd17db5a0e5d6eef754df9bcdbce40bcdcd3af31c84e1cd7e9cf07f"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "core-safety-contract-v1",
+      "artifact_path": "docs/contracts/core-safety-contract-v1.json",
+      "artifact_schema_uri": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json",
+      "artifact_raw_sha256": "ae309e8624373c708c77d7f6192b61342a05617a8c2d643ab4fd1a10598f84f9",
+      "artifact_canonical_sha256": "3433efb9772bdd8de8e7191724fcadd041df5278c997889b1e0a6d6274bcb3d4",
+      "schema_path": "docs/contracts/schemas/core-safety-contract-v1.schema.json",
+      "schema_raw_sha256": "13b339ed55c47a0d5ad52590f24dfef467115abf4ddc4013a9d36a498560b89a",
+      "schema_canonical_sha256": "355b3fbac1329a719eda3c6520ffc6ebd14252024fac48e47ef0884df1c36f4d"
+    },
+    {
+      "artifact_id": "lease-policy-v1",
+      "artifact_path": "docs/contracts/lease-policy-v1.json",
+      "artifact_schema_uri": "https://agent-quota.local/contracts/schemas/lease-policy-v1.schema.json",
+      "artifact_raw_sha256": "278235f52038a292c12a1d7201295c242e14a83fa2aa8850df255a8929355893",
+      "artifact_canonical_sha256": "e35025270a95404bf7d916d42efe48081681e532fa4a8f1e0c8c331c5ff0934b",
+      "schema_path": "docs/contracts/schemas/lease-policy-v1.schema.json",
+      "schema_raw_sha256": "7ceb6a06ba78bd04538391555d342e524923d13939d4c2cda68e11a3287c6b12",
+      "schema_canonical_sha256": "e60d13e252181a4fbe82041f01260ddd2df6bf5bf1c06ada21220ffdd12135e6"
+    },
+    {
+      "artifact_id": "local-key-purpose-registry-v1",
+      "artifact_path": "docs/contracts/local-key-purpose-registry-v1.json",
+      "artifact_schema_uri": "https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json",
+      "artifact_raw_sha256": "1a46c58ba2550a9a32af37a5b97b180b3e8e9e171d511e8da42cec4211ce2f6d",
+      "artifact_canonical_sha256": "3f2a2b8cb11f918c9a7ba11d7e8cb527f94beec7e80ee8d90418b868aa843c0d",
+      "schema_path": "docs/contracts/schemas/local-key-purpose-registry-v1.schema.json",
+      "schema_raw_sha256": "9d9f71c8532c376c0fd7c49c66390e97dd487e4bc05392e99c1ce3666a3e0e0a",
+      "schema_canonical_sha256": "20d9922376a2d9323fd5a1774bde46d403a7a34569f9e0e5c2db2799a1ec6bcc"
+    },
+    {
+      "artifact_id": "operation-contract-v1",
+      "artifact_path": "docs/contracts/operation-contract-v1.json",
+      "artifact_schema_uri": "https://agent-quota.local/contracts/schemas/operation-contract-v1.schema.json",
+      "artifact_raw_sha256": "993b9adda60647c74181cae18e40824f5216959c850a061d217ca5d09219e166",
+      "artifact_canonical_sha256": "7b3af5ce70cc09cbff7c405c8129856526b8a32f389dcc93af892125160ecc10",
+      "schema_path": "docs/contracts/schemas/operation-contract-v1.schema.json",
+      "schema_raw_sha256": "481af8b9617c213d5292f89952f8fa6fca40dec6717ea746d4b9c1fa4bd6156e",
+      "schema_canonical_sha256": "74c800084df03e4ce5219ae58bdb199903353a21b3c18846e99c411f0546d314"
+    },
+    {
+      "artifact_id": "retention-lint-v1",
+      "artifact_path": "docs/contracts/retention-lint-v1.json",
+      "artifact_schema_uri": "https://agent-quota.local/contracts/schemas/retention-lint-v1.schema.json",
+      "artifact_raw_sha256": "d0325e96a3aff8e9ed383ffd876b5b2e0042ee42568c6c6bf7c99eb993807403",
+      "artifact_canonical_sha256": "bf3804de286cb2bee86e24e2a274dfb9eba98995ac074d87d98fd6995b9ad342",
+      "schema_path": "docs/contracts/schemas/retention-lint-v1.schema.json",
+      "schema_raw_sha256": "f583e9c82cfee4d1bb0c63eb0104b4cba9730adec7c639d12ea48f913a00053c",
+      "schema_canonical_sha256": "5f1b91ccc66a14209d5f30c4f30abb93c272f97686b8b9ff53afe70f60161df8"
+    }
+  ],
+  "fixtures": [
+    {
+      "fixture_id": "core-safety-v1",
+      "fixture_path": "docs/contracts/fixtures/core-safety-v1.json",
+      "schema_uri": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json#/$defs/fixtureArtifact",
+      "raw_sha256": "2a7e13c56be0335b48f52035317102fd74335ed33196283b0a682cc8223a533d",
+      "canonical_sha256": "424e7a917893687a959c55aa0e83785267db7fcc14b6de491f83a195fe64a73c"
+    },
+    {
+      "fixture_id": "retention-lint-malicious-v1",
+      "fixture_path": "docs/contracts/fixtures/retention-lint-malicious-v1.json",
+      "schema_uri": "https://agent-quota.local/contracts/schemas/retention-lint-v1.schema.json#/$defs/fixtureArtifact",
+      "raw_sha256": "6d81644c5c9dff88be561bb394054c85dc16e3ec51ea84a4b5c48ac2e0a41048",
+      "canonical_sha256": "7aca55a7ad81b761bec9e772988a97af732cfdcb7af25dda0fbdb63ccfdb7634"
+    }
+  ],
+  "semantic_validators": [
+    {
+      "validator_id": "array-order-dialect-v1",
+      "applies_to": "all",
+      "rule": "Every schema uses exactly aq-array-order-v1 and its metadata validates against the registered arrayOrderMetadata fragment; no legacy field spelling is accepted.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "core-safety-closure-v1",
+      "applies_to": "core-safety-contract-v1",
+      "rule": "Codex bundle roots, identity bootstrap, budget groups, migration membership, installation registry and repository path fixtures close exactly and all expected verdicts match.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "core-safety-fixture-runner-v1",
+      "applies_to": "core-safety-contract-v1",
+      "rule": "Run every strict discriminated fixture from domain plus input only; fixture_id is diagnostic and changing it cannot change actual computation or verdict.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "heading-number-and-anchor-v1",
+      "applies_to": "all",
+      "rule": "Ignore fenced code, then require numbered headings to match Markdown level, have an existing numbered parent, and be unique/strictly monotonic among siblings; every local Markdown anchor must resolve to an exact generated heading slug.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "key-entry-semantics-v1",
+      "applies_to": "local-key-purpose-registry-v1",
+      "rule": "Recompute every key_id from exact bytes, enforce public_salt role, one active generation per purpose, transition policy, sorted unique tuples and the complete payload-envelope golden vector.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "lease-formula-closure-v1",
+      "applies_to": "lease-policy-v1",
+      "rule": "Formula IDs, operands and operators form exact used reference sets; typed AST inference succeeds; clock conversion and checked arithmetic never overflow.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "normative-decision-input-v1",
+      "applies_to": "all",
+      "rule": "The one non-history normative decision input is no-follow read, raw pinned, structurally marked as neither audit nor resolution, projected from current product/Codex/OpenRouter machine contracts, and linked exactly by all four live documents.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "operation-reference-closure-v1",
+      "applies_to": "operation-contract-v1",
+      "rule": "Predicate, safe enum, path, stage, error and provider I/O definition sets are bijective where declared; no dangling, duplicate or unused member exists.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "probe-result-closure-v1",
+      "applies_to": "core-safety-contract-v1",
+      "rule": "ProbeResult is a closed discriminated carrier; only official_cli_success carries one short-lived OfficialProtocolIdentityEvidence and every other branch forbids evidence and derived identity fields before identity_derive.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "purpose-consumer-closure-v1",
+      "applies_to": "local-key-purpose-registry-v1",
+      "rule": "Every purpose has consumer coverage; every consumer has one purpose and lookup policy; persistent surfaces close consumer references and bounded generation products.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "repo-path-v1",
+      "applies_to": "all",
+      "rule": "Every registered RepoPath field matches canonical bytes, rejects dot, dot-dot, empty, repeated slash, percent, Unicode, case and backslash aliases, and resolves from one opened root using openat O_NOFOLLOW per segment.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "retention-detector-closure-v1",
+      "applies_to": "retention-lint-v1",
+      "rule": "Pandoc version, reader extensions and API version match; locators hit once; record v1 binds surface, operation and owner in one Code span; records are removed before residual prose signals are independently rejected; every fixture is evaluated independent of fixture_id and equals expected.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "schema-array-order-coverage-v1",
+      "applies_to": "all",
+      "rule": "Enumerate every schema object whose type is array; the root x-aq-array-order default plus exact JSON-pointer overrides resolve exactly one policy per array; duplicate or dangling overrides reject; utf8_key tuple arrays and sequence_exact arrays validate byte-for-byte.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "strict-integer-type-v1",
+      "applies_to": "all",
+      "rule": "JSON boolean is never accepted as integer, floats and non-finite values reject, and all integer range checks occur before arithmetic.",
+      "verdict": "reject"
+    },
+    {
+      "validator_id": "validation-mutation-contract-v1",
+      "applies_to": "core-safety-contract-v1",
+      "rule": "Mutation case sequence, ID, expected verdict, canonical RepoPath, structured locator, before/after, expected failure class, executor ID/source digest, mutation identity digest, case count and canonical result field closure are fixed outside the runner; validator and release gate independently parse the runner AST and exact-match emitted input/recipe/mutated/failure evidence.",
+      "verdict": "reject"
+    }
+  ],
+  "closure_rules": {
+    "artifact_id_unique": true,
+    "artifact_path_unique": true,
+    "artifact_schema_uri_matches_document_schema": true,
+    "schema_id_matches_bound_uri": true,
+    "schema_meta_schema_exact": true,
+    "schema_hash_mismatch": "reject",
+    "artifact_hash_mismatch": "reject",
+    "unknown_artifact": "reject",
+    "unknown_schema": "reject",
+    "array_order": "schema-x-aq-array-order-exact-policy",
+    "array_uniqueness": "policy-key-tuple-or-canonical-item-bytes",
+    "semantic_validator_id_unique": true,
+    "unused_semantic_validator": "reject",
+    "path_outside_fixed_root": "reject",
+    "path_redecode_or_normalize": "reject",
+    "symlink_or_case_alias": "reject"
+  }
+}

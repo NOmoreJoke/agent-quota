@@ -1,0 +1,223 @@
+{
+  "$schema": "https://agent-quota.local/contracts/schemas/retention-lint-v1.schema.json#/$defs/fixtureArtifact",
+  "$id": "https://agent-quota.local/contracts/fixtures/retention-lint-malicious-v1.json",
+  "schema": "aq-retention-lint-fixtures-v1",
+  "excluded_from_lint_inputs": true,
+  "cases": [
+    {
+      "fixture_id": "named-cooldown-is-not-retention",
+      "source": "`PROJECTION_COOLDOWN` = 15 minutes",
+      "expected": "accept"
+    },
+    {
+      "fixture_id": "persist-cache-file-without-surface-id",
+      "source": "cache API tokens in a cache file",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-chinese-config-directory-without-surface-id",
+      "source": "把凭据保存到配置目录",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-chinese-keychain-without-surface-id",
+      "source": "将令牌写入钥匙串",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-chinese-keystore-without-surface-id",
+      "source": "将密钥持久化到密钥库",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-chinese-local-file-without-surface-id",
+      "source": "把 API 密钥保存到本地文件",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-config-directory-without-surface-id",
+      "source": "store credentials under a configuration directory",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-cross-leaf-directive",
+      "source": "create SQLite table quota_shadow\n\n`persist:v1:migration_temp_claim:create:RET-MIGRATION-TEMP-CLAIM`",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-data-file-without-surface-id",
+      "source": "write the refresh token to a data file",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-databases-store-nonnormative",
+      "source": "databases store quota snapshots",
+      "expected": "accept"
+    },
+    {
+      "fixture_id": "persist-directory-without-surface-id",
+      "source": "save credentials in a local directory",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-duplicate-directive",
+      "source": "`persist:v1:migration_temp_claim:create:RET-MIGRATION-TEMP-CLAIM` `persist:v1:migration_temp_claim:create:RET-MIGRATION-TEMP-CLAIM`",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-file-without-surface-id",
+      "source": "write credentials to a file",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-fullwidth-sqlite-save-refresh-token",
+      "source": "ＳＱＬｉｔｅ 保存 refresh token",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-keychain-without-surface-id",
+      "source": "store API keys in the keychain",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-keystore-without-surface-id",
+      "source": "persist secrets in a keystore",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-legal-a-plus-unregistered-b-same-leaf",
+      "source": "`persist:v1:subject_metadata_observed:update:RET-SUBJECT-METADATA-OBSERVED` The implementation MUST store API tokens in a local file.",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-local-file-without-surface-id",
+      "source": "The implementation MUST store API tokens in a local file.",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-no-owner",
+      "source": "`persist:v1:quota_shadow:create:RET-SNAPSHOT`",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-old-two-part-directive",
+      "source": "create SQLite table migration claim `persist:migration_temp_claim`",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-one-record-cannot-cover-two-signals",
+      "source": "`persist:v1:migration_temp_claim:create:RET-MIGRATION-TEMP-CLAIM` create SQLite table quota_shadow and store API tokens in a local file",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-record-cross-sentence-does-not-authorize",
+      "source": "`persist:v1:subject_metadata_observed:update:RET-SUBJECT-METADATA-OBSERVED`. The implementation MUST store API tokens in a local file.",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-record-does-not-authorize-chinese-synonym",
+      "source": "`persist:v1:subject_metadata_observed:update:RET-SUBJECT-METADATA-OBSERVED`。把 API 密钥保存到本地文件。",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-record-same-sentence-multiple-surfaces",
+      "source": "`persist:v1:migration_temp_claim:create:RET-MIGRATION-TEMP-CLAIM` create SQLite table quota_shadow and write refresh token to a data file",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-sqlite-records-nonnormative",
+      "source": "SQLite records quota snapshots",
+      "expected": "accept"
+    },
+    {
+      "fixture_id": "persist-sqlite-save-refresh-token",
+      "source": "SQLite 保存 refresh token",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-sqlite-without-surface-id",
+      "source": "create SQLite table quota_shadow",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-strict-directive",
+      "source": "Normative persistence declaration `persist:v1:migration_temp_claim:create:RET-MIGRATION-TEMP-CLAIM`",
+      "expected": "accept"
+    },
+    {
+      "fixture_id": "persist-temp-file-without-surface-id",
+      "source": "创建临时文件 quota-shadow.tmp",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "persist-unknown-operation",
+      "source": "Normative persistence declaration `persist:v1:migration_temp_claim:upsert:RET-MIGRATION-TEMP-CLAIM`",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "retention-expire-30-days-timeout",
+      "source": "expire 30 days timeout",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "retention-mixed-words-timeout",
+      "source": "到期 thirty days timeout",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "runtime-timeout-is-not-retention",
+      "source": "transport timeout 30 seconds",
+      "expected": "accept"
+    },
+    {
+      "fixture_id": "ttl-copy-chinese-words",
+      "source": "保存期限三十天",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-code",
+      "source": "retention `30 days`",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-fullwidth",
+      "source": "保留３０天",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-html",
+      "source": "<span>retention 30 days</span>",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-plain",
+      "source": "retention 30 days",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-scientific",
+      "source": "retention 2.592e6 seconds",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-spaced",
+      "source": "retention 30 d",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-split-inline",
+      "source": "retention 30<em></em>days",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-table",
+      "source": "| retention | 30 days |",
+      "expected": "reject"
+    },
+    {
+      "fixture_id": "ttl-copy-words",
+      "source": "retention thirty days",
+      "expected": "reject"
+    }
+  ]
+}

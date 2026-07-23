@@ -1,0 +1,2487 @@
+{
+  "$schema": "https://agent-quota.local/contracts/schemas/operation-contract-v1.schema.json",
+  "$id": "https://agent-quota.local/contracts/operation-contract-v1.json",
+  "schema": "aq-operation-contract-v1",
+  "artifact_id": "operation-contract-v1",
+  "operations": [
+    "alert_ack",
+    "configure",
+    "consent_grant",
+    "consent_revoke",
+    "delete",
+    "discover",
+    "doctor",
+    "migrate",
+    "purge",
+    "refresh",
+    "status"
+  ],
+  "modes": [
+    "http",
+    "none",
+    "official_cli_zero_binding",
+    "offline"
+  ],
+  "stages": [
+    "alert_ack_commit",
+    "alert_evaluate",
+    "authorize",
+    "cache_commit",
+    "cache_read",
+    "config_gate",
+    "config_validate",
+    "consent_commit",
+    "consent_validate",
+    "contract_validate",
+    "credential_resolve",
+    "deletion_plan",
+    "discovery",
+    "discovery_context_build",
+    "discovery_request_plan_build",
+    "endpoint_validate",
+    "fetch_context_build",
+    "fetch_request_plan_build",
+    "idempotency_finalize",
+    "idempotency_prepare",
+    "identity_and_discovery_context_build",
+    "identity_and_discovery_request_plan_build",
+    "identity_and_fetch_context_build",
+    "identity_and_fetch_request_plan_build",
+    "identity_derive",
+    "identity_verify_and_accept",
+    "manifest_validate",
+    "migration_commit",
+    "migration_plan",
+    "operation_context_build",
+    "probe",
+    "probe_context_build",
+    "probe_request_plan_build",
+    "probe_result_validate",
+    "projection",
+    "provider_fetch",
+    "purge_commit",
+    "purge_plan",
+    "rate_ledger_commit",
+    "rate_ledger_reserve"
+  ],
+  "request_kinds": [
+    "discovery",
+    "fetch",
+    "identity_and_fetch",
+    "probe"
+  ],
+  "io_classes": [
+    "provider_io",
+    "pure_local"
+  ],
+  "error_codes": [
+    "adapter_contract_violation",
+    "adapter_not_distributable",
+    "budget_deferred",
+    "config_unavailable",
+    "consent_expired",
+    "consent_required",
+    "credential_backend_unavailable",
+    "invalid_config",
+    "invalid_discovery_result",
+    "local_keyring_unavailable",
+    "local_process_timeout",
+    "local_protocol_violation",
+    "migration_conflict",
+    "not_authorized",
+    "projection_failed",
+    "rate_ledger_unavailable",
+    "referenced_object_conflict",
+    "storage_unavailable",
+    "unsupported_platform"
+  ],
+  "predicate_ids": [
+    "always",
+    "consent-required-for-status-projection",
+    "probe-result-contract-v1"
+  ],
+  "predicate_definitions": [
+    {
+      "predicate_id": "always",
+      "inputs": [],
+      "expression": {
+        "op": "literal",
+        "value": true
+      },
+      "missing_input_verdict": "reject",
+      "control_flow": {
+        "true": {
+          "action": "execute_stage",
+          "typed_result": "predicate_true"
+        },
+        "false": {
+          "action": "reject_operation",
+          "typed_result": "predicate_false"
+        },
+        "missing": {
+          "action": "reject_operation",
+          "typed_result": "predicate_input_missing"
+        },
+        "error": {
+          "action": "reject_operation",
+          "typed_result": "predicate_evaluation_error"
+        }
+      },
+      "semantic_vectors": [
+        {
+          "vector_id": "always-true",
+          "input_status": "complete",
+          "inputs": {},
+          "predicate_result": true,
+          "action": "execute_stage",
+          "typed_result": "predicate_true",
+          "authorization_boundary": "path_authorization_unchanged"
+        }
+      ]
+    },
+    {
+      "predicate_id": "consent-required-for-status-projection",
+      "inputs": [
+        {
+          "name": "audience",
+          "type": "enum",
+          "allowed_values": [
+            "feishu_private",
+            "llm_minimal",
+            "local_detail"
+          ]
+        }
+      ],
+      "expression": {
+        "op": "equal",
+        "left": {
+          "input": "audience"
+        },
+        "right": {
+          "literal": "llm_minimal"
+        }
+      },
+      "missing_input_verdict": "reject",
+      "control_flow": {
+        "true": {
+          "action": "execute_stage",
+          "typed_result": "llm_consent_required"
+        },
+        "false": {
+          "action": "skip_stage",
+          "typed_result": "llm_consent_not_applicable"
+        },
+        "missing": {
+          "action": "reject_operation",
+          "typed_result": "predicate_input_missing"
+        },
+        "error": {
+          "action": "reject_operation",
+          "typed_result": "predicate_evaluation_error"
+        }
+      },
+      "semantic_vectors": [
+        {
+          "vector_id": "consent-feishu-private",
+          "input_status": "complete",
+          "inputs": {
+            "audience": "feishu_private"
+          },
+          "predicate_result": false,
+          "action": "skip_stage",
+          "typed_result": "llm_consent_not_applicable",
+          "authorization_boundary": "feishu_private_authorization_required"
+        },
+        {
+          "vector_id": "consent-llm-minimal",
+          "input_status": "complete",
+          "inputs": {
+            "audience": "llm_minimal"
+          },
+          "predicate_result": true,
+          "action": "execute_stage",
+          "typed_result": "llm_consent_required",
+          "authorization_boundary": "llm_consent_required"
+        },
+        {
+          "vector_id": "consent-local-detail",
+          "input_status": "complete",
+          "inputs": {
+            "audience": "local_detail"
+          },
+          "predicate_result": false,
+          "action": "skip_stage",
+          "typed_result": "llm_consent_not_applicable",
+          "authorization_boundary": "local_access_context_authorization_required"
+        },
+        {
+          "vector_id": "consent-missing",
+          "input_status": "missing",
+          "inputs": {},
+          "predicate_result": null,
+          "action": "reject_operation",
+          "typed_result": "predicate_input_missing",
+          "authorization_boundary": "fail_closed"
+        },
+        {
+          "vector_id": "consent-unknown",
+          "input_status": "invalid",
+          "inputs": {
+            "audience": "unknown"
+          },
+          "predicate_result": null,
+          "action": "reject_operation",
+          "typed_result": "predicate_input_missing",
+          "authorization_boundary": "fail_closed"
+        },
+        {
+          "vector_id": "consent-evaluation-error",
+          "input_status": "evaluation_error",
+          "inputs": {
+            "audience": "llm_minimal"
+          },
+          "predicate_result": null,
+          "action": "reject_operation",
+          "typed_result": "predicate_evaluation_error",
+          "authorization_boundary": "fail_closed"
+        }
+      ]
+    },
+    {
+      "predicate_id": "probe-result-contract-v1",
+      "inputs": [],
+      "expression": {
+        "op": "literal",
+        "value": true
+      },
+      "missing_input_verdict": "reject",
+      "control_flow": {
+        "true": {
+          "action": "execute_stage",
+          "typed_result": "predicate_true"
+        },
+        "false": {
+          "action": "reject_operation",
+          "typed_result": "predicate_false"
+        },
+        "missing": {
+          "action": "reject_operation",
+          "typed_result": "predicate_input_missing"
+        },
+        "error": {
+          "action": "reject_operation",
+          "typed_result": "predicate_evaluation_error"
+        }
+      },
+      "semantic_vectors": [
+        {
+          "vector_id": "probe-result-valid",
+          "input_status": "complete",
+          "inputs": {},
+          "predicate_result": true,
+          "action": "execute_stage",
+          "typed_result": "predicate_true",
+          "authorization_boundary": "path_authorization_unchanged"
+        }
+      ]
+    }
+  ],
+  "paths": [
+    {
+      "path_id": "alert-ack-none-v1",
+      "operation": "alert_ack",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "alert_ack_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "projection",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "configure-none-v1",
+      "operation": "configure",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "migration_plan",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "migration_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "consent-grant-none-v1",
+      "operation": "consent_grant",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "consent_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "consent_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "consent-revoke-none-v1",
+      "operation": "consent_revoke",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "consent_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "consent_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "delete-none-v1",
+      "operation": "delete",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "deletion_plan",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "migration_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "discover-http-v1",
+      "operation": "discover",
+      "mode": "http",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "discovery_request_plan_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "rate_ledger_reserve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "discovery"
+        },
+        {
+          "stage": "rate_ledger_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "discovery"
+        },
+        {
+          "stage": "credential_resolve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "identity_derive",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "discovery_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "discovery",
+          "predicate_id": "always",
+          "io_class": "provider_io",
+          "request_kind": "discovery"
+        }
+      ]
+    },
+    {
+      "path_id": "discover-official-cli-v1",
+      "operation": "discover",
+      "mode": "official_cli_zero_binding",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "identity_and_discovery_request_plan_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "rate_ledger_reserve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "discovery"
+        },
+        {
+          "stage": "rate_ledger_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "discovery"
+        },
+        {
+          "stage": "identity_and_discovery_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "discovery",
+          "predicate_id": "always",
+          "io_class": "provider_io",
+          "request_kind": "discovery"
+        },
+        {
+          "stage": "identity_verify_and_accept",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "discover-offline-v1",
+      "operation": "discover",
+      "mode": "offline",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "operation_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "discovery",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "doctor-http-v1",
+      "operation": "doctor",
+      "mode": "http",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe_request_plan_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "rate_ledger_reserve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "probe"
+        },
+        {
+          "stage": "rate_ledger_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "probe"
+        },
+        {
+          "stage": "credential_resolve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "identity_derive",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe",
+          "predicate_id": "always",
+          "io_class": "provider_io",
+          "request_kind": "probe"
+        },
+        {
+          "stage": "probe_result_validate",
+          "predicate_id": "probe-result-contract-v1",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "doctor-official-cli-v1",
+      "operation": "doctor",
+      "mode": "official_cli_zero_binding",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe_request_plan_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "rate_ledger_reserve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "probe"
+        },
+        {
+          "stage": "rate_ledger_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "probe"
+        },
+        {
+          "stage": "probe_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe",
+          "predicate_id": "always",
+          "io_class": "provider_io",
+          "request_kind": "probe"
+        },
+        {
+          "stage": "probe_result_validate",
+          "predicate_id": "probe-result-contract-v1",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "identity_derive",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "doctor-offline-v1",
+      "operation": "doctor",
+      "mode": "offline",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe_result_validate",
+          "predicate_id": "probe-result-contract-v1",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "migrate-none-v1",
+      "operation": "migrate",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "migration_plan",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "migration_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "purge-none-v1",
+      "operation": "purge",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "purge_plan",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "purge_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "refresh-http-v1",
+      "operation": "refresh",
+      "mode": "http",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "idempotency_prepare",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "credential_resolve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "identity_derive",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "fetch_request_plan_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "rate_ledger_reserve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "fetch"
+        },
+        {
+          "stage": "rate_ledger_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "fetch"
+        },
+        {
+          "stage": "fetch_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "provider_fetch",
+          "predicate_id": "always",
+          "io_class": "provider_io",
+          "request_kind": "fetch"
+        },
+        {
+          "stage": "cache_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "idempotency_finalize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "alert_evaluate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "projection",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "refresh-official-cli-v1",
+      "operation": "refresh",
+      "mode": "official_cli_zero_binding",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "manifest_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "endpoint_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "idempotency_prepare",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "identity_and_fetch_request_plan_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "rate_ledger_reserve",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "identity_and_fetch"
+        },
+        {
+          "stage": "rate_ledger_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": "identity_and_fetch"
+        },
+        {
+          "stage": "identity_and_fetch_context_build",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "probe",
+          "predicate_id": "always",
+          "io_class": "provider_io",
+          "request_kind": "identity_and_fetch"
+        },
+        {
+          "stage": "identity_verify_and_accept",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "cache_commit",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "idempotency_finalize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "alert_evaluate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "projection",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    },
+    {
+      "path_id": "status-none-v1",
+      "operation": "status",
+      "mode": "none",
+      "steps": [
+        {
+          "stage": "contract_validate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "authorize",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "config_gate",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "consent_validate",
+          "predicate_id": "consent-required-for-status-projection",
+          "io_class": "pure_local",
+          "request_kind": null,
+          "predicate_branch": {
+            "node_type": "conditional_stage",
+            "on_true": "execute_stage",
+            "on_false": "skip_stage",
+            "on_missing": "reject_operation",
+            "on_error": "reject_operation",
+            "typed_result_source": "predicate_control_flow"
+          }
+        },
+        {
+          "stage": "cache_read",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        },
+        {
+          "stage": "projection",
+          "predicate_id": "always",
+          "io_class": "pure_local",
+          "request_kind": null
+        }
+      ]
+    }
+  ],
+  "safe_param_schemas": [
+    {
+      "schema_id": "budget-code",
+      "fields": [
+        {
+          "name": "budget_code",
+          "kind": "enum",
+          "allowed_values": [
+            "blocked_until",
+            "floor",
+            "hour"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "conflict-code",
+      "fields": [
+        {
+          "name": "conflict_code",
+          "kind": "enum",
+          "allowed_values": [
+            "config_digest_changed",
+            "confirmation_invalid",
+            "dependency_cycle",
+            "generation_changed"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "envelope-code",
+      "fields": [
+        {
+          "name": "envelope_code",
+          "kind": "enum",
+          "allowed_values": [
+            "illegal_error_envelope",
+            "illegal_execution_plan",
+            "invalid_operation_envelope",
+            "malformed_local_envelope",
+            "unknown_schema_version"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "field-code",
+      "fields": [
+        {
+          "name": "field_code",
+          "kind": "enum",
+          "allowed_values": [
+            "duplicate_key",
+            "invalid_value",
+            "missing_required_field",
+            "unknown_field",
+            "wrong_type"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "none",
+      "fields": []
+    },
+    {
+      "schema_id": "object-kind",
+      "fields": [
+        {
+          "name": "object_kind",
+          "kind": "enum",
+          "allowed_values": [
+            "alert_policy",
+            "capability",
+            "credential_binding",
+            "principal",
+            "subject",
+            "view"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "projection-code",
+      "fields": [
+        {
+          "name": "projection_code",
+          "kind": "enum",
+          "allowed_values": [
+            "invalid_projection_state",
+            "serialization_failed"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "protocol-code",
+      "fields": [
+        {
+          "name": "protocol_code",
+          "kind": "enum",
+          "allowed_values": [
+            "id_mismatch",
+            "invalid_frame",
+            "method_not_allowed",
+            "response_too_large",
+            "unexpected_message"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "rate-ledger-code",
+      "fields": [
+        {
+          "name": "rate_ledger_code",
+          "kind": "enum",
+          "allowed_values": [
+            "fence_conflict",
+            "lease_conflict",
+            "ledger_unavailable"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "store-code",
+      "fields": [
+        {
+          "name": "store_code",
+          "kind": "enum",
+          "allowed_values": [
+            "durability_failed",
+            "sqlite_unavailable",
+            "transaction_failed"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_id": "violation-code",
+      "fields": [
+        {
+          "name": "violation_code",
+          "kind": "enum",
+          "allowed_values": [
+            "extra_output",
+            "identity_evidence_expired",
+            "identity_evidence_mismatch",
+            "invalid_observation",
+            "invalid_probe_result",
+            "invalid_request_key_set",
+            "invalid_snapshot",
+            "manifest_mismatch"
+          ]
+        }
+      ]
+    }
+  ],
+  "error_rows": [
+    {
+      "code": "adapter_contract_violation",
+      "operation": "discover",
+      "stage": "discovery",
+      "retryable": false,
+      "safe_param_schema_id": "violation-code"
+    },
+    {
+      "code": "adapter_contract_violation",
+      "operation": "doctor",
+      "stage": "probe",
+      "retryable": false,
+      "safe_param_schema_id": "violation-code"
+    },
+    {
+      "code": "adapter_contract_violation",
+      "operation": "doctor",
+      "stage": "probe_result_validate",
+      "retryable": false,
+      "safe_param_schema_id": "violation-code"
+    },
+    {
+      "code": "adapter_contract_violation",
+      "operation": "refresh",
+      "stage": "probe",
+      "retryable": false,
+      "safe_param_schema_id": "violation-code"
+    },
+    {
+      "code": "adapter_contract_violation",
+      "operation": "refresh",
+      "stage": "provider_fetch",
+      "retryable": false,
+      "safe_param_schema_id": "violation-code"
+    },
+    {
+      "code": "adapter_not_distributable",
+      "operation": "configure",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "adapter_not_distributable",
+      "operation": "discover",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "adapter_not_distributable",
+      "operation": "doctor",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "adapter_not_distributable",
+      "operation": "doctor",
+      "stage": "probe",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "adapter_not_distributable",
+      "operation": "refresh",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "budget_deferred",
+      "operation": "discover",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "budget-code"
+    },
+    {
+      "code": "budget_deferred",
+      "operation": "doctor",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "budget-code"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "alert_ack",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "configure",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "consent_grant",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "consent_revoke",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "delete",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "discover",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "doctor",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "migrate",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "purge",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "refresh",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "config_unavailable",
+      "operation": "status",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "consent_expired",
+      "operation": "consent_revoke",
+      "stage": "consent_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "consent_expired",
+      "operation": "status",
+      "stage": "consent_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "consent_required",
+      "operation": "status",
+      "stage": "consent_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "credential_backend_unavailable",
+      "operation": "discover",
+      "stage": "credential_resolve",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "credential_backend_unavailable",
+      "operation": "doctor",
+      "stage": "credential_resolve",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "credential_backend_unavailable",
+      "operation": "refresh",
+      "stage": "credential_resolve",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "invalid_config",
+      "operation": "configure",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "field-code"
+    },
+    {
+      "code": "invalid_config",
+      "operation": "delete",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "field-code"
+    },
+    {
+      "code": "invalid_config",
+      "operation": "discover",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "field-code"
+    },
+    {
+      "code": "invalid_config",
+      "operation": "doctor",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "field-code"
+    },
+    {
+      "code": "invalid_config",
+      "operation": "migrate",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "field-code"
+    },
+    {
+      "code": "invalid_config",
+      "operation": "refresh",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "field-code"
+    },
+    {
+      "code": "invalid_discovery_result",
+      "operation": "discover",
+      "stage": "discovery",
+      "retryable": false,
+      "safe_param_schema_id": "violation-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "alert_ack",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "configure",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "consent_grant",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "consent_revoke",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "delete",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "discover",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "doctor",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "migrate",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "purge",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "refresh",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_keyring_unavailable",
+      "operation": "status",
+      "stage": "config_gate",
+      "retryable": false,
+      "safe_param_schema_id": "envelope-code"
+    },
+    {
+      "code": "local_process_timeout",
+      "operation": "discover",
+      "stage": "discovery",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "local_process_timeout",
+      "operation": "doctor",
+      "stage": "probe",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "local_process_timeout",
+      "operation": "refresh",
+      "stage": "probe",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "local_process_timeout",
+      "operation": "refresh",
+      "stage": "provider_fetch",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "local_protocol_violation",
+      "operation": "discover",
+      "stage": "discovery",
+      "retryable": false,
+      "safe_param_schema_id": "protocol-code"
+    },
+    {
+      "code": "local_protocol_violation",
+      "operation": "doctor",
+      "stage": "probe",
+      "retryable": false,
+      "safe_param_schema_id": "protocol-code"
+    },
+    {
+      "code": "local_protocol_violation",
+      "operation": "refresh",
+      "stage": "probe",
+      "retryable": false,
+      "safe_param_schema_id": "protocol-code"
+    },
+    {
+      "code": "local_protocol_violation",
+      "operation": "refresh",
+      "stage": "provider_fetch",
+      "retryable": false,
+      "safe_param_schema_id": "protocol-code"
+    },
+    {
+      "code": "migration_conflict",
+      "operation": "configure",
+      "stage": "migration_commit",
+      "retryable": false,
+      "safe_param_schema_id": "conflict-code"
+    },
+    {
+      "code": "migration_conflict",
+      "operation": "configure",
+      "stage": "migration_plan",
+      "retryable": false,
+      "safe_param_schema_id": "conflict-code"
+    },
+    {
+      "code": "migration_conflict",
+      "operation": "migrate",
+      "stage": "migration_commit",
+      "retryable": false,
+      "safe_param_schema_id": "conflict-code"
+    },
+    {
+      "code": "migration_conflict",
+      "operation": "migrate",
+      "stage": "migration_plan",
+      "retryable": false,
+      "safe_param_schema_id": "conflict-code"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "alert_ack",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "configure",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "consent_grant",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "consent_revoke",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "delete",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "discover",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "doctor",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "migrate",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "purge",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "refresh",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "not_authorized",
+      "operation": "status",
+      "stage": "authorize",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "projection_failed",
+      "operation": "alert_ack",
+      "stage": "projection",
+      "retryable": false,
+      "safe_param_schema_id": "projection-code"
+    },
+    {
+      "code": "projection_failed",
+      "operation": "refresh",
+      "stage": "projection",
+      "retryable": false,
+      "safe_param_schema_id": "projection-code"
+    },
+    {
+      "code": "projection_failed",
+      "operation": "status",
+      "stage": "projection",
+      "retryable": false,
+      "safe_param_schema_id": "projection-code"
+    },
+    {
+      "code": "rate_ledger_unavailable",
+      "operation": "discover",
+      "stage": "rate_ledger_commit",
+      "retryable": true,
+      "safe_param_schema_id": "rate-ledger-code"
+    },
+    {
+      "code": "rate_ledger_unavailable",
+      "operation": "discover",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "rate-ledger-code"
+    },
+    {
+      "code": "rate_ledger_unavailable",
+      "operation": "doctor",
+      "stage": "rate_ledger_commit",
+      "retryable": true,
+      "safe_param_schema_id": "rate-ledger-code"
+    },
+    {
+      "code": "rate_ledger_unavailable",
+      "operation": "doctor",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "rate-ledger-code"
+    },
+    {
+      "code": "rate_ledger_unavailable",
+      "operation": "refresh",
+      "stage": "rate_ledger_commit",
+      "retryable": true,
+      "safe_param_schema_id": "rate-ledger-code"
+    },
+    {
+      "code": "rate_ledger_unavailable",
+      "operation": "refresh",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "referenced_object_conflict",
+      "operation": "configure",
+      "stage": "migration_plan",
+      "retryable": false,
+      "safe_param_schema_id": "object-kind"
+    },
+    {
+      "code": "referenced_object_conflict",
+      "operation": "delete",
+      "stage": "deletion_plan",
+      "retryable": false,
+      "safe_param_schema_id": "object-kind"
+    },
+    {
+      "code": "referenced_object_conflict",
+      "operation": "migrate",
+      "stage": "migration_plan",
+      "retryable": false,
+      "safe_param_schema_id": "object-kind"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "alert_ack",
+      "stage": "alert_ack_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "configure",
+      "stage": "migration_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "consent_grant",
+      "stage": "consent_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "consent_revoke",
+      "stage": "consent_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "delete",
+      "stage": "migration_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "discover",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "discover",
+      "stage": "rate_ledger_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "discover",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "doctor",
+      "stage": "config_gate",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "doctor",
+      "stage": "rate_ledger_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "doctor",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "migrate",
+      "stage": "migration_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "purge",
+      "stage": "purge_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "refresh",
+      "stage": "cache_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "refresh",
+      "stage": "idempotency_finalize",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "refresh",
+      "stage": "idempotency_prepare",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "refresh",
+      "stage": "rate_ledger_commit",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "refresh",
+      "stage": "rate_ledger_reserve",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "storage_unavailable",
+      "operation": "status",
+      "stage": "cache_read",
+      "retryable": true,
+      "safe_param_schema_id": "store-code"
+    },
+    {
+      "code": "unsupported_platform",
+      "operation": "configure",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "unsupported_platform",
+      "operation": "discover",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "unsupported_platform",
+      "operation": "doctor",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "unsupported_platform",
+      "operation": "doctor",
+      "stage": "probe",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    },
+    {
+      "code": "unsupported_platform",
+      "operation": "refresh",
+      "stage": "config_validate",
+      "retryable": false,
+      "safe_param_schema_id": "none"
+    }
+  ],
+  "contract_failure": {
+    "requested_operation_field": "recognized_operation",
+    "recognized_operation_nullable": true,
+    "unknown_operation_rendering": "unknown",
+    "raw_operation_digest": "SHA256(ASCII('agent-quota:raw-operation:v1\\x00') || bounded-raw-operation-bytes)",
+    "raw_operation_max_bytes": 256,
+    "raw_operation_echo": false,
+    "safe_param_schema_id": "envelope-code"
+  },
+  "io_step_definitions": [
+    {
+      "path_id": "discover-http-v1",
+      "step_ordinal": 13,
+      "request_kind": "discovery",
+      "cohort_source": "endpoint_group_conservative_then_verified_same_row",
+      "reuse_observation": false,
+      "reservation_cardinality": "exactly_one"
+    },
+    {
+      "path_id": "discover-official-cli-v1",
+      "step_ordinal": 11,
+      "request_kind": "discovery",
+      "cohort_source": "endpoint_group_conservative_unknown",
+      "reuse_observation": false,
+      "reservation_cardinality": "exactly_one"
+    },
+    {
+      "path_id": "doctor-http-v1",
+      "step_ordinal": 13,
+      "request_kind": "probe",
+      "cohort_source": "endpoint_group_conservative_then_verified_same_row",
+      "reuse_observation": false,
+      "reservation_cardinality": "exactly_one"
+    },
+    {
+      "path_id": "doctor-official-cli-v1",
+      "step_ordinal": 11,
+      "request_kind": "probe",
+      "cohort_source": "endpoint_group_conservative_unknown",
+      "reuse_observation": false,
+      "reservation_cardinality": "exactly_one"
+    },
+    {
+      "path_id": "refresh-http-v1",
+      "step_ordinal": 14,
+      "request_kind": "fetch",
+      "cohort_source": "verified_identity_plus_endpoint_group_umbrella",
+      "reuse_observation": false,
+      "reservation_cardinality": "exactly_one"
+    },
+    {
+      "path_id": "refresh-official-cli-v1",
+      "step_ordinal": 12,
+      "request_kind": "identity_and_fetch",
+      "cohort_source": "endpoint_group_conservative_unknown",
+      "reuse_observation": true,
+      "reservation_cardinality": "exactly_one"
+    }
+  ],
+  "provider_io_data_dependencies": [
+    {
+      "path_id": "discover-http-v1",
+      "request_plan_stage": "discovery_request_plan_build",
+      "reserve_stage": "rate_ledger_reserve",
+      "commit_stage": "rate_ledger_commit",
+      "final_context_stage": "discovery_context_build",
+      "provider_io_stage": "discovery",
+      "timing_rule": "receipt_produced_at<context_created_at<first_provider_byte_at"
+    },
+    {
+      "path_id": "discover-official-cli-v1",
+      "request_plan_stage": "identity_and_discovery_request_plan_build",
+      "reserve_stage": "rate_ledger_reserve",
+      "commit_stage": "rate_ledger_commit",
+      "final_context_stage": "identity_and_discovery_context_build",
+      "provider_io_stage": "discovery",
+      "timing_rule": "receipt_produced_at<context_created_at<first_provider_byte_at"
+    },
+    {
+      "path_id": "doctor-http-v1",
+      "request_plan_stage": "probe_request_plan_build",
+      "reserve_stage": "rate_ledger_reserve",
+      "commit_stage": "rate_ledger_commit",
+      "final_context_stage": "probe_context_build",
+      "provider_io_stage": "probe",
+      "timing_rule": "receipt_produced_at<context_created_at<first_provider_byte_at"
+    },
+    {
+      "path_id": "doctor-official-cli-v1",
+      "request_plan_stage": "probe_request_plan_build",
+      "reserve_stage": "rate_ledger_reserve",
+      "commit_stage": "rate_ledger_commit",
+      "final_context_stage": "probe_context_build",
+      "provider_io_stage": "probe",
+      "timing_rule": "receipt_produced_at<context_created_at<first_provider_byte_at"
+    },
+    {
+      "path_id": "refresh-http-v1",
+      "request_plan_stage": "fetch_request_plan_build",
+      "reserve_stage": "rate_ledger_reserve",
+      "commit_stage": "rate_ledger_commit",
+      "final_context_stage": "fetch_context_build",
+      "provider_io_stage": "provider_fetch",
+      "timing_rule": "receipt_produced_at<context_created_at<first_provider_byte_at"
+    },
+    {
+      "path_id": "refresh-official-cli-v1",
+      "request_plan_stage": "identity_and_fetch_request_plan_build",
+      "reserve_stage": "rate_ledger_reserve",
+      "commit_stage": "rate_ledger_commit",
+      "final_context_stage": "identity_and_fetch_context_build",
+      "provider_io_stage": "probe",
+      "timing_rule": "receipt_produced_at<context_created_at<first_provider_byte_at"
+    }
+  ],
+  "projection_contract": {
+    "projection_id": "operation-markdown-projection-v1",
+    "verifier": "docs/contracts/canonicalize-registry-v1.py",
+    "source_json_pointers": [
+      "/error_codes",
+      "/error_rows",
+      "/paths",
+      "/predicate_definitions",
+      "/safe_param_schemas",
+      "/stages"
+    ],
+    "markdown_marker": "AQ-GENERATED-OPERATION-PROJECTION-V1",
+    "reverse_summary_recipe": "SHA256(UTF8-NFC(generated-markdown-between-markers))",
+    "projection_sha256": "bf15e173637b65df50feba3b92ef4760658da7fcaaabde7ffb919d64c9f0dd6b"
+  },
+  "closure_rules": {
+    "path_operation_mode_unique": true,
+    "path_id_unique": true,
+    "predicate_must_be_registered": true,
+    "provider_io_requires_earlier_matching_unconsumed_reservation": true,
+    "one_provider_attempt_one_reservation": true,
+    "error_primary_key": [
+      "code",
+      "operation",
+      "stage"
+    ],
+    "unknown_enum": "reject",
+    "unused_predicate": "reject",
+    "predicate_definition_id_set_equals_predicate_ids": true,
+    "predicate_input_reference_closure": "reject",
+    "safe_enum_allowed_values_nonempty_sorted_unique": true,
+    "provider_io_to_io_step_definition_bijection": true,
+    "io_step_definition_path_ordinal_and_request_kind_must_match": true,
+    "unused_io_step_definition": "reject",
+    "markdown_is_generated_projection": true,
+    "rate_reserve_provider_paths_total_result_map": true,
+    "rate_reserve_rejection_never_fatal": true,
+    "rate_reserve_rejection_before_first_provider_byte": true,
+    "request_plan_has_no_receipt": true,
+    "final_context_requires_committed_receipt": true,
+    "provider_io_consumes_final_context_only": true,
+    "provider_io_data_dependency_bijection": true,
+    "joint_identity_response_request_digest_exact": true,
+    "official_cli_discovery_bootstrap_choice_unique": true
+  },
+  "rate_reserve_result_contract": {
+    "provider_path_ids": [
+      "discover-http-v1",
+      "discover-official-cli-v1",
+      "doctor-http-v1",
+      "doctor-official-cli-v1"
+    ],
+    "reason_map": [
+      {
+        "reason": "blocked_until",
+        "code": "budget_deferred",
+        "safe_param_schema_id": "budget-code",
+        "safe_value": "blocked_until"
+      },
+      {
+        "reason": "db_unavailable",
+        "code": "storage_unavailable",
+        "safe_param_schema_id": "store-code",
+        "safe_value": "sqlite_unavailable"
+      },
+      {
+        "reason": "fence_conflict",
+        "code": "rate_ledger_unavailable",
+        "safe_param_schema_id": "rate-ledger-code",
+        "safe_value": "fence_conflict"
+      },
+      {
+        "reason": "floor",
+        "code": "budget_deferred",
+        "safe_param_schema_id": "budget-code",
+        "safe_value": "floor"
+      },
+      {
+        "reason": "hour",
+        "code": "budget_deferred",
+        "safe_param_schema_id": "budget-code",
+        "safe_value": "hour"
+      },
+      {
+        "reason": "lease_conflict",
+        "code": "rate_ledger_unavailable",
+        "safe_param_schema_id": "rate-ledger-code",
+        "safe_value": "lease_conflict"
+      },
+      {
+        "reason": "ledger_unavailable",
+        "code": "rate_ledger_unavailable",
+        "safe_param_schema_id": "rate-ledger-code",
+        "safe_value": "ledger_unavailable"
+      },
+      {
+        "reason": "transaction_failed",
+        "code": "storage_unavailable",
+        "safe_param_schema_id": "store-code",
+        "safe_value": "transaction_failed"
+      }
+    ],
+    "public_envelope": "OperationError",
+    "provider_byte_count_on_any_rejection": 0,
+    "credential_read_count_before_reserve": 0,
+    "cache_write_count_on_any_rejection": 0,
+    "fatal_fallback": "forbidden",
+    "success_path_counts": {
+      "discover-http-v1": {
+        "credential_resolution_count": 1,
+        "credential_source_call_count": 1,
+        "provider_attempt_count": 1,
+        "reservation_row_count": 1
+      },
+      "discover-official-cli-v1": {
+        "credential_resolution_count": 0,
+        "credential_source_call_count": 0,
+        "provider_attempt_count": 1,
+        "reservation_row_count": 1
+      },
+      "doctor-http-v1": {
+        "credential_resolution_count": 1,
+        "credential_source_call_count": 1,
+        "provider_attempt_count": 1,
+        "reservation_row_count": 1
+      },
+      "doctor-official-cli-v1": {
+        "credential_resolution_count": 0,
+        "credential_source_call_count": 0,
+        "provider_attempt_count": 1,
+        "reservation_row_count": 1
+      }
+    },
+    "verified_cohort_attachment": "same-row-check-and-attach-with-no-capacity-increase",
+    "verified_cohort_second_reservation": "forbidden"
+  },
+  "identity_bootstrap_contract": {
+    "official_cli_discovery_choice": "joint_identity_and_discovery_response",
+    "identity_and_discovery_context_schema": "aq-identity-and-discovery-context-v1",
+    "identity_and_discovery_request_plan_schema": "aq-identity-and-discovery-request-plan-v1",
+    "identity_and_discovery_response_schema": "aq-identity-and-discovery-response-v1",
+    "identity_and_fetch_context_schema": "aq-identity-and-fetch-context-v1",
+    "identity_and_fetch_request_plan_schema": "aq-identity-and-fetch-request-plan-v1",
+    "identity_and_fetch_response_schema": "aq-identity-and-fetch-response-v1",
+    "request_digest_observation_binding": "exact-equality-before-accept",
+    "identity_acceptance_order": "verify-evidence-then-request-digest-and-payload",
+    "reservation_response_provider_read_cardinality": "one-one-one",
+    "request_plan_receipt_field": "forbidden",
+    "final_context_receipt_state": "committed",
+    "provider_io_context_phase": "final-only"
+  }
+}

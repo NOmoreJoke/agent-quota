@@ -1,0 +1,253 @@
+{
+  "schema": "aq-history-manifest-v1",
+  "max_rounds": 20,
+  "detached_two_phase_policy": "finalize-audit-and-resolution-bytes-first-then-generate-manifest-resolution-must-not-contain-self-hash-or-manifest-hash",
+  "entries": [
+    {
+      "round": 1,
+      "kind": "audit",
+      "path": "docs/audits/round-01-audit.md",
+      "raw_sha256": "a00a14c901881d84ba7648987a2cb7ceff92b41bd9f077a13605e38bad76abdd"
+    },
+    {
+      "round": 1,
+      "kind": "resolution",
+      "path": "docs/audits/round-01-resolution.md",
+      "raw_sha256": "c4630344e20561d3677e6d393cf206f4bf6d438871444d28e9d7872dedd53935"
+    },
+    {
+      "round": 2,
+      "kind": "audit",
+      "path": "docs/audits/round-02-audit.md",
+      "raw_sha256": "c997a3853d0d47b9e44e1fbb0f8476ddbdf9006438855a3cf1cd246857b54c9a"
+    },
+    {
+      "round": 2,
+      "kind": "resolution",
+      "path": "docs/audits/round-02-resolution.md",
+      "raw_sha256": "8b13adaec95df01fa7da78bbed6c305076597535f4e415f396840be4774c65df"
+    },
+    {
+      "round": 3,
+      "kind": "audit",
+      "path": "docs/audits/round-03-audit.md",
+      "raw_sha256": "4c0283dfe7827922b0be8001e8b0d381e247ac6f6fab3d8c95d9c95aba2cca32"
+    },
+    {
+      "round": 3,
+      "kind": "resolution",
+      "path": "docs/audits/round-03-resolution.md",
+      "raw_sha256": "7ad08ed95a607d1a353c9c54d4bbd359798dd6145c2f6a3918204e3efae12581"
+    },
+    {
+      "round": 4,
+      "kind": "audit",
+      "path": "docs/audits/round-04-audit.md",
+      "raw_sha256": "ea0e5002fa17b6d3a8396c5ce8d11fa321e45ae2b1470ba33149a845b1a82897"
+    },
+    {
+      "round": 4,
+      "kind": "resolution",
+      "path": "docs/audits/round-04-resolution.md",
+      "raw_sha256": "2b57e50bbfe68928a74a7d2d090614407909a5da1481c80db6710219cd2cf171"
+    },
+    {
+      "round": 5,
+      "kind": "audit",
+      "path": "docs/audits/round-05-audit.md",
+      "raw_sha256": "7339b048a03f98b91119d01fec86d6364af645043da42cbfc42617de48542c86"
+    },
+    {
+      "round": 5,
+      "kind": "resolution",
+      "path": "docs/audits/round-05-resolution.md",
+      "raw_sha256": "0c3858ded76f622b3dc50ec87c9de0f931f97b6cdd93b0f0ed9de2f98c3d27a4"
+    },
+    {
+      "round": 6,
+      "kind": "audit",
+      "path": "docs/audits/round-06-audit.md",
+      "raw_sha256": "0924b992e71170ef4944980e37c7fe85fdf1a56a09a489ab77b9d987de62cd32"
+    },
+    {
+      "round": 6,
+      "kind": "resolution",
+      "path": "docs/audits/round-06-resolution.md",
+      "raw_sha256": "97048a24cab36d824726227278d68f71e74d60650abf3e1488438da8ed448609"
+    },
+    {
+      "round": 7,
+      "kind": "audit",
+      "path": "docs/audits/round-07-audit.md",
+      "raw_sha256": "91af1b28dd94c9372eeeb0410e0a8a77b20df3c293a64f4d33d76aba601482c9"
+    },
+    {
+      "round": 7,
+      "kind": "resolution",
+      "path": "docs/audits/round-07-resolution.md",
+      "raw_sha256": "9c9593995ac82d1a10475b32db790ea5b40ccd8be8a6be9bd963a0487637175b"
+    },
+    {
+      "round": 8,
+      "kind": "audit",
+      "path": "docs/audits/round-08-audit.md",
+      "raw_sha256": "9ca8cdb4046e6b5bfcfd73b32f3385af5cfc52dc89289492389b82742da4dde2"
+    },
+    {
+      "round": 8,
+      "kind": "resolution",
+      "path": "docs/audits/round-08-resolution.md",
+      "raw_sha256": "be178d129e98b1330b494acd5945ddab11cbb5916ecc0906ee50864f03b0b193"
+    },
+    {
+      "round": 9,
+      "kind": "audit",
+      "path": "docs/audits/round-09-audit.md",
+      "raw_sha256": "25634da86bbb2305081d9d7062faf5337bd88a6ae1021191f19a374c5a2c26fd"
+    },
+    {
+      "round": 9,
+      "kind": "resolution",
+      "path": "docs/audits/round-09-resolution.md",
+      "raw_sha256": "9450a20d9fb0ab3d70493e5571c9ec866808cdb6537562c810d48151ebfc9831"
+    },
+    {
+      "round": 10,
+      "kind": "audit",
+      "path": "docs/audits/round-10-audit.md",
+      "raw_sha256": "b0152d186058b1410f8dafaaeaa901ce154dfbf9aa6bdaea464f21f1e551d441"
+    },
+    {
+      "round": 10,
+      "kind": "resolution",
+      "path": "docs/audits/round-10-resolution.md",
+      "raw_sha256": "095709aef7e7994884efa8e6ef05508be8ac4a2af6a7a7b3b67f3007dde72786"
+    },
+    {
+      "round": 11,
+      "kind": "audit",
+      "path": "docs/audits/round-11-audit.md",
+      "raw_sha256": "58ae70d52a9fde414452b1d2588f538484f8f458b4aca999808a1b902ae690c8"
+    },
+    {
+      "round": 11,
+      "kind": "resolution",
+      "path": "docs/audits/round-11-resolution.md",
+      "raw_sha256": "5102e2e8f435aa28398517a752c1b9a445c593f55ef85f09b6b76ee7cde3ada1"
+    },
+    {
+      "round": 12,
+      "kind": "audit",
+      "path": "docs/audits/round-12-audit.md",
+      "raw_sha256": "3af9845341ed43402a116c41fa8dde3e061406d079a98823a0a9f1c6142a4ce7"
+    },
+    {
+      "round": 12,
+      "kind": "resolution",
+      "path": "docs/audits/round-12-resolution.md",
+      "raw_sha256": "20c07209f37de516b7ddb04590e682106ef9a9c90eadd5addb7308fcfc179a54"
+    },
+    {
+      "round": 13,
+      "kind": "audit",
+      "path": "docs/audits/round-13-audit.md",
+      "raw_sha256": "ab0bf37a87d585669c08576c78a03a3cab93dc12da61f3a17e08f087165b702e"
+    },
+    {
+      "round": 13,
+      "kind": "resolution",
+      "path": "docs/audits/round-13-resolution.md",
+      "raw_sha256": "61526eb56c30d72d661ce2130ea6cacfb5084610c1ce8ea41a3e9636b1aafbc4"
+    },
+    {
+      "round": 14,
+      "kind": "audit",
+      "path": "docs/audits/round-14-audit.md",
+      "raw_sha256": "fce3eaf3a5fe63f3fd801c6ee99618bc1fd35b6f6cf10d71c08012238da46cfc"
+    },
+    {
+      "round": 14,
+      "kind": "resolution",
+      "path": "docs/audits/round-14-resolution.md",
+      "raw_sha256": "7acdcfb945ab2e74297f84f83220135ba25610ec3617a75c1c2c12b20187fa7b"
+    },
+    {
+      "round": 15,
+      "kind": "audit",
+      "path": "docs/audits/round-15-audit.md",
+      "raw_sha256": "cf1683101338eb21dc54fac48c1b025b6e6458d3a07b9e9b7a318e4b0b04788d"
+    },
+    {
+      "round": 15,
+      "kind": "resolution",
+      "path": "docs/audits/round-15-resolution.md",
+      "raw_sha256": "acd56a4889f43e51570e0296b8262703307756a2306c138c488afe509f2372de"
+    },
+    {
+      "round": 16,
+      "kind": "audit",
+      "path": "docs/audits/round-16-audit.md",
+      "raw_sha256": "fcb79c01a0f298d57d34028b7f3aa98ea0abc9f96476a946354cfb984289d208"
+    },
+    {
+      "round": 16,
+      "kind": "resolution",
+      "path": "docs/audits/round-16-resolution.md",
+      "raw_sha256": "3716e2670cc90bd6fe67f1f9650f8ea89ded3202ab47d63af4efa021cdc13215"
+    },
+    {
+      "round": 17,
+      "kind": "audit",
+      "path": "docs/audits/round-17-audit.md",
+      "raw_sha256": "c63fd6092f61370186c5016fdbbec25831bf8529f3171517f695788e67ebd9c0"
+    },
+    {
+      "round": 17,
+      "kind": "resolution",
+      "path": "docs/audits/round-17-resolution.md",
+      "raw_sha256": "0035e73e2ee6d92c8b039245f6ecadb22a81447886ccd51b4d95ba4e6cb753a2"
+    },
+    {
+      "round": 18,
+      "kind": "audit",
+      "path": "docs/audits/round-18-audit.md",
+      "raw_sha256": "b706c27b4d492cc98ed6f8e317803f506948e3d63be3c2b33a882b055a2a7221"
+    },
+    {
+      "round": 18,
+      "kind": "resolution",
+      "path": "docs/audits/round-18-resolution.md",
+      "raw_sha256": "4c5c9cded44895f5317c561fd499def5564143f0a5d49f14a8a6ba6343be2bda"
+    },
+    {
+      "round": 19,
+      "kind": "audit",
+      "path": "docs/audits/round-19-audit.md",
+      "raw_sha256": "8dc6723d0c0e78cf19d43e1353659f9c8d7ce544133e7985bc72015d878fda76"
+    },
+    {
+      "round": 19,
+      "kind": "resolution",
+      "path": "docs/audits/round-19-resolution.md",
+      "raw_sha256": "c1b80b519bb9d7f0a5fa1b3a8e1b3b9dd8a455fdcce42a58554bf4ebb86c501c"
+    },
+    {
+      "round": 20,
+      "kind": "audit",
+      "path": "docs/audits/round-20-audit.md",
+      "raw_sha256": "e2f88b4bb6ed1a6cec015a140fc527c97edcbb5a1cee2bf2adc0f1f1beae03d9"
+    }
+  ],
+  "latest": {
+    "round": 20,
+    "state": "ZERO_ISSUES",
+    "audit": {
+      "path": "docs/audits/round-20-audit.md",
+      "raw_sha256": "e2f88b4bb6ed1a6cec015a140fc527c97edcbb5a1cee2bf2adc0f1f1beae03d9",
+      "first_line": "# PASS_ZERO_ISSUES",
+      "verdict": "PASS_ZERO_ISSUES",
+      "issue_ids": []
+    },
+    "gate_status": "ZERO_ISSUES_AUDIT_CONFIRMED"
+  }
+}

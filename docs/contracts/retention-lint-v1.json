@@ -1,0 +1,769 @@
+{
+  "$schema": "https://agent-quota.local/contracts/schemas/retention-lint-v1.schema.json",
+  "$id": "https://agent-quota.local/contracts/retention-lint-v1.json",
+  "schema": "aq-retention-lint-v1",
+  "artifact_id": "retention-lint-v1",
+  "parser": {
+    "implementation": "pandoc",
+    "version_exact": "3.9.0.2",
+    "reader": "commonmark+pipe_tables",
+    "base_reader": "commonmark",
+    "extension_set": [
+      "pipe_tables"
+    ],
+    "ast_format": "pandoc-json",
+    "pandoc_api_version": [
+      1,
+      23,
+      1,
+      1
+    ],
+    "table_node": "Block.Table",
+    "inline_leaf_nodes": [
+      "Code",
+      "Math",
+      "RawInline",
+      "Str"
+    ],
+    "block_leaf_nodes": [
+      "CodeBlock",
+      "RawBlock",
+      "TableCell"
+    ],
+    "version_or_extension_mismatch": "reject"
+  },
+  "inputs": [
+    "README.md",
+    "docs/design-proposal.md",
+    "docs/provider-contract.md",
+    "docs/security-model.md"
+  ],
+  "live_leaf_exceptions": [
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "0e29454d0c24216c84731cd932c93dfe510aec9b15294d23fb5d486e48139125",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "2818522f94dd482f3d38d89e3ca897b341be999a2a87d39b8d03b6923c9f6850",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "341706842b74c442b601d0b888ae7d50c78faf698273a1fbf6bf334b2ba42966",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "3802d7d318ef172dde0503c100da3c3373b2b4cd1e54614c9e5ea2e5aeed3a23",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "398e50d9dd25db1cf478684d97da28e772f93e7d44df17252c186f6fa427fe7c",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "3d9fb7327d46fbff8c03e85816946ac251aa12052a3505add033c47b2a82b864",
+      "reason": "runtime-duration-not-retention-owner"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "513f3bf735f678cd803ae6941b6044e6adc42aa2c1c67755e4b7a7feef7d1550",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "569856f006bb06f60e1346d98d55dadf85a1bf62cafee83cab732c6e4d9aaf77",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "5aee90ed92cb6af7c951e825db9be177e61f5d1cb4a4e0225da69c15f67c6f68",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "61997f616217cd1412820e103bb4d41c4d3d033dfad8b70d9f808f61fec48efb",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "6e64f15d3878e58f0e48ae4d12720785eaecca3b3f75ec585048b6a558be7915",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "7517fc5017661ceb53fecf728c7591bfa6f0abcb9cf043d9c6ac3685b450d434",
+      "reason": "runtime-duration-not-retention-owner"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "88a99372115e416e2c6247662b429f19d3b984637d1e24dfdce48adb57f3a204",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "8ae9e08ec20a9ca8bce1b595d646e6e83ac02f0ca6057bfd1d76165ecd98b6a1",
+      "reason": "runtime-duration-not-retention-owner"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "8ff019edf26a1e7f7752f557ecb636b860d49ddd76336682f8cbcc96b6af32b6",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "9576742a0d0afcd9a86a9807cc240eb061967520d8a821a81a91b894c311e097",
+      "reason": "runtime-duration-not-retention-owner"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "bbe37d3f09ebe4e54a28e6738c7622f21df40bafa85af36eed456f84f2ff1148",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "d046965d3a31792ef2286345f2cc748577d1556ee435f83b10970450b70e7b5a",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "d4aed7c0e4a14d5bfd912f47592902ce6c0b9c6d7709d44d145908edd15d4300",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "dd9dac4c434b2e173e16ba67efd564b4802e480a1f6931085b007157ccafc863",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "e19cf4ffdeeb508f3fed1045430c87065747c24e688fdd73c1ee907da9c19a86",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "edf30b2761a8ef81b71dcbe7405dd9af6f7f1caaee09cde0a11ab72dc65c851c",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "f61ca2e446c56caee5ccd0c79b58e8ae27fc6de822035c2ed7d5a7ffdfdeedc0",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "fae7af9b3676b5d6e400dfa6d02757d43c0ef3a7d15419d4a91d3edb06af9afc",
+      "reason": "runtime-duration-not-retention-owner"
+    },
+    {
+      "path": "docs/design-proposal.md",
+      "leaf_sha256": "fed29a7d905a5d75f025b22cc2f42f328a7aed93d214314a2f960dbac438702b",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/provider-contract.md",
+      "leaf_sha256": "1848f2b3864150c93198f41785e01bcb66f53e7e22da0dd3c6defb055ebe12e8",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/provider-contract.md",
+      "leaf_sha256": "66f7f93bdc103bdfcbbf6d84d1d98d40e530fb8997d4b69e05bf98e136caf30e",
+      "reason": "runtime-duration-not-retention-owner"
+    },
+    {
+      "path": "docs/provider-contract.md",
+      "leaf_sha256": "7d12211df434be35caec4d606c012ca5cf7f25d6d62ae9f2050acfae033dbd18",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/provider-contract.md",
+      "leaf_sha256": "8fc083e87b06adcfacceef7dcfc1ba32ee271e845e3b746b61b8f274a436be74",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/provider-contract.md",
+      "leaf_sha256": "fe0caf40f8726c5075d41c69365feec73f83af53820ce606d9dd1ba5e96c63bd",
+      "reason": "runtime-duration-not-retention-owner"
+    },
+    {
+      "path": "docs/security-model.md",
+      "leaf_sha256": "1486253d40b7ac5db30e342da8b3f98b088b4953fc3de08f7dda9e427e149b59",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/security-model.md",
+      "leaf_sha256": "4691cb3ea67cbf1827e5c743e09134c9196e97a1df10a94c39ab7c6a1343a03e",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/security-model.md",
+      "leaf_sha256": "4920a5f6c50725eab009f5237fe1cef61793aafe0a4fdb63bf432f4e45b269aa",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/security-model.md",
+      "leaf_sha256": "7c5b720749acf2cde653354c38429ac05e288caeff9c49f26bdbfa137a2fba83",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/security-model.md",
+      "leaf_sha256": "bd40cb8567d795a76f3a473187c89784f0eb86b3f99b3efaebb12ad7ae55da9f",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/security-model.md",
+      "leaf_sha256": "ebba1f3ef5c7cec0b779f5bf253b6a34d1137ac012eb28abd7f0d96c389ae7cc",
+      "reason": "normative-non-surface-prose"
+    },
+    {
+      "path": "docs/security-model.md",
+      "leaf_sha256": "efd60fdd04ad39d49c55d5170f9c178a3ddf762aa80dbb46b605219db69e90fc",
+      "reason": "normative-non-surface-prose"
+    }
+  ],
+  "excluded_fixture_files": [
+    "docs/contracts/fixtures/retention-lint-malicious-v1.json"
+  ],
+  "fixture_artifacts": [
+    {
+      "path": "docs/contracts/fixtures/retention-lint-malicious-v1.json",
+      "canonical_sha256": "7aca55a7ad81b761bec9e772988a97af732cfdcb7af25dda0fbdb63ccfdb7634"
+    }
+  ],
+  "repository_path_contract": {
+    "type": "RepoPath",
+    "canonical_pattern": "^(?:README\\.md|docs(?:/[a-z0-9][a-z0-9_.-]*)+)$",
+    "root": "repository-checkout-root-opened-no-follow",
+    "loader": "split-and-validate-then-openat-o_nofollow-each-segment",
+    "final_fd": "regular-file-beneath-fixed-root-and-canonical-bytes-equal"
+  },
+  "locations": {
+    "retention_table_ttl_cells": {
+      "file": "docs/security-model.md",
+      "heading_path": [
+        {
+          "level": 1,
+          "sibling_ordinal": 1,
+          "normalized_text": "Agent Quota 安全模型",
+          "identifier": ""
+        },
+        {
+          "level": 2,
+          "sibling_ordinal": 10,
+          "normalized_text": "10. 本地存储、删除与备份",
+          "identifier": ""
+        },
+        {
+          "level": 3,
+          "sibling_ordinal": 1,
+          "normalized_text": "10.1 唯一保存期限表",
+          "identifier": ""
+        }
+      ],
+      "table_ordinal": 1,
+      "section": "body",
+      "column_ordinal": 3
+    },
+    "action_ttl_owner": {
+      "file": "docs/security-model.md",
+      "heading_path": [
+        {
+          "level": 1,
+          "sibling_ordinal": 1,
+          "normalized_text": "Agent Quota 安全模型",
+          "identifier": ""
+        },
+        {
+          "level": 2,
+          "sibling_ordinal": 11,
+          "normalized_text": "11. 飞书卡片重放与动作绑定",
+          "identifier": ""
+        }
+      ],
+      "paragraph_ordinal": 2,
+      "required_code_span_prefix": "ACTION_TTL ="
+    }
+  },
+  "retention_entry_registry": {
+    "location_ref": "locations.retention_table_ttl_cells",
+    "expected_headers": [
+      "条目 ID",
+      "数据",
+      "保存期限与起点",
+      "到期动作"
+    ],
+    "id_column_ordinal": 1,
+    "id_pattern": "^RET-[A-Z0-9]+(?:-[A-Z0-9]+)*$",
+    "id_uniqueness": "byte-exact-and-global-within-located-table",
+    "inventory_owner_membership": "byte-exact-member-of-located-retention-id-set"
+  },
+  "inventory": {
+    "file": "docs/security-model.md",
+    "heading_path": [
+      {
+        "level": 1,
+        "sibling_ordinal": 1,
+        "normalized_text": "Agent Quota 安全模型",
+        "identifier": ""
+      },
+      {
+        "level": 2,
+        "sibling_ordinal": 10,
+        "normalized_text": "10. 本地存储、删除与备份",
+        "identifier": ""
+      },
+      {
+        "level": 3,
+        "sibling_ordinal": 1,
+        "normalized_text": "10.1 唯一保存期限表",
+        "identifier": ""
+      },
+      {
+        "level": 4,
+        "sibling_ordinal": 1,
+        "normalized_text": "10.1.1 机器数据清单与 retention lint",
+        "identifier": ""
+      }
+    ],
+    "table_ordinal": 1,
+    "surface_id_column": 1,
+    "owner_column": 3,
+    "expected_headers": [
+      "surface_id",
+      "owner/介质",
+      "唯一生命周期源"
+    ],
+    "expected_owner_joins": [
+      {
+        "surface_id": "migration_temp_claim",
+        "owner_id": "RET-MIGRATION-TEMP-CLAIM"
+      },
+      {
+        "surface_id": "migration_temp_file",
+        "owner_id": "RET-MIGRATION-TEMP-CLAIM"
+      },
+      {
+        "surface_id": "subject_metadata_observed",
+        "owner_id": "RET-SUBJECT-METADATA-OBSERVED"
+      }
+    ]
+  },
+  "scan": {
+    "unicode_normalization": "NFKC",
+    "case_fold": true,
+    "include_nodes": [
+      "text",
+      "code",
+      "code_block",
+      "html",
+      "table_cell"
+    ],
+    "join_adjacent_inline_nodes_within_leaf": true,
+    "heading_slug_used": false,
+    "fixture_selection_rule": "load every cases[] item from each fixture_artifacts path; evaluate source through detector; compare computed verdict to expected; fixture_id is diagnostic only",
+    "fixture_id_behavior_override": "forbidden"
+  },
+  "detector_grammar": {
+    "tokenization_order": [
+      "parse_pandoc_ast",
+      "select_included_leaf_nodes",
+      "join_adjacent_inline_nodes_with_single_space",
+      "NFKC",
+      "default_unicode_casefold",
+      "lex_longest_match"
+    ],
+    "number_forms": [
+      {
+        "form": "ascii_decimal_integer",
+        "pattern": "(?:0|[1-9][0-9]{0,8})"
+      },
+      {
+        "form": "ascii_scientific",
+        "pattern": "(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,9})?[eE][+-]?[0-9]{1,3}"
+      },
+      {
+        "form": "english_number_words",
+        "values": [
+          "eight",
+          "eighteen",
+          "eighty",
+          "eleven",
+          "fifteen",
+          "fifty",
+          "five",
+          "forty",
+          "four",
+          "fourteen",
+          "hundred",
+          "nine",
+          "nineteen",
+          "ninety",
+          "one",
+          "seven",
+          "seventeen",
+          "seventy",
+          "six",
+          "sixteen",
+          "sixty",
+          "ten",
+          "thirteen",
+          "thirty",
+          "thousand",
+          "three",
+          "twelve",
+          "twenty",
+          "two",
+          "zero"
+        ]
+      },
+      {
+        "form": "chinese_number",
+        "pattern": "[零〇一二两三四五六七八九十百千万亿]{1,16}"
+      }
+    ],
+    "duration_units": [
+      {
+        "canonical": "day",
+        "tokens": [
+          "d",
+          "day",
+          "days",
+          "天",
+          "日"
+        ]
+      },
+      {
+        "canonical": "hour",
+        "tokens": [
+          "h",
+          "hour",
+          "hours",
+          "小时"
+        ]
+      },
+      {
+        "canonical": "millisecond",
+        "tokens": [
+          "millisecond",
+          "milliseconds",
+          "ms",
+          "毫秒"
+        ]
+      },
+      {
+        "canonical": "minute",
+        "tokens": [
+          "m",
+          "min",
+          "mins",
+          "minute",
+          "minutes",
+          "分钟"
+        ]
+      },
+      {
+        "canonical": "month",
+        "tokens": [
+          "month",
+          "months",
+          "个月",
+          "月"
+        ]
+      },
+      {
+        "canonical": "second",
+        "tokens": [
+          "s",
+          "sec",
+          "second",
+          "seconds",
+          "秒"
+        ]
+      },
+      {
+        "canonical": "week",
+        "tokens": [
+          "week",
+          "weeks",
+          "周",
+          "星期"
+        ]
+      },
+      {
+        "canonical": "year",
+        "tokens": [
+          "year",
+          "years",
+          "年"
+        ]
+      }
+    ],
+    "duration_ast": {
+      "node": "Duration",
+      "children": [
+        "Number",
+        "optional_space_or_inline_boundary",
+        "Unit"
+      ],
+      "maximum_joined_nodes": 8
+    },
+    "retention_context": {
+      "same_leaf_max_token_distance": 4,
+      "before_or_after_terms": [
+        "expire",
+        "keep",
+        "kept",
+        "retention",
+        "ttl",
+        "保存期限",
+        "保留",
+        "到期",
+        "清理"
+      ]
+    },
+    "allowed_duration_contexts": [
+      {
+        "context_id": "exact-retention-owner-cell",
+        "matcher": "locations.retention_table_ttl_cells"
+      },
+      {
+        "context_id": "exact-action-ttl-owner",
+        "matcher": "locations.action_ttl_owner"
+      },
+      {
+        "context_id": "bounded-non-retention-runtime",
+        "required_terms": [
+          "backoff",
+          "cooldown",
+          "deadline",
+          "floor",
+          "lease",
+          "protocol",
+          "rate",
+          "refresh",
+          "retry",
+          "timeout",
+          "transport",
+          "window",
+          "冷却",
+          "刷新",
+          "协议",
+          "租约",
+          "窗口",
+          "超时",
+          "重试",
+          "限流"
+        ],
+        "forbidden_terms": [
+          "keep",
+          "retention",
+          "保存期限",
+          "保留"
+        ]
+      },
+      {
+        "context_id": "named-non-retention-constant",
+        "required_ast": "Code span SYMBOL immediately adjacent to '=' and Duration",
+        "forbidden_terms": [
+          "retention",
+          "保存期限",
+          "保留"
+        ]
+      }
+    ],
+    "decision_precedence": [
+      "retention-signal-reject-outside-exact-owner",
+      "persistence-signal-requires-exact-persist-directive-and-inventory-owner",
+      "bounded-non-retention-runtime-allow",
+      "named-non-retention-constant-allow"
+    ],
+    "retention_signal_overrides_runtime_allow": true,
+    "persistence_signal_lexer": {
+      "grammar_id": "aq-persistence-signal-grammar-v3",
+      "version": 3,
+      "mode": "advisory-rejection-only-never-creates-a-storage-surface",
+      "token_boundary": "Unicode-word-boundary-after-NFKC-casefold-with-longest-match",
+      "token_classes": {
+        "medium": [
+          "cache directory",
+          "cache file",
+          "config directory",
+          "config file",
+          "configuration directory",
+          "configuration file",
+          "data directory",
+          "data file",
+          "database",
+          "database table",
+          "directory",
+          "file",
+          "file system",
+          "filesystem",
+          "journal",
+          "journal file",
+          "keychain",
+          "keystore",
+          "local directory",
+          "local file",
+          "registry",
+          "sqlite",
+          "sqlite table",
+          "temp file",
+          "temporary file",
+          "wal",
+          "临时文件",
+          "密钥库",
+          "数据库",
+          "数据库表",
+          "数据文件",
+          "数据目录",
+          "文件",
+          "日志文件",
+          "本地文件",
+          "本地目录",
+          "注册表",
+          "目录",
+          "缓存文件",
+          "缓存目录",
+          "配置文件",
+          "配置目录",
+          "钥匙串"
+        ],
+        "sensitive_object": [
+          "api key",
+          "credential",
+          "password",
+          "refresh token",
+          "secret",
+          "token",
+          "凭据",
+          "刷新令牌",
+          "口令",
+          "密码",
+          "密钥"
+        ],
+        "write_action": [
+          "append",
+          "cache",
+          "create",
+          "insert",
+          "persist",
+          "record",
+          "save",
+          "store",
+          "write",
+          "writes",
+          "保存",
+          "写入",
+          "创建",
+          "持久化",
+          "缓存",
+          "记录",
+          "追加"
+        ]
+      },
+      "phrase_rules": [
+        {
+          "rule_id": "sensitive-write-medium",
+          "required_classes": [
+            "sensitive_object",
+            "write_action",
+            "medium"
+          ],
+          "accepted_orders": [
+            [
+              "medium",
+              "write_action",
+              "sensitive_object"
+            ],
+            [
+              "sensitive_object",
+              "write_action",
+              "medium"
+            ],
+            [
+              "write_action",
+              "medium",
+              "sensitive_object"
+            ],
+            [
+              "write_action",
+              "sensitive_object",
+              "medium"
+            ]
+          ],
+          "max_intervening_tokens": 8
+        },
+        {
+          "rule_id": "write-medium",
+          "required_classes": [
+            "write_action",
+            "medium"
+          ],
+          "accepted_orders": [
+            [
+              "medium",
+              "write_action"
+            ],
+            [
+              "write_action",
+              "medium"
+            ]
+          ],
+          "max_intervening_tokens": 6
+        }
+      ],
+      "signal_rule": "first-matching-phrase-rule-over-longest-token-class-spans",
+      "directive_ast_ref": "#/detector_grammar/persistence_directive_ast",
+      "signal_without_valid_directive": "reject"
+    },
+    "persistence_directive_ast": {
+      "node": "PersistentDeclarationRecordV1",
+      "source_node": "one-exact-Pandoc-Code-span",
+      "exact_pattern": "persist:v1:<surface_id>:<operation>:<owner_id>",
+      "segment_order": [
+        "literal:persist",
+        "literal:v1",
+        "capture:surface_id",
+        "enum:operation",
+        "capture:owner_id"
+      ],
+      "surface_id_pattern": "[a-z][a-z0-9_]{0,63}",
+      "owner_id_pattern": "RET-[A-Z0-9]+(?:-[A-Z0-9]+)*",
+      "operation_enum": [
+        "create",
+        "delete",
+        "update",
+        "write"
+      ],
+      "owner_join_key": [
+        "surface_id",
+        "owner_id"
+      ],
+      "inventory_owner_cardinality": 1,
+      "record_boundary": "one-exact-Pandoc-Code-span",
+      "adjacent_prose_authorization": "forbidden",
+      "residual_signal_rule": "remove-each-exact-record-once-then-reject-any-persistence-signal-unless-the-entire-leaf-digest-is-an-existing-exact-exception",
+      "ordinary_prose_semantics": "non-normative-and-cannot-create-a-storage-surface",
+      "unknown_directive_or_surface": "reject"
+    },
+    "cross_leaf_match": "reject_as_ambiguous",
+    "unrecognized_number_or_unit_adjacent_to_retention_context": "reject_as_ambiguous",
+    "unrecognized_persistent_medium_or_verb_pair": "ordinary-prose-non-normative"
+  },
+  "verdicts": {
+    "duration_outside_exact_location": "reject",
+    "unknown_ret_id": "reject",
+    "duplicate_ret_id": "reject",
+    "unknown_surface_id": "reject",
+    "surface_without_exactly_one_owner": "reject",
+    "new_persistent_surface_without_persist_tag": "reject",
+    "inventory_surface_without_live_reference": "reject",
+    "detector_ambiguous": "reject",
+    "parser_or_ast_version_mismatch": "reject"
+  }
+}

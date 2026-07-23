@@ -1,0 +1,2263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json",
+  "title": "Agent Quota core safety contract v1",
+  "x-aq-array-order": {
+    "$schema": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata",
+    "dialect": "aq-array-order-v1",
+    "version": 1,
+    "default": "sequence_exact",
+    "overrides": [
+      {
+        "schema_pointer": "/$defs/fixtureArtifact/properties/cases",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/fixture_id"
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/installationRegistryPayload/properties/attestation_floors",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/distribution_name",
+          "/publisher_binding_id"
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/installationRegistryPayload/properties/roots",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/canonical_path"
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/projectionContract/properties/source_json_pointers",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+        "schema_pointer": "/$defs/requestPlanContract/properties/forbidden_fields",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+        "schema_pointer": "/$defs/requestPlanContract/properties/required_fields",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+        "schema_pointer": "/$defs/requestPlanContract/properties/schemas",
+        "policy": "utf8_key",
+        "key_json_pointers": [""]
+      },
+      {
+        "schema_pointer": "/properties/budget_policies",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/policy_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/codex_schema_bundle/properties/descriptor_roots",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/path"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/codex_schema_bundle/properties/wire_schema_references",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/use_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/endpoint_budget_groups",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/group_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/fixture_artifacts",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/path"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/profile_budget_bindings",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/profile_id"
+        ]
+      }
+    ],
+    "coverage_rule": "enumerate every schema object with type=array; one exact override wins, otherwise the default is the sole policy; duplicate or dangling override rejects"
+  },
+  "type": "object",
+  "required": [
+    "$schema",
+    "$id",
+    "schema",
+    "artifact_id",
+    "desktop_product_contract",
+    "openrouter_adapter_contract",
+    "codex_schema_bundle",
+    "identity_bootstrap",
+    "probe_result_contract",
+    "budget_policies",
+    "endpoint_budget_groups",
+    "profile_budget_bindings",
+    "budget_ledger_contract",
+    "migration_graph",
+    "current_design_status",
+    "validation_mutation_contract",
+    "projection_contract",
+    "installation_registry",
+    "repository_path_contract",
+    "fixture_artifacts",
+    "closure_rules"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json"
+    },
+    "$id": {
+      "const": "https://agent-quota.local/contracts/core-safety-contract-v1.json"
+    },
+    "schema": {
+      "const": "aq-core-safety-contract-v1"
+    },
+    "artifact_id": {
+      "const": "core-safety-contract-v1"
+    },
+    "desktop_product_contract": {
+      "$ref": "#/$defs/desktopProductContract"
+    },
+    "openrouter_adapter_contract": {
+      "$ref": "#/$defs/openRouterAdapterContract"
+    },
+    "codex_schema_bundle": {
+      "type": "object",
+      "required": [
+        "recipe",
+        "generator_command",
+        "generator_mode",
+        "descriptor_roots",
+        "wire_schema_references",
+        "descriptor_digest_recipe",
+        "generated_file_policy"
+      ],
+      "properties": {
+        "recipe": {
+          "const": "aq-codex-schema-bundle-v1"
+        },
+        "generator_command": {
+          "const": [
+            "codex",
+            "app-server",
+            "generate-json-schema",
+            "--out",
+            "<empty-output-directory>"
+          ]
+        },
+        "generator_mode": {
+          "const": "stable"
+        },
+        "descriptor_roots": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/schemaRoot"
+          }
+        },
+        "wire_schema_references": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/wireRef"
+          }
+        },
+        "descriptor_digest_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "generated_file_policy": {
+          "$ref": "#/$defs/generatedFilePolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "identity_bootstrap": {
+      "$ref": "#/$defs/identityBootstrap"
+    },
+    "probe_result_contract": {
+      "$ref": "#/$defs/probeResultContract"
+    },
+    "budget_policies": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/budgetPolicy"
+      }
+    },
+    "endpoint_budget_groups": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/budgetGroup"
+      }
+    },
+    "profile_budget_bindings": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/profileBudgetBinding"
+      }
+    },
+    "budget_ledger_contract": {
+      "$ref": "#/$defs/budgetLedger"
+    },
+    "migration_graph": {
+      "$ref": "#/$defs/migrationGraph"
+    },
+    "current_design_status": {
+      "$ref": "#/$defs/currentDesignStatus"
+    },
+    "validation_mutation_contract": {
+      "$ref": "#/$defs/validationMutationContract"
+    },
+    "projection_contract": {
+      "$ref": "#/$defs/projectionContract"
+    },
+    "installation_registry": {
+      "$ref": "#/$defs/installationRegistryContract"
+    },
+    "repository_path_contract": {
+      "$ref": "#/$defs/repositoryPathContract"
+    },
+    "fixture_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/fixtureRef"
+      }
+    },
+    "closure_rules": {
+      "$ref": "#/$defs/closure"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "base64url": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "contractString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "desktopProductContract": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "product_name",
+        "primary_surface",
+        "mvp_platforms",
+        "staged_platforms",
+        "unsupported_platforms",
+        "desktop_host",
+        "renderer",
+        "core_runtime",
+        "application_service_rule",
+        "ipc_transport",
+        "ipc_authentication",
+        "ipc_protocol",
+        "ipc_limits",
+        "ipc_request_id",
+        "sidecar_stderr_policy",
+        "loopback_http",
+        "network_listener",
+        "single_instance",
+        "renderer_command_surface",
+        "renderer_command_contract",
+        "sidecar_budget_contract",
+        "renderer_navigation",
+        "renderer_csp",
+        "renderer_forbidden",
+        "credential_entry_surface",
+        "renderer_secret_input",
+        "credential_dialog_guard",
+        "destructive_confirmation_surface",
+        "destructive_operation_scope",
+        "renderer_destructive_confirmation",
+        "renderer_config_apply_rule",
+        "security_negative_tests",
+        "required_flows",
+        "scheduler_truth_rule",
+        "codex_disposition",
+        "optional_integrations",
+        "cli_role",
+        "packaging",
+        "data_root",
+        "secret_store",
+        "crash_and_upgrade"
+      ],
+      "properties": {
+        "contract_id": { "const": "aq-desktop-product-v1" },
+        "product_name": { "const": "Agent Quota Desktop" },
+        "primary_surface": { "const": "local_desktop_gui" },
+        "mvp_platforms": { "const": ["macos"] },
+        "staged_platforms": { "const": ["linux"] },
+        "unsupported_platforms": { "const": ["windows"] },
+        "desktop_host": { "const": "tauri-v2-rust-host" },
+        "renderer": { "const": "bundled-react-typescript-static-assets" },
+        "core_runtime": { "const": "python-core-sidecar" },
+        "application_service_rule": { "$ref": "#/$defs/contractString" },
+        "ipc_transport": { "const": "host-spawned-anonymous-pipes-stdio" },
+        "ipc_authentication": { "$ref": "#/$defs/contractString" },
+        "ipc_protocol": { "$ref": "#/$defs/contractString" },
+        "ipc_limits": { "$ref": "#/$defs/contractString" },
+        "ipc_request_id": { "const": "unsigned-64-bit-per-session-counter-starts-at-one-strictly-increments-response-echoes-exact-request-id-overflow-terminates-session" },
+        "sidecar_stderr_policy": { "const": "production-stderr-connected-directly-to-os-null-sink-no-stderr-pipe-raw-stderr-never-enters-log-renderer-or-ipc-structured-errors-use-ipc-only" },
+        "loopback_http": { "const": "forbidden-in-mvp" },
+        "network_listener": { "const": "none" },
+        "single_instance": { "$ref": "#/$defs/contractString" },
+        "renderer_command_surface": { "$ref": "#/$defs/contractString" },
+        "renderer_command_contract": { "$ref": "#/$defs/rendererCommandContract" },
+        "sidecar_budget_contract": { "$ref": "#/$defs/sidecarBudgetContract" },
+        "renderer_navigation": { "$ref": "#/$defs/contractString" },
+        "renderer_csp": { "$ref": "#/$defs/contractString" },
+        "renderer_forbidden": {
+          "const": ["credential-values", "destructive-confirmation-plan-digest-nonce-and-user-presence-token", "identity-evidence", "local-key-material", "provider-transport", "secret-input-events-and-buffers", "sqlite-files", "wal-shm-files"]
+        },
+        "credential_entry_surface": { "const": "host-owned-native-secure-dialog-or-existing-keychain-item-selection-outside-webview" },
+        "renderer_secret_input": { "const": "forbidden-no-secret-keystroke-paste-value-or-buffer-may-enter-react-dom-event-state-prop-command-payload-or-ipc-response" },
+        "credential_dialog_guard": { "const": "foreground-key-window-required-one-active-trusted-dialog-per-installation-host-enforced-cooldown-and-spam-fail-closed" },
+        "destructive_confirmation_surface": { "const": "host-owned-native-surface-displays-core-generated-redacted-plan-and-captures-user-presence-outside-webview" },
+        "destructive_operation_scope": { "const": "purge-disable-delete-cascade-and-destructive-endpoint-auth-binding-capability-or-manifest-config-diff" },
+        "renderer_destructive_confirmation": { "const": "renderer-may-only-request-trusted-confirmation-open-and-receive-cancelled-committed-or-status-no-plan-digest-nonce-or-user-presence-token" },
+        "renderer_config_apply_rule": { "const": "config-validate-apply-commits-only-core-classified-nondestructive-change-destructive-diff-can-only-open-host-owned-trusted-confirmation" },
+        "security_negative_tests": { "const": ["renderer-destructive-confirmation-token-absent", "renderer-secret-input-path-absent", "sidecar-stderr-raw-output-absent"] },
+        "required_flows": {
+          "const": ["accessibility", "account-and-subject-configuration", "background-refresh-state", "export-and-purge", "first-launch-and-credential-reference", "freshness-health-and-safe-error", "loading-empty-partial-and-total-failure", "manual-refresh", "offline-mode", "quota-overview", "reauthentication"]
+        },
+        "scheduler_truth_rule": { "$ref": "#/$defs/contractString" },
+        "codex_disposition": { "$ref": "#/$defs/contractString" },
+        "optional_integrations": { "const": ["feishu", "hermes", "scheduler-host"] },
+        "cli_role": { "$ref": "#/$defs/contractString" },
+        "packaging": { "$ref": "#/$defs/contractString" },
+        "data_root": { "$ref": "#/$defs/contractString" },
+        "secret_store": { "$ref": "#/$defs/contractString" },
+        "crash_and_upgrade": { "$ref": "#/$defs/contractString" }
+      },
+      "additionalProperties": false
+    },
+    "rendererCommandRow": {
+      "type": "object",
+      "required": ["command_id", "request_schema_ref", "request_fields", "response_schema_ref", "response_fields", "host_reconstructs", "secret_class", "destructive_class", "commit_policy"],
+      "properties": {
+        "command_id": {
+          "enum": ["bootstrap_state", "accounts_read", "quota_overview", "refresh_scope", "config_validate_apply", "credential_dialog_open", "destructive_confirmation_open", "reauthenticate", "export_redacted", "scheduler_state"]
+        },
+        "request_schema_ref": { "type": "string", "pattern": "^aq-renderer-dto://v1/[a-z0-9-]+-request$", "maxLength": 96 },
+        "request_fields": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }
+        },
+        "response_schema_ref": { "type": "string", "pattern": "^aq-renderer-dto://v1/[a-z0-9-]+-response$", "maxLength": 96 },
+        "response_fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }
+        },
+        "host_reconstructs": { "const": ["local_actor", "requested_operation", "account_scope"] },
+        "secret_class": {
+          "enum": ["redacted-no-secret-material", "trusted-host-dialog-request-no-secret-payload"]
+        },
+        "destructive_class": {
+          "enum": ["none", "core-classified-nondestructive-only", "trusted-surface-only-no-renderer-commit"]
+        },
+        "commit_policy": {
+          "enum": ["read-only", "application-service-after-host-reconstruction", "direct-commit-only-after-core-nondestructive-classification", "host-owned-native-dialog-only", "host-owned-confirmation-core-commit-only", "read-only-redacted-export"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rendererCommandContract": {
+      "type": "object",
+      "required": ["schema", "command_order_policy", "command_ids", "host_reconstruction_fields", "forbidden_renderer_fields", "unknown_field_policy", "dto_schema_policy", "dto_schemas", "commands"],
+      "properties": {
+        "schema": { "const": "aq-renderer-command-contract-v1" },
+        "command_order_policy": { "const": "exact-sequence-no-missing-unknown-duplicate-or-reorder" },
+        "command_ids": {
+          "const": ["bootstrap_state", "accounts_read", "quota_overview", "refresh_scope", "config_validate_apply", "credential_dialog_open", "destructive_confirmation_open", "reauthenticate", "export_redacted", "scheduler_state"]
+        },
+        "host_reconstruction_fields": { "const": ["local_actor", "requested_operation", "account_scope"] },
+        "forbidden_renderer_fields": {
+          "const": ["path", "url", "header", "sql", "credential_ref", "provider_selector", "secret_value", "secret_length", "secret_buffer", "plan_digest", "nonce", "user_presence_token"]
+        },
+        "unknown_field_policy": { "const": "reject-before-application-service" },
+        "dto_schema_policy": { "const": "all-command-and-nested-refs-resolve-once-in-this-closed-table-no-free-object-or-unbounded-string" },
+        "dto_schemas": {
+          "type": "array",
+          "minItems": 29,
+          "maxItems": 29,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/rendererDtoSchema" }
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/rendererCommandRow" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "rendererDtoField": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["name", "type", "required", "redaction"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+            "type": { "const": "boolean" },
+            "required": { "type": "boolean" },
+            "redaction": { "const": "renderer-safe-redacted" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "type", "required", "minimum", "maximum", "redaction"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+            "type": { "const": "integer" },
+            "required": { "type": "boolean" },
+            "minimum": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+            "maximum": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+            "redaction": { "const": "renderer-safe-redacted" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "type", "required", "max_utf8_bytes", "allowed_values", "redaction"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+            "type": { "const": "string" },
+            "required": { "type": "boolean" },
+            "max_utf8_bytes": { "type": "integer", "minimum": 1, "maximum": 1024 },
+            "allowed_values": { "type": "array", "maxItems": 32, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+            "redaction": { "enum": ["opaque-local-ref", "renderer-safe-redacted"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "type", "required", "ref", "redaction"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+            "type": { "const": "object" },
+            "required": { "type": "boolean" },
+            "ref": { "type": "string", "pattern": "^aq-renderer-dto://v1/shared-[a-z0-9-]+$", "maxLength": 128 },
+            "redaction": { "const": "renderer-safe-redacted" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "type", "required", "max_items", "ref", "redaction"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+            "type": { "const": "array" },
+            "required": { "type": "boolean" },
+            "max_items": { "type": "integer", "minimum": 1, "maximum": 4096 },
+            "ref": { "type": "string", "pattern": "^aq-renderer-dto://v1/shared-[a-z0-9-]+$", "maxLength": 128 },
+            "redaction": { "const": "renderer-safe-redacted" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "rendererDtoSchema": {
+      "type": "object",
+      "required": ["schema_ref", "role", "additional_properties", "fields"],
+      "properties": {
+        "schema_ref": { "type": "string", "pattern": "^aq-renderer-dto://v1/[a-z0-9-]+$", "maxLength": 128 },
+        "role": { "enum": ["request", "response", "shared"] },
+        "additional_properties": { "const": false },
+        "fields": { "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "$ref": "#/$defs/rendererDtoField" } }
+      },
+      "additionalProperties": false
+    },
+    "sidecarBudgetContract": {
+      "type": "object",
+      "required": ["schema", "wire_budget_field", "forbidden_wire_fields", "minimum_remaining_budget_ns", "maximum_remaining_budget_ns", "host_hard_cap_ns", "sidecar_receipt_sample", "sidecar_rebase", "effective_limit", "transport_delay_rule", "expiry_boundary", "overflow_policy", "pre_dispatch_rejection_effects", "timeout_supervision", "dispatched_timeout_effects", "session_rule"],
+      "properties": {
+        "schema": { "const": "aq-sidecar-remaining-budget-v1" },
+        "wire_budget_field": { "const": "remaining_budget_ns" },
+        "forbidden_wire_fields": { "const": ["deadline_monotonic_ns"] },
+        "minimum_remaining_budget_ns": { "const": 1 },
+        "maximum_remaining_budget_ns": { "const": 9000000000 },
+        "host_hard_cap_ns": { "const": 9000000000 },
+        "sidecar_receipt_sample": { "const": "sample-sidecar-monotonic-after-complete-legal-frame-validation" },
+        "sidecar_rebase": { "const": "checked-add-receipt-monotonic-now-plus-remaining-budget-ns" },
+        "effective_limit": { "const": "host-original-hard-cap-and-sidecar-local-rebased-deadline-both-enforced-no-cross-process-clock-comparison" },
+        "transport_delay_rule": { "const": "naturally-consumed-by-host-original-hard-cap-never-restored-by-sidecar-rebase" },
+        "expiry_boundary": { "const": "now-greater-than-or-equal-to-local-deadline-is-expired" },
+        "overflow_policy": { "const": "reject-frame-terminate-session-zero-writes-zero-provider-io" },
+        "pre_dispatch_rejection_effects": { "const": "invalid-out-of-range-expired-or-overflow-frame-is-rejected-before-application-service-with-writes-zero-provider-io-zero" },
+        "timeout_supervision": { "const": "host-timeout-term-then-after-500000000ns-kill-then-reap" },
+        "dispatched_timeout_effects": { "const": "outcome-unknown-no-automatic-replay-orphans-zero-existing-idempotency-and-transaction-recovery-decide-write-state" },
+        "session_rule": { "const": "every-launch-restart-and-u64-overflow-session-gets-new-budget-no-carry-or-reuse" }
+      },
+      "additionalProperties": false
+    },
+    "openRouterResponseRules": {
+      "type": "object",
+      "required": [
+        "data",
+        "creator_user_id",
+        "limit",
+        "limit_remaining",
+        "limit_reset",
+        "usage",
+        "usage_daily",
+        "usage_weekly",
+        "usage_monthly",
+        "is_management_key",
+        "expires_at",
+        "deprecated_rate_limit",
+        "other_fields"
+      ],
+      "properties": {
+        "data": { "$ref": "#/$defs/contractString" },
+        "creator_user_id": { "$ref": "#/$defs/contractString" },
+        "limit": { "$ref": "#/$defs/contractString" },
+        "limit_remaining": { "$ref": "#/$defs/contractString" },
+        "limit_reset": { "$ref": "#/$defs/contractString" },
+        "usage": { "$ref": "#/$defs/contractString" },
+        "usage_daily": { "$ref": "#/$defs/contractString" },
+        "usage_weekly": { "$ref": "#/$defs/contractString" },
+        "usage_monthly": { "$ref": "#/$defs/contractString" },
+        "is_management_key": { "$ref": "#/$defs/contractString" },
+        "expires_at": { "$ref": "#/$defs/contractString" },
+        "deprecated_rate_limit": { "$ref": "#/$defs/contractString" },
+        "other_fields": { "$ref": "#/$defs/contractString" }
+      },
+      "additionalProperties": false
+    },
+    "openRouterAdapterContract": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "lifecycle",
+        "mvp_count_rule",
+        "documentation_verified_on",
+        "official_documentation",
+        "endpoint_id",
+        "origin",
+        "method",
+        "path",
+        "query",
+        "request_body",
+        "auth",
+        "trust_env",
+        "redirects",
+        "tls",
+        "response_content_type",
+        "max_wire_bytes",
+        "max_decoded_bytes",
+        "queue_timeout_seconds",
+        "attempt_timeout_seconds",
+        "aggregate_timeout_seconds",
+        "access_identity_source_contract_id",
+        "access_identity_evidence",
+        "access_generation",
+        "observed_metadata",
+        "creator_user_id_stability",
+        "stable_subject_domain",
+        "rate_limit_cohort",
+        "identity_separation",
+        "contract_test_requirements",
+        "response_rules",
+        "numeric_wire_rule",
+        "capabilities",
+        "capability_semantics",
+        "limit_null_semantics",
+        "credits_endpoint",
+        "forbidden_overclaim",
+        "error_mapping"
+      ],
+      "properties": {
+        "contract_id": { "const": "aq-openrouter-current-key-v1" },
+        "lifecycle": { "const": "supported-candidate" },
+        "mvp_count_rule": { "$ref": "#/$defs/contractString" },
+        "documentation_verified_on": { "const": "2026-07-19" },
+        "official_documentation": {
+          "const": [
+            "https://openrouter.ai/docs/api/api-reference/api-keys/get-current-key",
+            "https://openrouter.ai/docs/api/api-reference/credits/get-credits",
+            "https://openrouter.ai/docs/api/reference/authentication",
+            "https://openrouter.ai/docs/api/reference/limits",
+            "https://openrouter.ai/openapi.json"
+          ]
+        },
+        "endpoint_id": { "const": "openrouter-current-key-v1" },
+        "origin": { "const": "https://openrouter.ai:443" },
+        "method": { "const": "GET" },
+        "path": { "const": "/api/v1/key" },
+        "query": { "const": "forbidden" },
+        "request_body": { "const": "forbidden" },
+        "auth": { "$ref": "#/$defs/contractString" },
+        "trust_env": { "const": false },
+        "redirects": { "const": "forbidden" },
+        "tls": { "$ref": "#/$defs/contractString" },
+        "response_content_type": { "const": "application-json-only" },
+        "max_wire_bytes": { "const": 65536 },
+        "max_decoded_bytes": { "const": 65536 },
+        "queue_timeout_seconds": { "const": "1.0" },
+        "attempt_timeout_seconds": { "const": "6.0" },
+        "aggregate_timeout_seconds": { "const": "9.0" },
+        "access_identity_source_contract_id": { "const": "openrouter-credential-generation-v1" },
+        "access_identity_evidence": { "$ref": "#/$defs/contractString" },
+        "access_generation": { "$ref": "#/$defs/contractString" },
+        "observed_metadata": { "$ref": "#/$defs/contractString" },
+        "creator_user_id_stability": { "$ref": "#/$defs/contractString" },
+        "stable_subject_domain": { "$ref": "#/$defs/contractString" },
+        "rate_limit_cohort": { "$ref": "#/$defs/contractString" },
+        "identity_separation": { "$ref": "#/$defs/contractString" },
+        "contract_test_requirements": {
+          "const": ["creator-user-id-change-does-not-change-access-or-cohort-identity", "creator-user-id-null-means-no-observed-metadata", "credential-generation-change-does-change-cache-access-identity", "duplicate-principal-or-binding-does-not-expand-endpoint-group-budget", "expires-at-absent-null-and-rfc3339-utc-are-distinct-valid-states", "limit-and-limit-remaining-nullability-must-match-and-finite-remaining-does-not-exceed-limit"]
+        },
+        "response_rules": { "$ref": "#/$defs/openRouterResponseRules" },
+        "numeric_wire_rule": { "$ref": "#/$defs/contractString" },
+        "capabilities": {
+          "const": ["openrouter-key-limit", "openrouter-key-remaining", "openrouter-key-usage-daily", "openrouter-key-usage-weekly", "openrouter-key-usage-monthly", "openrouter-key-expiry-status"]
+        },
+        "capability_semantics": { "$ref": "#/$defs/contractString" },
+        "limit_null_semantics": { "$ref": "#/$defs/contractString" },
+        "credits_endpoint": { "$ref": "#/$defs/contractString" },
+        "forbidden_overclaim": { "$ref": "#/$defs/contractString" },
+        "error_mapping": { "$ref": "#/$defs/contractString" }
+      },
+      "additionalProperties": false
+    },
+    "repoPath": {
+      "type": "string",
+      "pattern": "^(?:README\\.md|docs(?:/[a-z0-9][a-z0-9_.-]*)+)$",
+      "maxLength": 256
+    },
+    "repoArtifactPath": {
+      "allOf": [
+        { "$ref": "#/$defs/repoPath" },
+        { "pattern": "^docs/contracts/[a-z0-9][a-z0-9_-]*\\.json$", "maxLength": 128 }
+      ]
+    },
+    "repoFixturePath": {
+      "allOf": [
+        { "$ref": "#/$defs/repoPath" },
+        { "pattern": "^docs/contracts/fixtures/[a-z0-9][a-z0-9_-]*\\.json$", "maxLength": 160 }
+      ]
+    },
+    "schemaRoot": {
+      "type": "object",
+      "required": [
+        "path",
+        "content",
+        "sha256_recipe"
+      ],
+      "properties": {
+        "path": {
+          "enum": [
+            "codex_app_server_protocol.v2.schemas.json",
+            "v1/InitializeResponse.json"
+          ]
+        },
+        "content": {
+          "const": "canonical-json-bytes"
+        },
+        "sha256_recipe": {
+          "const": "SHA256(canonical-json-bytes)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "wireRef": {
+      "type": "object",
+      "required": [
+        "use_id",
+        "root_path",
+        "json_pointer"
+      ],
+      "properties": {
+        "use_id": {
+          "enum": [
+            "initialize-result",
+            "rate-limits-result"
+          ]
+        },
+        "root_path": {
+          "enum": [
+            "codex_app_server_protocol.v2.schemas.json",
+            "v1/InitializeResponse.json"
+          ]
+        },
+        "json_pointer": {
+          "enum": [
+            "",
+            "/definitions/GetAccountRateLimitsResponse"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "generatedFilePolicy": {
+      "type": "object",
+      "required": [
+        "closure_source",
+        "referenced_file_missing",
+        "referenced_file_changed",
+        "unreferenced_generated_file",
+        "output_directory_precondition",
+        "runtime_open_policy",
+        "runtime_path_resolution"
+      ],
+      "properties": {
+        "closure_source": {
+          "const": "wire_schema_references"
+        },
+        "referenced_file_missing": {
+          "const": "reject"
+        },
+        "referenced_file_changed": {
+          "const": "descriptor_hash_changes"
+        },
+        "unreferenced_generated_file": {
+          "const": "ignored_and_hash_unchanged"
+        },
+        "output_directory_precondition": {
+          "const": "empty"
+        },
+        "runtime_open_policy": {
+          "const": "only_descriptor_roots"
+        },
+        "runtime_path_resolution": {
+          "const": "fixed-generated-root-openat-no-follow-per-segment"
+        }
+      },
+      "additionalProperties": false
+    },
+    "contextContract": {
+      "type": "object",
+      "required": [
+        "schema",
+        "required_fields",
+        "immutability"
+      ],
+      "properties": {
+        "schema": {
+          "$ref": "#/$defs/id"
+        },
+        "required_fields": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "capability_request_digest_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "discovery_request_digest_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "bootstrap_identity_authorization_fields": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "immutability": {
+          "const": "deep-core-owned-frozen"
+        }
+      },
+      "additionalProperties": false
+    },
+    "responseContract": {
+      "type": "object",
+      "required": [
+        "schema",
+        "required_fields",
+        "acceptance_order",
+        "reservation_cardinality",
+        "response_cardinality",
+        "provider_read_cardinality"
+      ],
+      "properties": {
+        "schema": {
+          "$ref": "#/$defs/id"
+        },
+        "required_fields": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "acceptance_order": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "reservation_cardinality": {
+          "const": "exactly_one"
+        },
+        "response_cardinality": {
+          "const": "exactly_one"
+        },
+        "provider_read_cardinality": {
+          "const": "exactly_one"
+        }
+      },
+      "additionalProperties": false
+    },
+    "identityBootstrap": {
+      "type": "object",
+      "required": [
+        "official_cli_discovery_choice",
+        "request_plan_contract",
+        "identity_and_fetch_context",
+        "identity_and_fetch_response",
+        "identity_and_discovery_context",
+        "identity_and_discovery_response",
+        "replay_verdict"
+      ],
+      "properties": {
+        "official_cli_discovery_choice": {
+          "const": "joint_identity_and_discovery_response"
+        },
+        "request_plan_contract": {
+          "$ref": "#/$defs/requestPlanContract"
+        },
+        "identity_and_fetch_context": {
+          "$ref": "#/$defs/contextContract"
+        },
+        "identity_and_fetch_response": {
+          "$ref": "#/$defs/responseContract"
+        },
+        "identity_and_discovery_context": {
+          "$ref": "#/$defs/contextContract"
+        },
+        "identity_and_discovery_response": {
+          "$ref": "#/$defs/responseContract"
+        },
+        "replay_verdict": {
+          "const": "request_digest_mismatch_reject_before_config_cache_or_lkg_write"
+        }
+      },
+      "additionalProperties": false
+    },
+    "probeResultContract": {
+      "type": "object",
+      "required": [
+        "schema",
+        "discriminator",
+        "common_required_fields",
+        "branches",
+        "official_protocol_identity_evidence",
+        "adapter_forbidden_fields",
+        "acceptance_order",
+        "invalid_verdict"
+      ],
+      "properties": {
+        "schema": { "const": "aq-probe-result-contract-v1" },
+        "discriminator": { "const": "kind" },
+        "common_required_fields": {
+          "type": "array",
+          "const": ["compatibility", "detected_protocol_version", "kind", "mode"]
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/probeResultBranch" }
+        },
+        "official_protocol_identity_evidence": {
+          "$ref": "#/$defs/probeIdentityEvidenceContract"
+        },
+        "adapter_forbidden_fields": {
+          "type": "array",
+          "const": ["access_identity", "assurance", "cache_identity", "rate_limit_cohort"]
+        },
+        "acceptance_order": {
+          "type": "array",
+          "const": ["bounds_and_discriminator", "branch_field_cardinality", "additional_properties", "context_mode_match", "authorization_binding_match", "evidence_lifetime", "forbidden_derived_identity_fields", "identity_derive"]
+        },
+        "invalid_verdict": {
+          "const": "adapter_contract_violation_before_identity_derive_and_any_write"
+        }
+      },
+      "additionalProperties": false
+    },
+    "probeResultBranch": {
+      "type": "object",
+      "required": ["kind", "mode", "compatibility", "identity_evidence_cardinality", "additional_properties"],
+      "properties": {
+        "kind": { "enum": ["failure", "http_success", "official_cli_success", "offline_result"] },
+        "mode": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "enum": ["http", "official_cli_zero_binding", "offline"] },
+          "uniqueItems": true
+        },
+        "compatibility": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "enum": ["auth_required", "compatible", "incompatible", "unavailable", "unverified_version"] },
+          "uniqueItems": true
+        },
+        "identity_evidence_cardinality": { "enum": ["exactly_one", "forbidden"] },
+        "additional_properties": { "const": "forbid" }
+      },
+      "allOf": [
+        {"if":{"properties":{"kind":{"const":"failure"}}},"then":{"properties":{"mode":{"const":["http","official_cli_zero_binding","offline"]},"compatibility":{"const":["auth_required","incompatible","unavailable","unverified_version"]},"identity_evidence_cardinality":{"const":"forbidden"}}}},
+        {"if":{"properties":{"kind":{"const":"http_success"}}},"then":{"properties":{"mode":{"const":["http"]},"compatibility":{"const":["compatible"]},"identity_evidence_cardinality":{"const":"forbidden"}}}},
+        {"if":{"properties":{"kind":{"const":"official_cli_success"}}},"then":{"properties":{"mode":{"const":["official_cli_zero_binding"]},"compatibility":{"const":["compatible"]},"identity_evidence_cardinality":{"const":"exactly_one"}}}},
+        {"if":{"properties":{"kind":{"const":"offline_result"}}},"then":{"properties":{"mode":{"const":["offline"]},"compatibility":{"const":["compatible"]},"identity_evidence_cardinality":{"const":"forbidden"}}}}
+      ],
+      "additionalProperties": false
+    },
+    "probeIdentityEvidenceContract": {
+      "type": "object",
+      "required": ["required_fields", "source_literal", "access_generation_material_bytes", "authorization_binding_required_fields", "authorization_binding_match", "lifetime_rule", "single_use", "additional_properties"],
+      "properties": {
+        "required_fields": { "type": "array", "const": ["access_generation_material", "authorization_binding", "expires_monotonic_ns", "source", "upstream_subject"] },
+        "source_literal": { "const": "official_protocol" },
+        "access_generation_material_bytes": {
+          "type": "object",
+          "required": ["minimum", "maximum"],
+          "properties": {"minimum":{"const":1},"maximum":{"const":512}},
+          "additionalProperties": false
+        },
+        "authorization_binding_required_fields": { "type": "array", "const": ["principal_id", "profile_id", "rpc_endpoint_id", "source_contract_id", "source_generation"] },
+        "authorization_binding_match": { "const": "exact-current-probe-context-and-manifest-generation" },
+        "lifetime_rule": { "const": "now_monotonic_ns<expires_monotonic_ns<=now_monotonic_ns+60000000000" },
+        "single_use": { "const": true },
+        "additional_properties": { "const": "forbid" }
+      },
+      "additionalProperties": false
+    },
+    "requestPlanContract": {
+      "type": "object",
+      "required": ["schemas", "required_fields", "forbidden_fields", "immutability"],
+      "properties": {
+        "schemas": {
+          "type": "array",
+          "const": ["aq-discovery-request-plan-v1", "aq-fetch-request-plan-v1", "aq-identity-and-discovery-request-plan-v1", "aq-identity-and-fetch-request-plan-v1", "aq-probe-request-plan-v1"]
+        },
+        "required_fields": {
+          "type": "array",
+          "const": ["deadline_monotonic_ns", "endpoint_budget_group_id", "endpoint_id", "network_policy", "request_digest", "request_kind"]
+        },
+        "forbidden_fields": {
+          "type": "array",
+          "const": ["access_identity", "credential_leases", "reservation_receipt"]
+        },
+        "immutability": { "const": "deep-core-owned-frozen" }
+      },
+      "additionalProperties": false
+    },
+    "budgetPolicy": {
+      "type": "object",
+      "required": [
+        "policy_id",
+        "version",
+        "request_floor_seconds",
+        "hourly_group_limit",
+        "blocked_until_scope",
+        "policy_digest_recipe"
+      ],
+      "properties": {
+        "policy_id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "const": 1
+        },
+        "request_floor_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "hourly_group_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "blocked_until_scope": {
+          "const": "endpoint_budget_group_and_verified_cohort_union"
+        },
+        "policy_digest_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false
+    },
+    "budgetGroup": {
+      "type": "object",
+      "required": [
+        "group_id",
+        "transport",
+        "budget_policy_id",
+        "endpoint_ids"
+      ],
+      "properties": {
+        "group_id": {
+          "$ref": "#/$defs/id"
+        },
+        "transport": {
+          "enum": [
+            "http",
+            "local-stdio"
+          ]
+        },
+        "budget_policy_id": {
+          "$ref": "#/$defs/id"
+        },
+        "endpoint_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "profileBudgetBinding": {
+      "type": "object",
+      "required": [
+        "profile_id",
+        "endpoint_budget_group_id"
+      ],
+      "properties": {
+        "profile_id": {
+          "$ref": "#/$defs/id"
+        },
+        "endpoint_budget_group_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "additionalProperties": false
+    },
+    "budgetLedger": {
+      "type": "object",
+      "required": [
+        "group_policy_digest_recipe",
+        "umbrella_floor_key_recipe",
+        "umbrella_hour_key_recipe",
+        "row_cardinality",
+        "endpoint_or_profile_multiplicity",
+        "profile_numeric_policy_fields",
+        "mismatched_group_policy_reference",
+        "retry_after_aggregation"
+      ],
+      "properties": {
+        "group_policy_digest_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 768
+        },
+        "umbrella_floor_key_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "umbrella_hour_key_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "row_cardinality": {
+          "const": "one_reservation_row_per_provider_attempt"
+        },
+        "endpoint_or_profile_multiplicity": {
+          "const": "does_not_create_additional_umbrella_capacity"
+        },
+        "profile_numeric_policy_fields": {
+          "const": "forbidden"
+        },
+        "mismatched_group_policy_reference": {
+          "const": "reject_before_credential_or_provider_io"
+        },
+        "retry_after_aggregation": {
+          "$ref": "#/$defs/retryAfterAggregation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "retryAfterAggregation": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "transaction_mode",
+        "clock_sample",
+        "scope",
+        "boundary_sources",
+        "active_predicate",
+        "expired_predicate",
+        "active_result",
+        "no_active_result",
+        "aggregation",
+        "hard_max_seconds",
+        "blocked_until_update",
+        "determinism",
+        "test_vectors",
+        "dual_process_virtual_clock"
+      ],
+      "properties": {
+        "contract_id": { "const": "aq-rate-retry-after-aggregation-v1" },
+        "transaction_mode": { "const": "BEGIN_IMMEDIATE" },
+        "clock_sample": { "const": "one_db_utc_seconds_sample_per_reservation_transaction" },
+        "scope": { "const": "endpoint_budget_group_and_verified_cohort_union" },
+        "boundary_sources": {
+          "type": "array",
+          "const": ["blocked_until", "floor", "hour", "reservation"]
+        },
+        "active_predicate": { "const": "now_utc_seconds_lt_boundary_utc_seconds" },
+        "expired_predicate": { "const": "now_utc_seconds_gte_boundary_utc_seconds" },
+        "active_result": { "const": "deferred_without_reservation_row" },
+        "no_active_result": { "const": "retry_after_seconds_null_and_reserve_allowed" },
+        "aggregation": { "const": "clamp_max_active_boundary_minus_now" },
+        "hard_max_seconds": { "const": 86400 },
+        "blocked_until_update": { "const": "max_existing_upstream_policy" },
+        "determinism": { "const": "independent_of_input_order_primary_reason_process_scheduling" },
+        "test_vectors": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/retryAfterVector" }
+        },
+        "dual_process_virtual_clock": { "$ref": "#/$defs/dualProcessVirtualClock" }
+      },
+      "additionalProperties": false
+    },
+    "retryAfterBoundary": {
+      "type": "object",
+      "required": ["scope", "reason", "boundary_utc_seconds"],
+      "properties": {
+        "scope": { "enum": ["group", "verified_cohort"] },
+        "reason": { "enum": ["blocked_until", "floor", "hour", "reservation"] },
+        "boundary_utc_seconds": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 }
+      },
+      "additionalProperties": false
+    },
+    "retryAfterVector": {
+      "type": "object",
+      "required": ["vector_id", "now_utc_seconds", "boundaries", "expected_retry_after_seconds", "expected_disposition"],
+      "properties": {
+        "vector_id": { "$ref": "#/$defs/id" },
+        "now_utc_seconds": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 },
+        "boundaries": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/retryAfterBoundary" }
+        },
+        "expected_retry_after_seconds": { "type": ["integer", "null"], "minimum": 0, "maximum": 86400 },
+        "expected_disposition": { "enum": ["deferred", "reserve_allowed"] }
+      },
+      "additionalProperties": false
+    },
+    "dualProcessVirtualClock": {
+      "type": "object",
+      "required": ["initial_now_utc_seconds", "active_boundaries_utc_seconds", "first_retry_utc_seconds", "first_retry_disposition", "all_clear_utc_seconds", "all_clear_disposition", "process_order_invariant"],
+      "properties": {
+        "initial_now_utc_seconds": { "const": 100 },
+        "active_boundaries_utc_seconds": { "type": "array", "const": [110, 160] },
+        "first_retry_utc_seconds": { "const": 110 },
+        "first_retry_disposition": { "const": "deferred" },
+        "all_clear_utc_seconds": { "const": 160 },
+        "all_clear_disposition": { "const": "reserve_allowed" },
+        "process_order_invariant": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "migrationGraph": {
+      "type": "object",
+      "required": [
+        "cascade_representation",
+        "cascade_membership_fields",
+        "execution_dependency_kinds",
+        "forbidden_dependency_kinds",
+        "delete_rule",
+        "cascade_parent_action_id",
+        "topological_algorithm",
+        "prefix_invariant"
+      ],
+      "properties": {
+        "cascade_representation": {
+          "const": "membership_reason_only_not_execution_order"
+        },
+        "cascade_membership_fields": {
+          "const": [
+            "cascade_root_semantic_key",
+            "member_semantic_key",
+            "reason_code"
+          ]
+        },
+        "execution_dependency_kinds": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "enum": [
+              "child_before_parent_delete",
+              "create_before_use",
+              "creation_parent",
+              "generation_replacement",
+              "remove_ref_before_mutation"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "forbidden_dependency_kinds": {
+          "const": [
+            "cascade_parent_before_child_mutation"
+          ]
+        },
+        "delete_rule": {
+          "const": "child_delete_to_parent_delete_only"
+        },
+        "cascade_parent_action_id": {
+          "const": "forbidden"
+        },
+        "topological_algorithm": {
+          "const": "kahn-min-heap-semantic-key-utf8"
+        },
+        "prefix_invariant": {
+          "const": "every_prefix_preserves_reference_and_generation_invariants"
+        }
+      },
+      "additionalProperties": false
+    },
+    "installationRegistryContract": {
+      "type": "object",
+      "required": [
+        "envelope_schema_id",
+        "payload_schema_id",
+        "canonical_bundle_storage",
+        "attestation_floor_key_recipe",
+        "plan_digest_recipe",
+        "update_transaction",
+        "purge_rule",
+        "restore_rule",
+        "cross_component_rollback",
+        "same_sequence_different_digest",
+        "normal_upgrade"
+      ],
+      "properties": {
+        "envelope_schema_id": {
+          "const": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json#/$defs/installationRegistryEnvelope"
+        },
+        "payload_schema_id": {
+          "const": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json#/$defs/installationRegistryPayload"
+        },
+        "canonical_bundle_storage": {
+          "const": "canonical_bundle_bytes_base64url_plus_sha256"
+        },
+        "attestation_floor_key_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "plan_digest_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "update_transaction": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "purge_rule": {
+          "const": "retain_registry_and_binding_until_all_registered_roots_and_keyring_are_safely_removed"
+        },
+        "restore_rule": {
+          "const": "binding_registry_keyring_database_wal_shm_config_are_one_atomic_restore_set"
+        },
+        "cross_component_rollback": {
+          "const": "reject"
+        },
+        "same_sequence_different_digest": {
+          "const": "reject"
+        },
+        "normal_upgrade": {
+          "const": "atomically_advance_bundle_attestation_and_plan_floors"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rootRecord": {
+      "type": "object",
+      "required": [
+        "canonical_path",
+        "device",
+        "inode",
+        "owner_uid",
+        "mode",
+        "xdg_confirmed",
+        "record_mac"
+      ],
+      "properties": {
+        "canonical_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "device": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inode": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "owner_uid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode": {
+          "const": "0700"
+        },
+        "xdg_confirmed": {
+          "type": "boolean"
+        },
+        "record_mac": {
+          "$ref": "#/$defs/base64url"
+        }
+      },
+      "additionalProperties": false
+    },
+    "attestationFloor": {
+      "type": "object",
+      "required": [
+        "distribution_name",
+        "publisher_binding_id",
+        "attestation_sequence_floor"
+      ],
+      "properties": {
+        "distribution_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "publisher_binding_id": {
+          "$ref": "#/$defs/id"
+        },
+        "attestation_sequence_floor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      },
+      "additionalProperties": false
+    },
+    "trustBundleState": {
+      "type": "object",
+      "required": [
+        "bundle_sequence",
+        "bundle_sha256",
+        "canonical_bundle_bytes_base64url"
+      ],
+      "properties": {
+        "bundle_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "bundle_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "canonical_bundle_bytes_base64url": {
+          "$ref": "#/$defs/base64url"
+        }
+      },
+      "additionalProperties": false
+    },
+    "acceptedPlan": {
+      "type": "object",
+      "required": [
+        "plan_sequence",
+        "plan_digest"
+      ],
+      "properties": {
+        "plan_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "plan_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "installationRegistryPayload": {
+      "type": "object",
+      "required": [
+        "schema",
+        "installation_id",
+        "binding_key_id",
+        "registry_sequence",
+        "keyring_aead_generation",
+        "keyring_envelope_sequence",
+        "keyring_envelope_sha256",
+        "keyring_generation_floor",
+        "current_trust_bundle",
+        "attestation_floors",
+        "accepted_install_plan",
+        "roots"
+      ],
+      "properties": {
+        "schema": {
+          "const": "aq-installation-registry-payload-v1"
+        },
+        "installation_id": {
+          "type": "string",
+          "pattern": "^aqi_[0-9a-f]{32}$"
+        },
+        "binding_key_id": {
+          "type": "string",
+          "pattern": "^aqbk_[0-9a-f]{64}$"
+        },
+        "registry_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "keyring_aead_generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "keyring_envelope_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "keyring_envelope_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "keyring_generation_floor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "current_trust_bundle": {
+          "$ref": "#/$defs/trustBundleState"
+        },
+        "attestation_floors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/attestationFloor"
+          }
+        },
+        "accepted_install_plan": {
+          "$ref": "#/$defs/acceptedPlan"
+        },
+        "roots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/rootRecord"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "installationRegistryEnvelope": {
+      "type": "object",
+      "required": [
+        "schema",
+        "payload",
+        "mac"
+      ],
+      "properties": {
+        "schema": {
+          "const": "aq-installation-registry-envelope-v1"
+        },
+        "payload": {
+          "$ref": "#/$defs/installationRegistryPayload"
+        },
+        "mac": {
+          "type": "object",
+          "required": [
+            "algorithm",
+            "tag"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "hmac-sha-256"
+            },
+            "tag": {
+              "$ref": "#/$defs/base64url"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "validationMutationContract": {
+      "type": "object",
+      "required": ["contract_id", "mutation_digest_recipe", "result_digest_recipe", "case_count", "result_required_fields", "result_row_required_fields", "runner_implementation_closure", "cases"],
+      "properties": {
+        "contract_id": { "const": "aq-validation-mutation-contract-v1" },
+        "mutation_digest_recipe": { "const": "SHA256(ASCII('agent-quota:validation-mutation:v1\\x00')||aq-jcs-nfc-v1(mutation_spec))" },
+        "result_digest_recipe": { "const": "SHA256(ASCII('agent-quota:validation-mutation-results:v1\\x00')||aq-jcs-nfc-v1(result-without-results_sha256))" },
+        "case_count": { "const": 50 },
+        "result_required_fields": {
+          "type": "array",
+          "const": ["case_count", "cases", "contract_id", "results_sha256", "source_bytes_unchanged", "status"]
+        },
+        "result_row_required_fields": {
+          "type": "array",
+          "const": ["actual_success", "applied_recipe_sha256", "case_id", "executor_closure_sha256", "executor_id", "executor_implementation_sha256", "expected_success", "mutated_output_sha256", "mutation_sha256", "observed_failure_class", "sequence", "source_input_sha256", "verdict"]
+        },
+        "runner_implementation_closure": { "$ref": "#/$defs/runnerImplementationClosure" },
+        "cases": {
+          "type": "array",
+          "minItems": 50,
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/validationMutationCase" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "validationMutationCase": {
+      "type": "object",
+      "required": ["sequence", "case_id", "expected_success", "mutation_spec", "mutation_sha256"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "case_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,127}$" },
+        "expected_success": { "type": "boolean" },
+        "mutation_spec": { "$ref": "#/$defs/validationMutationSpec" },
+        "mutation_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "validationMutationSpec": {
+      "type": "object",
+      "required": ["kind", "recipe_version", "executor_id", "executor_implementation_sha256", "executor_closure_sha256", "repo_paths", "operation", "expected_failure_class", "expected_repo_effect"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "array-dangling", "array-duplicate", "array-reverse", "artifact-unknown", "decision-bit-drift", "decision-design-link-drift", "decision-file-delete", "decision-history-disguise", "decision-provider-link-drift", "decision-readme-link-drift", "decision-record-kind-drift", "decision-security-link-drift", "decision-status-drift", "fixture-id-diagnostic-only", "fixture-input", "lease-boolean-as-expiry", "lease-clock-domain-mix", "lease-int64-overflow", "lease-invalid-conversion", "live-design-local-file-persistence", "live-design-new-ttl", "live-design-untagged-persistence", "live-provider-local-file-persistence", "live-provider-new-ttl", "live-provider-untagged-persistence", "live-security-local-file-persistence", "live-security-new-ttl", "live-security-untagged-persistence", "local-key-missing-purpose", "mutation-result-duplicate-id", "mutation-result-empty-cases", "mutation-result-fake-status", "mutation-result-missing-case", "npm-implementation-tree-drift", "operation-dangling", "package-lock-parity", "persistence-old-two-part", "projected-error-row", "rate-success-path-count", "release-gate-concurrent-replacement", "release-gate-entry-symlink", "release-gate-root-substitution", "release-gate-source-symlink", "repo-path-alias", "repo-path-symlink", "retention-synonym-corpus", "runtime-binary-digest", "schema-const", "tool-write-flag", "validation-input-changed"
+          ]
+        },
+        "recipe_version": { "const": 1 },
+        "executor_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,127}$" },
+        "executor_implementation_sha256": { "$ref": "#/$defs/sha256" },
+        "executor_closure_sha256": { "$ref": "#/$defs/sha256" },
+        "repo_paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "anyOf": [
+              { "const": "README.md" },
+              { "$ref": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/repoPath" }
+            ]
+          },
+          "uniqueItems": true
+        },
+        "operation": { "$ref": "#/$defs/mutationOperation" },
+        "expected_failure_class": { "enum": ["none", "validator-rejection", "release-gate-rejection", "process-rejection"] },
+        "expected_repo_effect": { "enum": ["changed", "unchanged"] }
+      },
+      "additionalProperties": false
+    },
+    "mutationOperation": {
+      "type": "object",
+      "required": ["operation_id", "locator_kind", "target_repo_path", "locator", "expected_before", "expected_after", "expected_before_state_sha256", "expected_after_state_sha256"],
+      "properties": {
+        "operation_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,127}$" },
+        "locator_kind": { "enum": ["json-pointer", "text-anchor", "filesystem", "runtime", "result-payload"] },
+        "target_repo_path": {
+          "anyOf": [
+            { "const": "README.md" },
+            { "$ref": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/repoPath" }
+          ]
+        },
+        "locator": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "expected_before": {},
+        "expected_after": {},
+        "expected_before_state_sha256": { "$ref": "#/$defs/sha256" },
+        "expected_after_state_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_descriptor": {
+          "enum": [
+            "validation-input-changed|validator pause before final verify|\"stable README bytes\"->\"concurrent README replacement\"",
+            "retention-synonym-corpus|all retention fixture sources|\"fixture-id-independent expected verdicts\"->\"unchanged replay\"",
+            "release-gate-root-substitution|gate fixed-root executable identity|\"gate from selected root\"->\"gate executable from different root\"",
+            "release-gate-concurrent-replacement|gate pause before final verify|\"stable README bytes\"->\"concurrent README replacement\"",
+            "npm-implementation-tree-drift|resolved npm implementation tree|\"pinned-tree-digest\"->\"copy with lib/cli.js mutation\"",
+            "mutation-result-missing-case|/cases/-|\"complete 50-row result\"->\"last row removed\"",
+            "mutation-result-empty-cases|/cases|\"complete 50-row result\"->[]",
+            "mutation-result-fake-status|/|\"complete result object\"->{\"status\":\"ok\"}",
+            "mutation-result-duplicate-id|/cases/1|\"unique second row\"->\"copy of first row\""
+          ]
+        },
+        "state_serializer": {
+          "enum": ["aq-gate-owned-result-payload-state-v1", "aq-gate-owned-runtime-state-v1"]
+        },
+        "observation_command": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"type": "string", "minLength": 1, "maxLength": 256}
+        },
+        "state_required_fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "locator_kind": { "enum": ["runtime", "result-payload"] } }, "required": ["locator_kind"] },
+          "then": { "required": ["evidence_descriptor", "state_serializer", "observation_command", "state_required_fields"] },
+          "else": {
+            "allOf": [
+              {"not": { "required": ["evidence_descriptor"] }},
+              {"not": { "required": ["state_serializer"] }},
+              {"not": { "required": ["observation_command"] }},
+              {"not": { "required": ["state_required_fields"] }}
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "runnerImplementationClosure": {
+      "type": "object",
+      "required": ["version", "source_path", "dynamic_callable_policy", "external_call_policy", "function_source_digests", "local_call_edges", "external_call_targets", "executor_closures", "closure_sha256"],
+      "properties": {
+        "version": { "const": 1 },
+        "source_path": { "const": "docs/contracts/run-validation-mutations-v1.py" },
+        "dynamic_callable_policy": { "const": "reject-except-literal-MUTATORS-dispatch" },
+        "external_call_policy": { "const": "exact-symbolic-callsite-source-pinned-and-runtime-tool-identity-pinned" },
+        "function_source_digests": {
+          "type": "array", "minItems": 1, "maxItems": 128,
+          "items": {
+            "type": "object", "required": ["function_id", "source_sha256"],
+            "properties": {
+              "function_id": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]{0,127}$" },
+              "source_sha256": { "$ref": "#/$defs/sha256" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "local_call_edges": {
+          "type": "array", "maxItems": 512,
+          "items": {
+            "type": "object", "required": ["caller", "callee"],
+            "properties": {
+              "caller": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]{0,127}$" },
+              "callee": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]{0,127}$" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "external_call_targets": {
+          "type": "array", "maxItems": 2048,
+          "items": {
+            "type": "object", "required": ["caller", "target"],
+            "properties": {
+              "caller": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]{0,127}$" },
+              "target": { "type": "string", "minLength": 1, "maxLength": 8192 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "executor_closures": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/executorClosure" }
+        },
+        "closure_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "executorClosure": {
+      "type": "object",
+      "required": ["executor_id", "root_function_ids", "member_function_ids", "closure_sha256"],
+      "properties": {
+        "executor_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,127}$" },
+        "root_function_ids": {
+          "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]{0,127}$" }
+        },
+        "member_function_ids": {
+          "type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]{0,127}$" }
+        },
+        "closure_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "currentDesignStatus": {
+      "type": "object",
+      "properties": {
+        "status_kind": { "enum": ["ISSUES_OPEN", "ZERO_ISSUES"] },
+        "design_version": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+$" },
+        "revision_round": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "current_blocker_id": { "type": "string", "pattern": "^AQ-R[0-9]{1,2}-[0-9]{3}$" },
+        "current_blocker_status": { "const": "BLOCKED_USER_DECISION" },
+        "latest_audit_path": { "$ref": "#/$defs/repoPath" },
+        "latest_audit_verdict": { "type": "string", "pattern": "^(?:FAIL_WITH_[1-9][0-9]*_ISSUES|PASS_ZERO_ISSUES)$" },
+        "latest_issue_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^AQ-R[0-9]{1,2}-[0-9]{3}$" },
+          "uniqueItems": true
+        },
+        "latest_resolution_path": { "$ref": "#/$defs/repoPath" },
+        "latest_resolution_statuses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["issue_id", "status"],
+            "properties": {
+              "issue_id": { "type": "string", "pattern": "^AQ-R[0-9]{1,2}-[0-9]{3}$" },
+              "status": { "enum": ["FIXED", "BLOCKED_USER_DECISION", "REJECTED_NOT_VALID"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "gate_status": { "enum": ["ISSUES_OPEN_NOT_GATE_0A", "ZERO_ISSUES_AUDIT_CONFIRMED"] }
+      },
+      "required": ["status_kind", "design_version", "revision_round", "latest_audit_path", "latest_audit_verdict", "latest_issue_ids", "gate_status"],
+      "oneOf": [
+        {
+          "properties": {
+            "status_kind": { "const": "ISSUES_OPEN" },
+            "latest_audit_verdict": { "pattern": "^FAIL_WITH_[1-9][0-9]*_ISSUES$" },
+            "latest_issue_ids": { "minItems": 1 },
+            "gate_status": { "const": "ISSUES_OPEN_NOT_GATE_0A" }
+          },
+          "required": ["latest_resolution_path", "latest_resolution_statuses"]
+        },
+        {
+          "properties": {
+            "status_kind": { "const": "ZERO_ISSUES" },
+            "latest_audit_verdict": { "const": "PASS_ZERO_ISSUES" },
+            "latest_issue_ids": { "maxItems": 0 },
+            "gate_status": { "const": "ZERO_ISSUES_AUDIT_CONFIRMED" }
+          },
+          "not": {
+            "anyOf": [
+              { "required": ["current_blocker_id"] },
+              { "required": ["current_blocker_status"] },
+              { "required": ["latest_resolution_path"] },
+              { "required": ["latest_resolution_statuses"] }
+            ]
+          }
+        }
+      ],
+      "dependentRequired": {
+        "current_blocker_id": ["current_blocker_status"],
+        "current_blocker_status": ["current_blocker_id"]
+      },
+      "additionalProperties": false
+    },
+    "projectionContract": {
+      "type": "object",
+      "required": ["projection_id", "verifier", "source_json_pointers", "markdown_marker", "reverse_summary_recipe", "projection_sha256"],
+      "properties": {
+        "projection_id": { "const": "core-markdown-projection-v1" },
+        "verifier": { "const": "docs/contracts/canonicalize-registry-v1.py" },
+        "source_json_pointers": { "type": "array", "const": ["/codex_schema_bundle/descriptor_roots", "/codex_schema_bundle/wire_schema_references", "/migration_graph/cascade_membership_fields", "/probe_result_contract", "/validation_mutation_contract/case_count", "/validation_mutation_contract/result_required_fields"] },
+        "markdown_marker": { "const": "AQ-GENERATED-CORE-PROJECTION-V1" },
+        "reverse_summary_recipe": { "const": "SHA256(UTF8-NFC(generated-markdown-between-markers))" },
+        "projection_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "repositoryPathContract": {
+      "type": "object",
+      "required": [
+        "root",
+        "accepted_artifact_pattern",
+        "accepted_schema_pattern",
+        "segment_pattern",
+        "forbidden",
+        "loader_steps",
+        "symlink_verdict"
+      ],
+      "properties": {
+        "root": {
+          "const": "repository-checkout-root-opened-no-follow"
+        },
+        "accepted_artifact_pattern": {
+          "const": "^docs/contracts/[a-z0-9][a-z0-9_-]*\\.json$"
+        },
+        "accepted_schema_pattern": {
+          "const": "^docs/contracts/schemas/[a-z0-9][a-z0-9_-]*\\.schema\\.json$"
+        },
+        "segment_pattern": {
+          "const": "^[a-z0-9][a-z0-9_.-]*$"
+        },
+        "forbidden": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "enum": [
+              "absolute",
+              "backslash",
+              "case-variant",
+              "dot",
+              "dot-dot",
+              "empty-segment",
+              "percent-encoding",
+              "repeated-slash",
+              "unicode-lookalike"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "loader_steps": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "symlink_verdict": {
+          "const": "reject"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixtureRef": {
+      "type": "object",
+      "required": [
+        "path",
+        "canonical_sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repoFixturePath"
+        },
+        "canonical_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixtureCase": {
+      "type": "object",
+      "required": [
+        "fixture_id",
+        "domain",
+        "input",
+        "expected"
+      ],
+      "properties": {
+        "fixture_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,127}$"
+        },
+        "domain": {
+          "enum": [
+            "budget_policy",
+            "codex_bundle",
+            "installation_registry",
+            "migration_graph",
+            "probe_result",
+            "renderer_command",
+            "repo_path",
+            "retry_after",
+            "sidecar_budget"
+          ]
+        },
+        "input": {
+          "oneOf": [
+            { "$ref": "#/$defs/budgetFixtureInput" },
+            { "$ref": "#/$defs/codexFixtureInput" },
+            { "$ref": "#/$defs/installationFixtureInput" },
+            { "$ref": "#/$defs/migrationFixtureInput" },
+            { "$ref": "#/$defs/probeFixtureInput" },
+            { "$ref": "#/$defs/rendererCommandFixtureInput" },
+            { "$ref": "#/$defs/repoPathFixtureInput" },
+            { "$ref": "#/$defs/retryAfterFixtureInput" },
+            { "$ref": "#/$defs/sidecarBudgetFixtureInput" }
+          ]
+        },
+        "expected": {
+          "enum": [
+            "accept",
+            "dispatched_timeout_outcome_unknown_reaped",
+            "hash_changed",
+            "hash_unchanged",
+            "pre_dispatch_reject_zero_effects",
+            "reject"
+          ]
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "domain": { "const": "budget_policy" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/budgetFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "codex_bundle" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/codexFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "installation_registry" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/installationFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "migration_graph" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/migrationFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "probe_result" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/probeFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "renderer_command" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/rendererCommandFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "repo_path" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/repoPathFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "retry_after" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/retryAfterFixtureInput" } } } },
+        { "if": { "properties": { "domain": { "const": "sidecar_budget" } } }, "then": { "properties": { "input": { "$ref": "#/$defs/sidecarBudgetFixtureInput" } } } }
+      ],
+      "additionalProperties": false
+    },
+    "budgetFixtureInput": {
+      "type": "object",
+      "required": ["runner", "group_policy_ids", "endpoint_count", "profile_count", "expected_reservation_rows", "mutation"],
+      "properties": {
+        "runner": { "const": "budget-policy-v1" },
+        "group_policy_ids": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "$ref": "#/$defs/id" } },
+        "endpoint_count": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "profile_count": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "expected_reservation_rows": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "mutation": { "enum": ["none", "conflicting-profile-policy"] }
+      },
+      "additionalProperties": false
+    },
+    "codexFixtureInput": {
+      "type": "object",
+      "required": ["runner", "descriptor_roots", "mutation", "target_path", "runtime_open_paths"],
+      "properties": {
+        "runner": { "const": "codex-bundle-v1" },
+        "descriptor_roots": { "const": ["codex_app_server_protocol.v2.schemas.json", "v1/InitializeResponse.json"] },
+        "mutation": { "enum": ["none", "bit-flip", "delete-root", "runtime-open-unlisted", "change-unreferenced"] },
+        "target_path": { "type": ["string", "null"], "maxLength": 128 },
+        "runtime_open_paths": { "type": "array", "maxItems": 4, "items": { "type": "string", "maxLength": 128 } }
+      },
+      "additionalProperties": false
+    },
+    "installationFixtureInput": {
+      "type": "object",
+      "required": ["runner", "keyring_generation", "registry_generation", "db_floor", "bundle_sequence", "bundle_digest_changed", "plan_sequence", "plan_digest_changed", "mutation"],
+      "properties": {
+        "runner": { "const": "installation-registry-v1" },
+        "keyring_generation": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "registry_generation": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "db_floor": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "bundle_sequence": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "bundle_digest_changed": { "type": "boolean" },
+        "plan_sequence": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "plan_digest_changed": { "type": "boolean" },
+        "mutation": { "enum": ["none", "cross-component-rollback", "same-sequence-bundle-digest", "same-sequence-plan-digest"] }
+      },
+      "additionalProperties": false
+    },
+    "migrationFixtureInput": {
+      "type": "object",
+      "required": ["runner", "action_ids", "execution_edges", "cascade_memberships", "mutation"],
+      "properties": {
+        "runner": { "const": "migration-graph-v1" },
+        "action_ids": { "type": "array", "minItems": 2, "maxItems": 8, "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "execution_edges": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "string", "pattern": "^[a-z0-9_-]+>[a-z0-9_-]+:[a-z_]+$" }, "uniqueItems": true },
+        "cascade_memberships": { "type": "array", "maxItems": 8, "items": { "type": "string", "pattern": "^[a-z0-9_-]+>[a-z0-9_-]+:[a-z_]+$" }, "uniqueItems": true },
+        "mutation": { "enum": ["none", "reverse-cascade-execution-edge"] }
+      },
+      "additionalProperties": false
+    },
+    "repoPathFixtureInput": {
+      "type": "object",
+      "required": ["runner", "path", "symlink_components"],
+      "properties": {
+        "runner": { "const": "repo-path-v1" },
+        "path": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "symlink_components": { "type": "array", "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 64 } }
+      },
+      "additionalProperties": false
+    },
+    "rendererCommandFixtureInput": {
+      "type": "object",
+      "required": ["runner", "mutation", "target_command_id", "secondary_command_id", "field_name"],
+      "properties": {
+        "runner": { "const": "renderer-command-contract-v1" },
+        "mutation": { "enum": ["none", "unknown-command", "missing-command", "duplicate-command", "reorder-command", "dto-ref-swap", "sensitive-field-injection", "destructive-direct-commit"] },
+        "target_command_id": { "type": ["string", "null"], "maxLength": 64 },
+        "secondary_command_id": { "type": ["string", "null"], "maxLength": 64 },
+        "field_name": { "type": ["string", "null"], "maxLength": 64 }
+      },
+      "additionalProperties": false
+    },
+    "retryAfterFixtureInput": {
+      "type": "object",
+      "required": ["runner", "now_utc_seconds", "boundaries", "primary_reason", "expected_retry_after_seconds", "expected_disposition"],
+      "properties": {
+        "runner": { "const": "retry-after-aggregation-v1" },
+        "now_utc_seconds": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 },
+        "boundaries": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/retryAfterBoundary" } },
+        "primary_reason": { "type": ["string", "null"], "enum": [null, "blocked_until", "floor", "hour", "reservation"] },
+        "expected_retry_after_seconds": { "type": ["integer", "null"], "minimum": 0, "maximum": 86400 },
+        "expected_disposition": { "enum": ["deferred", "reserve_allowed"] }
+      },
+      "additionalProperties": false
+    },
+    "sidecarBudgetFixtureInput": {
+      "type": "object",
+      "required": ["runner", "host_epoch_ns", "sidecar_receipt_ns", "remaining_budget_ns", "host_elapsed_ns", "sidecar_observed_now_ns", "arithmetic_max_ns", "session_generation", "prior_session_generation", "budget_reused", "dispatch_state", "host_timeout_action", "write_outcome", "orphan_count"],
+      "properties": {
+        "runner": { "const": "sidecar-remaining-budget-v1" },
+        "host_epoch_ns": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+        "sidecar_receipt_ns": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+        "remaining_budget_ns": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+        "host_elapsed_ns": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 },
+        "sidecar_observed_now_ns": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+        "arithmetic_max_ns": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+        "session_generation": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "prior_session_generation": { "type": ["integer", "null"], "minimum": 1, "maximum": 9223372036854775807 },
+        "budget_reused": { "type": "boolean" },
+        "dispatch_state": { "enum": ["pre-dispatch", "dispatched"] },
+        "host_timeout_action": { "enum": ["none", "term-kill-reap"] },
+        "write_outcome": { "enum": ["nonzero", "unknown", "zero"] },
+        "orphan_count": { "type": "integer", "minimum": 0, "maximum": 8 }
+      },
+      "additionalProperties": false
+    },
+    "probeFixtureInput": {
+      "type": "object",
+      "required": ["runner", "context", "result"],
+      "properties": {
+        "runner": { "const": "probe-result-v1" },
+        "context": {
+          "type": "object",
+          "required": ["mode", "principal_id", "profile_id", "rpc_endpoint_id", "source_contract_id", "source_generation", "now_monotonic_ns"],
+          "properties": {
+            "mode": { "enum": ["http", "official_cli_zero_binding", "offline"] },
+            "principal_id": { "type": "string", "pattern": "^aqp_[0-9a-f]{32}$" },
+            "profile_id": { "$ref": "#/$defs/id" },
+            "rpc_endpoint_id": { "$ref": "#/$defs/id" },
+            "source_contract_id": { "$ref": "#/$defs/id" },
+            "source_generation": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+            "now_monotonic_ns": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 }
+          },
+          "additionalProperties": false
+        },
+        "result": {
+          "type": "object",
+          "required": ["kind", "mode", "compatibility", "detected_protocol_version", "identity_evidence", "extra_fields", "derived_identity_fields"],
+          "properties": {
+            "kind": { "enum": ["failure", "http_success", "official_cli_success", "offline_result", "unknown_branch"] },
+            "mode": { "enum": ["http", "official_cli_zero_binding", "offline"] },
+            "compatibility": { "enum": ["auth_required", "compatible", "incompatible", "unavailable", "unverified_version"] },
+            "detected_protocol_version": { "type": ["string", "null"], "maxLength": 64 },
+            "identity_evidence": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "required": ["source", "authorization_binding", "access_generation_material", "upstream_subject", "expires_monotonic_ns", "extra_fields"],
+                  "properties": {
+                    "source": { "enum": ["credential_source", "official_protocol"] },
+                    "authorization_binding": {
+                      "type": "object",
+                      "required": ["principal_id", "profile_id", "source_contract_id", "source_generation", "rpc_endpoint_id"],
+                      "properties": {
+                        "principal_id": { "type": "string", "pattern": "^aqp_[0-9a-f]{32}$" },
+                        "profile_id": { "$ref": "#/$defs/id" },
+                        "source_contract_id": { "$ref": "#/$defs/id" },
+                        "source_generation": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+                        "rpc_endpoint_id": { "$ref": "#/$defs/id" }
+                      },
+                      "additionalProperties": false
+                    },
+                    "access_generation_material": { "$ref": "#/$defs/base64url" },
+                    "upstream_subject": { "type": "null" },
+                    "expires_monotonic_ns": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 },
+                    "extra_fields": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "extra_fields": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+            "derived_identity_fields": { "type": "array", "maxItems": 4, "items": { "enum": ["access_identity", "assurance", "cache_identity", "rate_limit_cohort"] }, "uniqueItems": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "fixtureArtifact": {
+      "type": "object",
+      "required": [
+        "$schema",
+        "$id",
+        "schema",
+        "excluded_from_lint_inputs",
+        "cases"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json#/$defs/fixtureArtifact"
+        },
+        "$id": {
+          "const": "https://agent-quota.local/contracts/fixtures/core-safety-v1.json"
+        },
+        "schema": {
+          "const": "aq-core-safety-fixtures-v1"
+        },
+        "excluded_from_lint_inputs": {
+          "const": true
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/fixtureCase"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "closure": {
+      "type": "object",
+      "required": [
+        "codex_reference_root_set_exact",
+        "identity_context_response_digest_bijection",
+        "request_plan_forbids_reservation_receipt",
+        "final_context_requires_committed_reservation_receipt",
+        "provider_io_accepts_final_context_only",
+        "budget_policy_id_unique",
+        "budget_group_id_unique",
+        "budget_group_policy_reference_exact",
+        "profile_references_group_only",
+        "migration_cascade_not_execution_edge",
+        "installation_payload_extra_fields",
+        "repository_path_canonical_spelling_required",
+        "fixture_verdicts_must_match",
+        "fixture_id_is_diagnostic_only",
+        "projection_is_generated_and_reverse_hashed",
+        "probe_result_branch_and_evidence_closure",
+        "validation_mutation_case_set_exact"
+      ],
+      "properties": {
+        "codex_reference_root_set_exact": {
+          "const": true
+        },
+        "identity_context_response_digest_bijection": {
+          "const": true
+        },
+        "request_plan_forbids_reservation_receipt": {
+          "const": true
+        },
+        "final_context_requires_committed_reservation_receipt": {
+          "const": true
+        },
+        "provider_io_accepts_final_context_only": {
+          "const": true
+        },
+        "budget_policy_id_unique": {
+          "const": true
+        },
+        "budget_group_id_unique": {
+          "const": true
+        },
+        "budget_group_policy_reference_exact": {
+          "const": true
+        },
+        "profile_references_group_only": {
+          "const": true
+        },
+        "migration_cascade_not_execution_edge": {
+          "const": true
+        },
+        "installation_payload_extra_fields": {
+          "const": "reject"
+        },
+        "repository_path_canonical_spelling_required": {
+          "const": true
+        },
+        "fixture_verdicts_must_match": {
+          "const": true
+        },
+        "fixture_id_is_diagnostic_only": {
+          "const": true
+        },
+        "projection_is_generated_and_reverse_hashed": {
+          "const": true
+        },
+        "probe_result_branch_and_evidence_closure": {
+          "const": "reject-before-identity-derive"
+        },
+        "validation_mutation_case_set_exact": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,800 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json",
+  "title": "Agent Quota LocalKey purpose registry v1",
+  "type": "object",
+  "x-aq-array-order": {
+    "$schema": "https://agent-quota.local/contracts/schemas/contract-registry-v1.schema.json#/$defs/arrayOrderMetadata",
+    "dialect": "aq-array-order-v1",
+    "version": 1,
+    "default": "sequence_exact",
+    "overrides": [
+      {
+        "schema_pointer": "/$defs/localKeyRingPayload/properties/key_entries",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/purpose",
+          "/generation"
+        ]
+      },
+      {
+        "schema_pointer": "/$defs/persistentSurface/properties/consumer_ids",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          ""
+        ]
+      },
+      {
+        "schema_pointer": "/properties/consumers",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/consumer_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/persistent_surfaces",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/surface_id"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/purposes",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/purpose"
+        ]
+      },
+      {
+        "schema_pointer": "/properties/verification_lookup_policies",
+        "policy": "utf8_key",
+        "key_json_pointers": [
+          "/policy_id"
+        ]
+      }
+    ],
+    "coverage_rule": "every-schema-object-with-type-array-resolves-to-exactly-one-policy; duplicate-or-dangling-override-reject"
+  },
+  "required": [
+    "$schema",
+    "$id",
+    "schema",
+    "artifact_id",
+    "root_key_bytes",
+    "derived_key_bytes",
+    "kdf",
+    "purposes",
+    "consumers",
+    "key_entry_semantics",
+    "verification_lookup_policies",
+    "persistent_surfaces",
+    "local_keyring_wire",
+    "closure_rules"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json"
+    },
+    "$id": {
+      "const": "https://agent-quota.local/contracts/local-key-purpose-registry-v1.json"
+    },
+    "schema": {
+      "const": "aq-local-key-purpose-registry-v1"
+    },
+    "artifact_id": {
+      "const": "local-key-purpose-registry-v1"
+    },
+    "root_key_bytes": {
+      "const": 32
+    },
+    "derived_key_bytes": {
+      "const": 32
+    },
+    "kdf": {
+      "$ref": "#/$defs/kdf"
+    },
+    "purposes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/purposeEntry"
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "consumers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/consumer"
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "key_entry_semantics": {
+      "$ref": "#/$defs/keyEntrySemantics"
+    },
+    "verification_lookup_policies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/lookupPolicy"
+      },
+      "minItems": 1,
+      "maxItems": 16
+    },
+    "persistent_surfaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/persistentSurface"
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "local_keyring_wire": {
+      "$ref": "#/$defs/localKeyRingWire"
+    },
+    "closure_rules": {
+      "$ref": "#/$defs/closure"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,127}$",
+      "maxLength": 128
+    },
+    "uint63": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "base64url": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "purpose": {
+      "enum": [
+        "access-identity-v1",
+        "action-signing-v1",
+        "cache-identity-v1",
+        "idempotency-binding-v1",
+        "pseudonym-v1",
+        "query-generation-v1",
+        "rate-ledger-v1",
+        "rate-limit-cohort-v1"
+      ]
+    },
+    "kdf": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "extract_salt_recipe",
+        "expand_info_recipe",
+        "generation_range",
+        "integer_encoding",
+        "string_encoding",
+        "output_length_bytes"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "HKDF-SHA-256"
+        },
+        "extract_salt_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "expand_info_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "generation_range": {
+          "const": [
+            1,
+            9223372036854775807
+          ]
+        },
+        "integer_encoding": {
+          "const": "unsigned-big-endian"
+        },
+        "string_encoding": {
+          "const": "UTF-8-NFC"
+        },
+        "output_length_bytes": {
+          "const": 32
+        }
+      },
+      "additionalProperties": false
+    },
+    "purposeEntry": {
+      "type": "object",
+      "required": [
+        "purpose",
+        "rotation",
+        "verify_only_allowed"
+      ],
+      "properties": {
+        "purpose": {
+          "$ref": "#/$defs/purpose"
+        },
+        "rotation": {
+          "enum": [
+            "replace_generation",
+            "verify_only"
+          ]
+        },
+        "verify_only_allowed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "consumer": {
+      "type": "object",
+      "required": [
+        "consumer_id",
+        "purpose",
+        "new_value_policy",
+        "verification_lookup_policy"
+      ],
+      "properties": {
+        "consumer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "purpose": {
+          "$ref": "#/$defs/purpose"
+        },
+        "new_value_policy": {
+          "const": "active_generation_only"
+        },
+        "verification_lookup_policy": {
+          "enum": [
+            "active_only",
+            "active_then_verify_only_descending"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "keyEntrySemantics": {
+      "type": "object",
+      "required": [
+        "key_id_recipe",
+        "public_salt",
+        "load_validation",
+        "entry_order",
+        "unique_tuple",
+        "active_cardinality_per_purpose",
+        "generation_transition"
+      ],
+      "properties": {
+        "key_id_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "public_salt": {
+          "type": "object",
+          "required": [
+            "bytes",
+            "generation",
+            "secret",
+            "role",
+            "kdf_input"
+          ],
+          "properties": {
+            "bytes": {
+              "const": 16
+            },
+            "generation": {
+              "const": "CSPRNG-per-key-entry"
+            },
+            "secret": {
+              "const": false
+            },
+            "role": {
+              "const": "key-id-domain-separation-only"
+            },
+            "kdf_input": {
+              "const": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "load_validation": {
+          "const": [
+            "decode-fixed-length-fields",
+            "recompute-key-id",
+            "constant-time-key-id-compare",
+            "sort-by-purpose-then-generation",
+            "reject-duplicate-purpose-generation",
+            "reject-multiple-active-per-purpose",
+            "reject-missing-active-for-registered-purpose",
+            "reject-unregistered-purpose",
+            "reject-verify-only-for-purpose-that-forbids-it"
+          ]
+        },
+        "entry_order": {
+          "const": "UTF8-NFC(purpose)-bytes-ascending-then-generation-ascending"
+        },
+        "unique_tuple": {
+          "const": [
+            "purpose",
+            "generation"
+          ]
+        },
+        "active_cardinality_per_purpose": {
+          "const": 1
+        },
+        "generation_transition": {
+          "type": "object",
+          "required": [
+            "replace_generation",
+            "verify_only",
+            "generation_reuse",
+            "generation_skip"
+          ],
+          "properties": {
+            "replace_generation": {
+              "const": "remove-old-active-and-add-new-active-at-old-generation-plus-one-atomically"
+            },
+            "verify_only": {
+              "const": "change-old-active-to-verify_only-and-add-new-active-at-old-generation-plus-one-atomically"
+            },
+            "generation_reuse": {
+              "const": "reject"
+            },
+            "generation_skip": {
+              "const": "reject"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "lookupPolicy": {
+      "type": "object",
+      "required": [
+        "policy_id",
+        "generation_order",
+        "max_generations",
+        "deduplicate_by",
+        "retire_when"
+      ],
+      "properties": {
+        "policy_id": {
+          "enum": [
+            "active_only",
+            "active_then_verify_only_descending"
+          ]
+        },
+        "generation_order": {
+          "enum": [
+            "active_first_then_verify_only_generation_descending",
+            "active_generation_only"
+          ]
+        },
+        "max_generations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "deduplicate_by": {
+          "const": "final_record_digest"
+        },
+        "retire_when": {
+          "enum": [
+            "all_named_surface_retention_windows_expired_and_reference_count_zero",
+            "replacement_committed_and_no_persistent_reference"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "persistentSurface": {
+      "type": "object",
+      "required": [
+        "surface_id",
+        "consumer_ids",
+        "combination_order",
+        "max_candidate_combinations",
+        "retirement_condition"
+      ],
+      "properties": {
+        "surface_id": {
+          "$ref": "#/$defs/id"
+        },
+        "consumer_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "combination_order": {
+          "enum": [
+            "consumer_id_utf8_ascending_cartesian_then_generation_descending",
+            "consumer_order_then_generation_order"
+          ]
+        },
+        "max_candidate_combinations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "retirement_condition": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9-]+$",
+          "maxLength": 128
+        }
+      },
+      "additionalProperties": false
+    },
+    "localKeyRingWire": {
+      "type": "object",
+      "required": [
+        "envelope_schema_id",
+        "payload_schema_id",
+        "kdf_literal",
+        "aead_literal",
+        "aead_key_bytes",
+        "nonce_bytes",
+        "tag_bytes",
+        "byte_encoding",
+        "byte_fields",
+        "ciphertext_field_semantics",
+        "validation_order",
+        "aad_recipe",
+        "nonce_recipe",
+        "golden_primitive_vector",
+        "golden_payload_envelope"
+      ],
+      "properties": {
+        "envelope_schema_id": {
+          "const": "https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json#/$defs/localKeyRingEnvelope"
+        },
+        "payload_schema_id": {
+          "const": "https://agent-quota.local/contracts/schemas/local-key-purpose-registry-v1.schema.json#/$defs/localKeyRingPayload"
+        },
+        "kdf_literal": {
+          "const": "HKDF-SHA-256"
+        },
+        "aead_literal": {
+          "const": "AES-256-GCM"
+        },
+        "aead_key_bytes": {
+          "const": 32
+        },
+        "nonce_bytes": {
+          "const": 12
+        },
+        "tag_bytes": {
+          "const": 16
+        },
+        "byte_encoding": {
+          "const": "base64url-rfc4648-without-padding"
+        },
+        "byte_fields": {
+          "const": [
+            "ciphertext_and_tag",
+            "key_material",
+            "nonce",
+            "public_salt"
+          ]
+        },
+        "ciphertext_field_semantics": {
+          "const": "ciphertext_concatenated_with_16_byte_gcm_tag"
+        },
+        "validation_order": {
+          "const": [
+            "raw_bounds",
+            "strict_json_duplicate_reject",
+            "schema_validate",
+            "base64url_alphabet_and_no_padding",
+            "decode_all_byte_fields",
+            "decoded_length_checks",
+            "aad_recompute",
+            "nonce_recompute",
+            "aead_open",
+            "payload_schema_validate",
+            "purpose_consumer_closure"
+          ]
+        },
+        "aad_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "nonce_recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "golden_primitive_vector": {
+          "$ref": "#/$defs/golden"
+        },
+        "golden_payload_envelope": {
+          "$ref": "#/$defs/goldenPayloadEnvelope"
+        }
+      },
+      "additionalProperties": false
+    },
+    "golden": {
+      "type": "object",
+      "required": [
+        "key_base64url",
+        "nonce_base64url",
+        "aad_utf8_hex",
+        "plaintext_utf8_hex",
+        "ciphertext_and_tag_base64url"
+      ],
+      "properties": {
+        "key_base64url": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "nonce_base64url": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{16}$"
+        },
+        "aad_utf8_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{50}$"
+        },
+        "plaintext_utf8_hex": {
+          "const": "7b7d"
+        },
+        "ciphertext_and_tag_base64url": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{24}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "localKeyRingEnvelope": {
+      "type": "object",
+      "required": [
+        "schema",
+        "installation_id",
+        "binding_key_id",
+        "aead_generation",
+        "envelope_sequence",
+        "kdf",
+        "aead",
+        "nonce",
+        "ciphertext_and_tag"
+      ],
+      "properties": {
+        "schema": {
+          "const": "aq-local-keyring-envelope-v1"
+        },
+        "installation_id": {
+          "type": "string",
+          "pattern": "^aqi_[0-9a-f]{32}$"
+        },
+        "binding_key_id": {
+          "type": "string",
+          "pattern": "^aqbk_[0-9a-f]{64}$"
+        },
+        "aead_generation": {
+          "$ref": "#/$defs/uint63"
+        },
+        "envelope_sequence": {
+          "$ref": "#/$defs/uint63"
+        },
+        "kdf": {
+          "const": "HKDF-SHA-256"
+        },
+        "aead": {
+          "const": "AES-256-GCM"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{16}$"
+        },
+        "ciphertext_and_tag": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{22,1048576}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "keyEntry": {
+      "type": "object",
+      "required": [
+        "purpose",
+        "generation",
+        "key_id",
+        "public_salt",
+        "state",
+        "key_material"
+      ],
+      "properties": {
+        "purpose": {
+          "$ref": "#/$defs/purpose"
+        },
+        "generation": {
+          "$ref": "#/$defs/uint63"
+        },
+        "key_id": {
+          "type": "string",
+          "pattern": "^aqk_[0-9a-f]{64}$"
+        },
+        "public_salt": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{22}$"
+        },
+        "state": {
+          "enum": [
+            "active",
+            "verify_only"
+          ]
+        },
+        "key_material": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "localKeyRingPayload": {
+      "type": "object",
+      "required": [
+        "schema",
+        "installation_id",
+        "aead_generation",
+        "envelope_sequence",
+        "key_entries"
+      ],
+      "properties": {
+        "schema": {
+          "const": "aq-local-keyring-payload-v1"
+        },
+        "installation_id": {
+          "type": "string",
+          "pattern": "^aqi_[0-9a-f]{32}$"
+        },
+        "aead_generation": {
+          "$ref": "#/$defs/uint63"
+        },
+        "envelope_sequence": {
+          "$ref": "#/$defs/uint63"
+        },
+        "key_entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/keyEntry"
+          },
+          "minItems": 8,
+          "maxItems": 128
+        }
+      },
+      "additionalProperties": false
+    },
+    "goldenPayloadEnvelope": {
+      "type": "object",
+      "required": [
+        "aead_key_base64url",
+        "nonce_key_base64url",
+        "payload",
+        "envelope"
+      ],
+      "properties": {
+        "aead_key_base64url": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "nonce_key_base64url": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/localKeyRingPayload"
+        },
+        "envelope": {
+          "$ref": "#/$defs/localKeyRingEnvelope"
+        }
+      },
+      "additionalProperties": false
+    },
+    "closure": {
+      "type": "object",
+      "required": [
+        "purpose_order",
+        "purpose_unique",
+        "unknown_purpose",
+        "duplicate_purpose",
+        "same_derived_key_for_distinct_purpose_generation",
+        "consumer_may_use_only_named_purpose",
+        "consumer_id_unique",
+        "purpose_to_consumer_nonempty",
+        "consumer_to_purpose_exactly_one",
+        "consumer_purpose_reference_closure",
+        "persistent_surface_consumer_reference_closure",
+        "every_verify_only_consumer_has_bounded_lookup",
+        "new_values_never_use_verify_only_generation",
+        "candidate_combination_overflow",
+        "candidate_deduplication_before_lookup",
+        "root_key_direct_use",
+        "key_id_recompute_on_load",
+        "public_salt_used_as_secret_or_kdf_input",
+        "generation_transition_mismatch",
+        "golden_payload_envelope_required",
+        "payload_purpose_set_equals_registry",
+        "exactly_one_active_per_registered_purpose"
+      ],
+      "properties": {
+        "purpose_order": {
+          "const": "UTF-8 byte ascending"
+        },
+        "purpose_unique": {
+          "const": true
+        },
+        "unknown_purpose": {
+          "const": "reject"
+        },
+        "duplicate_purpose": {
+          "const": "reject"
+        },
+        "same_derived_key_for_distinct_purpose_generation": {
+          "const": "reject"
+        },
+        "consumer_may_use_only_named_purpose": {
+          "const": true
+        },
+        "consumer_id_unique": {
+          "const": true
+        },
+        "purpose_to_consumer_nonempty": {
+          "const": true
+        },
+        "consumer_to_purpose_exactly_one": {
+          "const": true
+        },
+        "consumer_purpose_reference_closure": {
+          "const": "reject"
+        },
+        "persistent_surface_consumer_reference_closure": {
+          "const": "reject"
+        },
+        "every_verify_only_consumer_has_bounded_lookup": {
+          "const": true
+        },
+        "new_values_never_use_verify_only_generation": {
+          "const": true
+        },
+        "candidate_combination_overflow": {
+          "const": "reject"
+        },
+        "candidate_deduplication_before_lookup": {
+          "const": true
+        },
+        "root_key_direct_use": {
+          "const": "reject"
+        },
+        "key_id_recompute_on_load": {
+          "const": true
+        },
+        "public_salt_used_as_secret_or_kdf_input": {
+          "const": "reject"
+        },
+        "generation_transition_mismatch": {
+          "const": "reject"
+        },
+        "golden_payload_envelope_required": {
+          "const": true
+        },
+        "payload_purpose_set_equals_registry": {
+          "const": true
+        },
+        "exactly_one_active_per_registered_purpose": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
