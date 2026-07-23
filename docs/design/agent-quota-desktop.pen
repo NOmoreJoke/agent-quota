@@ -4,8 +4,8 @@
     {
       "type": "frame",
       "id": "YHXPu",
-      "x": 0,
-      "y": 840,
+      "x": -1868,
+      "y": -65,
       "name": "README",
       "width": 1400,
       "layout": "vertical",
@@ -46,8 +46,8 @@
     {
       "type": "frame",
       "id": "F8mcXR",
-      "x": -100,
-      "y": 0,
+      "x": -708,
+      "y": -60,
       "name": "component/Sidebar",
       "reusable": true,
       "width": 240,
@@ -267,8 +267,8 @@
     {
       "type": "frame",
       "id": "Sqjpv",
-      "x": 1000,
-      "y": -100,
+      "x": 1480,
+      "y": 880,
       "name": "component/WalletQuotaHero",
       "reusable": true,
       "width": 280,
@@ -372,8 +372,8 @@
     {
       "type": "frame",
       "id": "qvCl1",
-      "x": 1000,
-      "y": 180,
+      "x": 1440,
+      "y": 520,
       "name": "component/ViewSwitcher",
       "reusable": true,
       "width": 360,
@@ -3390,27 +3390,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarAccounts",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "beEFU": {
-              "fill": "$bg"
-            },
-            "MimPH": {
-              "fill": "$accent"
-            },
-            "Kq7nt": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarAccounts"
         }
       ]
     },
@@ -4699,27 +4679,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarSettings",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "VBGQN": {
-              "fill": "$bg"
-            },
-            "i7UGfl": {
-              "fill": "$accent"
-            },
-            "X7sLK": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarSettings"
         }
       ]
     },
@@ -8304,27 +8264,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarAccounts",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "beEFU": {
-              "fill": "$bg"
-            },
-            "MimPH": {
-              "fill": "$accent"
-            },
-            "Kq7nt": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarAccounts"
         }
       ]
     },
@@ -8500,27 +8440,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarAccounts",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "beEFU": {
-              "fill": "$bg"
-            },
-            "MimPH": {
-              "fill": "$accent"
-            },
-            "Kq7nt": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarAccounts"
         }
       ]
     },
@@ -9233,27 +9153,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarAccounts",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "beEFU": {
-              "fill": "$bg"
-            },
-            "MimPH": {
-              "fill": "$accent"
-            },
-            "Kq7nt": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarAccounts"
         }
       ]
     },
@@ -9960,27 +9860,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarAccounts",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "beEFU": {
-              "fill": "$bg"
-            },
-            "MimPH": {
-              "fill": "$accent"
-            },
-            "Kq7nt": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarAccounts"
         }
       ]
     },
@@ -10687,27 +10567,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarAccounts",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "beEFU": {
-              "fill": "$bg"
-            },
-            "MimPH": {
-              "fill": "$accent"
-            },
-            "Kq7nt": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarAccounts"
         }
       ]
     },
@@ -17047,27 +16907,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarSettings",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "VBGQN": {
-              "fill": "$bg"
-            },
-            "i7UGfl": {
-              "fill": "$accent"
-            },
-            "X7sLK": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarSettings"
         }
       ]
     },
@@ -17308,27 +17148,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarSettings",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "VBGQN": {
-              "fill": "$bg"
-            },
-            "i7UGfl": {
-              "fill": "$accent"
-            },
-            "X7sLK": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarSettings"
         }
       ]
     },
@@ -21031,27 +20851,7 @@
           "ref": "F8mcXR",
           "width": 240,
           "height": "fill_container",
-          "name": "sidebarSettings",
-          "descendants": {
-            "B8ELQ": {
-              "fill": "$bg-subtle"
-            },
-            "JLOwc": {
-              "fill": "$text-secondary"
-            },
-            "CJJ8u": {
-              "fill": "$text-secondary"
-            },
-            "VBGQN": {
-              "fill": "$bg"
-            },
-            "i7UGfl": {
-              "fill": "$accent"
-            },
-            "X7sLK": {
-              "fill": "$text-primary"
-            }
-          }
+          "name": "sidebarSettings"
         }
       ]
     },
@@ -21824,8 +21624,8 @@
     {
       "type": "frame",
       "id": "EpYXu",
-      "x": -100,
-      "y": 1400,
+      "x": -1125,
+      "y": 1183,
       "name": "component/WindowListSorted",
       "reusable": true,
       "width": 760,
@@ -22858,8 +22658,8 @@
     {
       "type": "frame",
       "id": "wmKXq",
-      "x": 300,
-      "y": 1400,
+      "x": 1000,
+      "y": 1380,
       "name": "skWindowListSorted",
       "width": 800,
       "height": 360,
@@ -22872,8 +22672,8 @@
     {
       "type": "frame",
       "id": "s76wSL",
-      "x": 0,
-      "y": 1840,
+      "x": 3113,
+      "y": 560,
       "name": "14.1 Token Usage Breakdown (future capability)",
       "clip": true,
       "width": 1280,
@@ -23008,6 +22808,240 @@
                   "fontFamily": "$font-ui",
                   "fontSize": 12,
                   "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "W2EPO",
+              "name": "summary",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "arpuX",
+                  "name": "s-总 Token",
+                  "width": "fill_container",
+                  "fill": "$bg",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "eMiEp",
+                      "name": "k",
+                      "fill": "$text-secondary",
+                      "content": "总 Token",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "n0mkqa",
+                      "name": "v",
+                      "fill": "$text-primary",
+                      "content": "1.42M · 100%",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y46EL",
+                      "name": "sub",
+                      "fill": "$text-muted",
+                      "content": "prompt + completion",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "t2kfR6",
+                  "name": "s-缓存命中",
+                  "width": "fill_container",
+                  "fill": "$bg",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ZaDfc",
+                      "name": "k",
+                      "fill": "$text-secondary",
+                      "content": "缓存命中",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "n08U0",
+                      "name": "v",
+                      "fill": "$accent",
+                      "content": "400K · 28.2%",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "L9or3l",
+                      "name": "sub",
+                      "fill": "$text-muted",
+                      "content": "cache_read",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "cgMnN",
+                  "name": "s-缓存创建",
+                  "width": "fill_container",
+                  "fill": "$bg",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "A4Omu8",
+                      "name": "k",
+                      "fill": "$text-secondary",
+                      "content": "缓存创建",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "B8i4rR",
+                      "name": "v",
+                      "fill": "$health-ok",
+                      "content": "302K · 21.3%",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "My5bu",
+                      "name": "sub",
+                      "fill": "$text-muted",
+                      "content": "cache_creation",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "FmEuo",
+                  "name": "s-输入 Token",
+                  "width": "fill_container",
+                  "fill": "$bg",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RJo04",
+                      "name": "k",
+                      "fill": "$text-secondary",
+                      "content": "输入 Token",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "FGz0Y",
+                      "name": "v",
+                      "fill": "$severity-warning",
+                      "content": "892K · 占总 62.8%",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NBxuU",
+                      "name": "sub",
+                      "fill": "$text-muted",
+                      "content": "纯 prompt · 不含 cache",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "M8Ch3",
+                  "name": "s-输出 Token",
+                  "width": "fill_container",
+                  "fill": "$bg",
+                  "cornerRadius": "$radius-md",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "uSq8h",
+                      "name": "k",
+                      "fill": "$text-secondary",
+                      "content": "输出 Token",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "u12M1B",
+                      "name": "v",
+                      "fill": "$text-secondary",
+                      "content": "528K · 占总 37.2%",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "lCqRM",
+                      "name": "sub",
+                      "fill": "$text-muted",
+                      "content": "纯 completion",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
                 }
               ]
             },
@@ -24781,8 +24815,8 @@
     {
       "type": "frame",
       "id": "IIz2D",
-      "x": 1480,
-      "y": 1840,
+      "x": 4559,
+      "y": 600,
       "name": "14.2 Token Usage Breakdown (empty / data not exposed)",
       "clip": true,
       "width": 1280,
@@ -26319,8 +26353,8 @@
     {
       "type": "frame",
       "id": "pjj4t",
-      "x": 0,
-      "y": 740,
+      "x": -100,
+      "y": 940,
       "name": "section-📐 README",
       "width": 1280,
       "height": 60,
@@ -26348,8 +26382,8 @@
     {
       "type": "frame",
       "id": "D53eJ",
-      "x": 0,
-      "y": 1740,
+      "x": -140,
+      "y": 1320,
       "name": "section-1.x Overview",
       "width": 1280,
       "height": 60,
