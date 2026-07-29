@@ -917,7 +917,7 @@ def verify_external_negative_self_tests(
 
     cases.extend([
         ("openssl-opt-target-switch", "runtime", "runtime opt-link binding set mismatch", opt_target_switch),
-        ("libcrypto-bit-drift", "runtime", "non-system image raw digest mismatch", edit_image_digest("/opt/homebrew/Cellar/openssl@3/3.6.2/lib/libcrypto.3.dylib")),
+        ("libcrypto-bit-drift", "runtime", "non-system image raw digest mismatch", edit_image_digest("/opt/homebrew/Cellar/openssl@3/3.6.3/lib/libcrypto.3.dylib")),
         ("gmp-bit-drift", "runtime", "non-system image raw digest mismatch", edit_image_digest("/opt/homebrew/Cellar/gmp/6.3.0/lib/libgmp.10.dylib")),
         ("pandoc-extra-dependency-closure", "runtime", "native loaded-image closure is not recursively closed", edit_closure("pandoc", lambda paths: paths.remove("/opt/homebrew/Cellar/gmp/6.3.0/lib/libgmp.10.dylib"))),
         ("python-same-executable-different-image-set", "runtime", "Python guard/profile loaded-image closure mismatch", edit_closure("python", add_python_extra_image)),
@@ -1034,10 +1034,10 @@ def verify_external_negative_self_tests(
         success, output, _ = _completed(["/usr/bin/python3", "docs/contracts/validate-contracts-v1.py"], root, direct_env)
         require(not success and "Python runtime identity mismatch" in output, f"unregistered Python 3.9/PATH launcher did not fail at runtime identity: {output.rstrip()}")
         rejected += 1
-        python312 = "/Users/kyle/.local/bin/python3.12"
-        require(os.path.isfile(python312), "registered Python 3.12 rejection probe is unavailable")
-        success, output, _ = _completed([python312, "docs/contracts/validate-contracts-v1.py"], root, direct_env)
-        require(not success and "Python runtime identity mismatch" in output, f"unregistered Python 3.12 launcher did not fail at runtime identity: {output.rstrip()}")
+        python313 = "/opt/anaconda3/bin/python3"
+        require(os.path.isfile(python313), "registered Python 3.13 rejection probe is unavailable")
+        success, output, _ = _completed([python313, "docs/contracts/validate-contracts-v1.py"], root, direct_env)
+        require(not success and "Python runtime identity mismatch" in output, f"unregistered Python 3.13 launcher did not fail at runtime identity: {output.rstrip()}")
         rejected += 1
         copied = temporary_root / "unregistered-python3.11"
         shutil.copy2(sys.executable, copied)
