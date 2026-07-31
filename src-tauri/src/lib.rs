@@ -1,10 +1,16 @@
 mod contract;
 mod native;
 pub mod protocol;
+#[cfg(any(not(debug_assertions), test))]
+mod resource;
 pub mod supervisor;
 
 use contract::{safe_error, validate_request, validate_response};
-use native::{NativeError, NativeHost, helper_path};
+#[cfg(debug_assertions)]
+use native::helper_path;
+use native::{NativeError, NativeHost};
+#[cfg(not(debug_assertions))]
+use resource::ValidatedResources;
 use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -138,6 +144,14 @@ fn window_ready(app: &AppHandle) -> bool {
         && window.is_focused().ok() == Some(true)
 }
 
+fn restore_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
 fn validated(command_id: &str, response: Value) -> CommandResult {
     validate_response(command_id, response).map_err(|_| "response rejected".to_owned())
 }
@@ -210,6 +224,7 @@ fn credential_dialog_open(
         }
         Ok(response) if response.status == "reference-created" => {
             let Some(reference) = response.opaque_reference else {
+                restore_main_window(&app);
                 return validated(
                     "credential_dialog_open",
                     unavailable("credential_dialog_open", &request, "provider-unavailable"),
@@ -247,6 +262,7 @@ fn credential_dialog_open(
             native_error_code(&error),
         ),
     };
+    restore_main_window(&app);
     validated("credential_dialog_open", response)
 }
 
@@ -286,6 +302,7 @@ fn destructive_confirmation_open(
         "generation": plan["generation"],
         "nonce": plan["nonce"]
     }));
+    restore_main_window(&app);
     let response = match native_response {
         Ok(response) if response.status == "cancelled" => {
             let _ = call_internal(
@@ -297,6 +314,7 @@ fn destructive_confirmation_open(
         }
         Ok(response) if response.status == "confirmed" => {
             let Some(token) = response.user_presence_token else {
+                restore_main_window(&app);
                 return validated(
                     "destructive_confirmation_open",
                     unavailable(
@@ -382,12 +400,14 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
         "action": "credential",
         "dialogPurpose": "replace-credential-reference"
     }));
+    restore_main_window(&app);
     let response = match native_response {
         Ok(response) if response.status == "cancelled" => {
             json!({"reauth_state": "cancelled", "status": "ok"})
         }
         Ok(response) if response.status == "reference-replaced" => {
             let Some(reference) = response.opaque_reference else {
+                restore_main_window(&app);
                 return validated(
                     "reauthenticate",
                     unavailable("reauthenticate", &request, "provider-unavailable"),
@@ -440,7 +460,7 @@ fn scheduler_state(state: State<'_, HostState>, request: Value) -> CommandResult
     call_sidecar(&state, "scheduler_state", request, DEFAULT_BUDGET_NS)
 }
 
-fn sidecar_spec(app: &tauri::App) -> Option<(PathBuf, Vec<String>)> {
+fn sidecar_spec(app: &tauri::App, executable: Option<PathBuf>) -> Option<(PathBuf, Vec<String>)> {
     #[cfg(debug_assertions)]
     let data_root = std::env::var_os("AQ_DATA_ROOT")
         .map(PathBuf::from)
@@ -455,17 +475,40 @@ fn sidecar_spec(app: &tauri::App) -> Option<(PathBuf, Vec<String>)> {
     if let Some(path) = std::env::var_os("AQ_SIDECAR_EXECUTABLE") {
         return Some((PathBuf::from(path), arguments));
     }
-    let path = app.path().resource_dir().ok()?.join("agent-quota-sidecar");
-    Some((path, arguments))
+    executable.map(|path| (path, arguments))
+}
+
+#[cfg(debug_assertions)]
+fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
+    let resource_dir = app.path().resource_dir().ok();
+    let sidecar = resource_dir
+        .as_ref()
+        .map(|directory| directory.join("sidecar").join("agent-quota-sidecar"));
+    (sidecar, helper_path(resource_dir))
+}
+
+#[cfg(not(debug_assertions))]
+fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
+    const MANIFEST_SHA256: &str = env!("AQ_RESOURCE_MANIFEST_SHA256");
+    let validated: Option<ValidatedResources> = app
+        .path()
+        .resource_dir()
+        .ok()
+        .and_then(|directory| resource::validate(&directory, MANIFEST_SHA256).ok());
+    match validated {
+        Some(resources) => (Some(resources.sidecar), Some(resources.native)),
+        None => (None, None),
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let mut sidecar = sidecar_spec(app)
+            let (sidecar_executable, native_executable) = runtime_resources(app);
+            let mut sidecar = sidecar_spec(app, sidecar_executable)
                 .and_then(|(path, arguments)| SidecarSupervisor::spawn(&path, &arguments).ok());
-            let native = NativeHost::new(helper_path(app.path().resource_dir().ok()));
+            let native = NativeHost::new(native_executable);
             if let Some(active) = sidecar.as_mut()
                 && let Ok(pending) = active.call_internal(
                     "host_internal.cleanup_pending",

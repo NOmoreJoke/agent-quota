@@ -28,6 +28,11 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
+    "resources": {
+      "generated-resources/AgentQuotaNative.app": "native-helper/AgentQuotaNative.app",
+      "generated-resources/agent-quota-sidecar": "sidecar",
+      "generated-resources/resource-manifest.json": "resource-manifest.json"
+    },
     "category": "Utility",
     "shortDescription": "Local-first quota visibility",
     "longDescription": "A local-first desktop utility for viewing redacted quota projections."

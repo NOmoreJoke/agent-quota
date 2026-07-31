@@ -5,8 +5,9 @@
 
 ## 这是什么
 
-- **纯设计 / 机器契约仓库**：没有可运行代码。**没有应用实现,不运行 app 测试;合同校验必须运行。**不要构建或运行 app / CLI。
-- 当前终态：第 20 轮 `ZERO_ISSUES`。设计冻结态，**措辞即契约**。
+- **设计合同 + 可运行桌面实现**：Python core/sidecar、Tauri/Rust host、React renderer、macOS native helper。
+- 设计终态仍为第 20 轮 `ZERO_ISSUES`；冻结机器合同不得因实现便利而弱化。
+- 实现改动必须运行对应 Python/renderer/Rust/package 门禁；合同或规范输入变化还必须运行完整合同门禁。
 
 ## 权威顺序（冲突时谁赢）
 
@@ -16,12 +17,21 @@
 
 正文与 `.json` 冲突，以 `.json` 为准。
 
-## 验证命令（唯一门禁）
+## 验证命令
 
 ```bash
 # 必须在固定运行时上跑（Python 3.11.15_4 / Node v24.11.1 / Pandoc 3.10.1）：
 /bin/sh docs/contracts/runtime-bootstrap-v1.sh docs/contracts/run-release-gate-v1.py --root .
 npm run validate --prefix docs/contracts          # 等价入口
+
+uv run ruff check src tests tools
+uv run ruff format --check src tests tools
+uv run mypy src
+uv run pytest --cov=agent_quota --cov-branch
+pnpm lint && pnpm typecheck && pnpm test && pnpm boundary && pnpm build && pnpm e2e
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 门禁绑定**具体二进制哈希**（见 `docs/contracts/package.json` 的 `aqValidationRuntime`），他机不可替代；当前 checkout 的任何本地通过只算审计证据，不等于生产发布授权。
@@ -62,4 +72,4 @@ npm run validate --prefix docs/contracts          # 等价入口
 
 - 不要在未验证门禁时改正文或契约。
 - 不要把契约条文复制进代码注释或新文档——指过去即可。
-- 不要「实现功能」或「顺手改契约措辞」；这是设计冻结态。
+- 不要为实现便利顺手改契约措辞；实现必须服从冻结合同。

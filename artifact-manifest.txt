@@ -1,31 +1,53 @@
-artifact_manifest_version=1
-generated_at=2026-07-31T13:04:09+08:00
+artifact_manifest_version=2
+generated_at=2026-07-31T17:05:34+08:00
+iteration=4
 branch=dev
-baseline_commit=50b209f9a4284e2182b6f3f75fd86259e4a91b47
-chatgpt_pro_conversation=https://chatgpt.com/c/6a6c103b-c278-83ea-8154-06948ddd7429
+baseline_commit=3056549567029fe753f4f0007aa3f04c16312bbb
+chatgpt_pro_conversation=https://chatgpt.com/c/6a6c3ee9-f884-83ea-ae46-899d631ad61d
 
-source_zip_path=/private/var/tmp/agent-quota-iteration3-source-50b209f.zip
-source_zip_bytes=4650769
-source_zip_sha256=ef3921bd53985995d7fa81fd9f0df2a1f9842db622cee92d109f24e86943107b
+source_zip_path=/private/var/tmp/agent-quota-iteration4-source-3056549.zip
+source_zip_bytes=4698727
+source_zip_sha256=b0ba63ad416ba724f3b20d66f00643958dbb18ff4a39decbe74c0edcd3acbb18
 source_zip_security_scan=skipped-by-explicit-user-request
 
-patch_path=implementation/iteration-3-native-surfaces.patch
-patch_bytes=123030
-patch_sha256=e6b4dc8450113bcff4956ba262b90d691c5cdd4f7a4e03af52a4ff3bf5519ce7
+delivery_zip_path=/private/var/tmp/agent-quota-iteration4-delivery-3056549.zip
+delivery_zip_bytes=19416842
+delivery_zip_sha256=219b62d5bbc4dceda29207495942a10d2a9fac49bcb81610b3360b9066d68861
+delivery_zip_manifest_scope=external-record-archive-cannot-self-hash
 
-report_path=implementation/iteration-3-report.md
-report_bytes=7036
-report_sha256=494854b187886628f84e3ada91d203565daaf3efe8740f293d2ff36d0598843c
+patch_path=implementation/iteration-4-macos-package.patch
+patch_scope=implementation-source-docs-excludes-artifact-manifest-and-patch-itself
+patch_bytes=82355
+patch_sha256=836aa4905d59a7e44bc0d81c4afaebc932a581b60f27c2023d837330ffdf1aef
 
-debug_desktop_binary_path=src-tauri/target/debug/bundle/macos/Agent Quota.app/Contents/MacOS/agent-quota-desktop
-debug_desktop_binary_bytes=34131504
-debug_desktop_binary_sha256=26dabc19f7e86e4cade835610dfba83c3a20380f8ec3fa345c173a4903a93910
-debug_desktop_signature=ad-hoc-verified
+report_path=implementation/iteration-4-report.md
+report_bytes=5011
+report_sha256=830789794eb6d5a18e9085a55d193148a2d93b2173683eea50abfb00a5c39853
 
-native_helper_binary_path=src-tauri/bin/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative
-native_helper_binary_bytes=166096
-native_helper_binary_sha256=3c700fc7319d0ad78a8451543951296f243c8523e9c6c3b44a6e4fa07fe85a8c
-native_helper_signature=ad-hoc-verified
+dmg_path=artifacts/iteration-4/Agent-Quota-0.1.0-arm64-local-unsigned.dmg
+dmg_bytes=18573716
+dmg_sha256=a209ee3f209d3308a3c63dc83c89b5b6a5a457adbe6993a1be2e768e0302a42f
+
+bundle_audit_path=artifacts/iteration-4/bundle-audit.json
+bundle_audit_bytes=18539
+bundle_audit_sha256=2326698e96f41d95ed4a35cd097e4a629c5fd70a3266bb8a42f12e3a4de82257
+bundle_audit_status=pass
+
+bundle_manifest_path=artifacts/iteration-4/bundle-manifest.txt
+bundle_manifest_bytes=14537
+bundle_manifest_sha256=1d47ef2038e4ad91fdddae6be685f7c23db6cbec04b36cbab98c0d6d6aae1aab
+
+sbom_path=artifacts/iteration-4/sbom.cdx.json
+sbom_bytes=83059
+sbom_sha256=87ab9f47fd91a4db0584e6884d3da6bb3b7841ec9dd0f21135c4419348e4f041
+
+resource_manifest_entries=64
+resource_manifest_sha256=5a7228c93daf53a758bebe6fde815d5a344d9c22bf075b8bf0ebf4440a7f9d80
+macho_inventory_sha256=dc68b86ab7d828ef19c4ad9cb222f7d3e4bd14e3bde83fa2401eea32afa21a1d
+bundle_architecture=arm64
+bundle_identifier=com.agentquota.desktop
+bundle_signature=ad-hoc-verified
+bundle_notarized=false
 
 release_input_sha256=e3dbd449e41ca8a9b2bd6d11d32e1184292f78034f85b637ec1c7d888ffdd837
 mutation_case_count=50
@@ -35,4 +57,4 @@ release_authority=audit-evidence-only-not-a-release-authority
 
 security_scan=skipped-by-explicit-user-request
 provider_validation=no-real-provider-or-real-credential-used
-package_validation=debug-app-only-no-developer-id-no-notarization-no-dmg-or-pkg
+package_validation=local-unsigned-development-package-no-developer-id-no-notarization

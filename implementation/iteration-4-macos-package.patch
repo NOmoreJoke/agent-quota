@@ -1,0 +1,2075 @@
+diff --git a/.gitignore b/.gitignore
+index c2b7a4e..fbd8461 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -18,12 +18,13 @@ dist/
+ coverage/
+ *.tsbuildinfo
+ src-tauri/target/
+-src-tauri/bin/agent-quota-native
++src-tauri/generated-resources/
+ src-tauri/bin/AgentQuotaNative.app/
+ src-tauri/gen/schemas/
+ playwright-report/
+ test-results/
+ output/playwright/
++artifacts/
+ 
+ *.db
+ *.sqlite
+diff --git a/CLAUDE.md b/CLAUDE.md
+index c9031bb..643be6e 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -5,8 +5,9 @@
+ 
+ ## 这是什么
+ 
+-- **纯设计 / 机器契约仓库**：没有可运行代码。**没有应用实现,不运行 app 测试;合同校验必须运行。**不要构建或运行 app / CLI。
+-- 当前终态：第 20 轮 `ZERO_ISSUES`。设计冻结态，**措辞即契约**。
++- **设计合同 + 可运行桌面实现**：Python core/sidecar、Tauri/Rust host、React renderer、macOS native helper。
++- 设计终态仍为第 20 轮 `ZERO_ISSUES`；冻结机器合同不得因实现便利而弱化。
++- 实现改动必须运行对应 Python/renderer/Rust/package 门禁；合同或规范输入变化还必须运行完整合同门禁。
+ 
+ ## 权威顺序（冲突时谁赢）
+ 
+@@ -16,12 +17,21 @@
+ 
+ 正文与 `.json` 冲突，以 `.json` 为准。
+ 
+-## 验证命令（唯一门禁）
++## 验证命令
+ 
+ ```bash
+ # 必须在固定运行时上跑（Python 3.11.15_4 / Node v24.11.1 / Pandoc 3.10.1）：
+ /bin/sh docs/contracts/runtime-bootstrap-v1.sh docs/contracts/run-release-gate-v1.py --root .
+ npm run validate --prefix docs/contracts          # 等价入口
++
++uv run ruff check src tests tools
++uv run ruff format --check src tests tools
++uv run mypy src
++uv run pytest --cov=agent_quota --cov-branch
++pnpm lint && pnpm typecheck && pnpm test && pnpm boundary && pnpm build && pnpm e2e
++cargo fmt --manifest-path src-tauri/Cargo.toml --check
++cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
++cargo test --manifest-path src-tauri/Cargo.toml
+ ```
+ 
+ 门禁绑定**具体二进制哈希**（见 `docs/contracts/package.json` 的 `aqValidationRuntime`），他机不可替代；当前 checkout 的任何本地通过只算审计证据，不等于生产发布授权。
+@@ -62,4 +72,4 @@ npm run validate --prefix docs/contracts          # 等价入口
+ 
+ - 不要在未验证门禁时改正文或契约。
+ - 不要把契约条文复制进代码注释或新文档——指过去即可。
+-- 不要「实现功能」或「顺手改契约措辞」；这是设计冻结态。
++- 不要为实现便利顺手改契约措辞；实现必须服从冻结合同。
+diff --git a/docs/INSTALLATION.md b/docs/INSTALLATION.md
+new file mode 100644
+index 0000000..e4ee244
+--- /dev/null
++++ b/docs/INSTALLATION.md
+@@ -0,0 +1,77 @@
++# Agent Quota macOS 本机安装
++
++## 产物等级
++
++`Agent-Quota-0.1.0-arm64-local-unsigned.dmg` 是
++`local unsigned development package`：
++
++- Apple Silicon `arm64`。
++- 内含固定 CPython 3.11.15 sidecar 与 macOS native helper。
++- ad-hoc 签名；未使用 Developer ID，未公证。
++- 不代表 Intel/universal、干净 VM、真实 Provider 或生产环境验证。
++
++## 构建
++
++前置：Apple Silicon macOS、Xcode Command Line Tools、Python 3.11、uv、
++Node/pnpm、Rust/cargo。
++
++```bash
++uv sync --all-groups --locked
++pnpm install --frozen-lockfile
++./tools/build_macos_package.sh
++```
++
++若 `cargo` 不在 `PATH`：
++
++```bash
++AQ_RUST_BIN=/absolute/path/to/rust/bin ./tools/build_macos_package.sh
++```
++
++输出：
++
++- `artifacts/iteration-4/Agent Quota.app`
++- `artifacts/iteration-4/Agent-Quota-0.1.0-arm64-local-unsigned.dmg`
++- `bundle-manifest.txt`
++- `bundle-audit.json`
++- `sbom.cdx.json`
++- `artifact-sha256.txt`
++
++## 安装
++
++1. 退出正在运行的 Agent Quota。
++2. 打开 DMG。
++3. 将 `Agent Quota.app` 拖入 `/Applications`。
++4. 启动应用。
++
++若 macOS 提示来源未识别，不得关闭 Gatekeeper 或清除全局安全属性；仅在确认
++本机生成产物的 SHA-256 后，通过 macOS 提供的单应用人工确认流程处理。
++
++## 升级
++
++1. 退出应用。
++2. 保留当前 `.app` 作为可回滚副本。
++3. 用新 `.app` 替换 `/Applications/Agent Quota.app`。
++4. 启动并核对账户、设置和刷新状态。
++
++应用数据位于用户 Application Support；替换 `.app` 不删除数据或 Keychain 项。
++
++## 回滚
++
++1. 退出应用。
++2. 恢复上一版本 `.app`。
++3. 启动并核对数据 schema 兼容性。
++
++若新版报告不可逆 schema 迁移，禁止直接回滚；本迭代未执行数据库迁移。
++
++## 卸载
++
++1. 退出应用。
++2. 将 `/Applications/Agent Quota.app` 移到废纸篓。
++
++普通卸载保留 Application Support 数据与 Keychain 引用，便于重装恢复。
++
++## Purge
++
++必须在应用内发起 purge，并完成原生破坏性确认；成功后再卸载 `.app`。此流程由
++host/core 删除本机状态并清理 Keychain 引用。若 `.app` 已被移除，先重装同版本，
++再执行 purge；不要手工猜测或批量删除 Keychain 项。
+diff --git a/implementation/iteration-4-report.md b/implementation/iteration-4-report.md
+new file mode 100644
+index 0000000..15eddb6
+--- /dev/null
++++ b/implementation/iteration-4-report.md
+@@ -0,0 +1,120 @@
++# Iteration 4 — macOS package / install acceptance
++
++Status: `PASS`
++
++## Baseline
++
++- Branch: `dev`
++- Source commit: `3056549567029fe753f4f0007aa3f04c16312bbb`
++- Source ZIP: `/private/var/tmp/agent-quota-iteration4-source-3056549.zip`
++- Source ZIP bytes: `4,698,727`
++- Source ZIP SHA-256: `b0ba63ad416ba724f3b20d66f00643958dbb18ff4a39decbe74c0edcd3acbb18`
++- Security scan: skipped by explicit user request
++- External review: <https://chatgpt.com/c/6a6c3ee9-f884-83ea-ae46-899d631ad61d>
++
++## Delivered
++
++- PyInstaller `6.21.0` one-directory arm64 sidecar with fixed CPython `3.11.15`.
++- Production lookup restricted to validated bundle resources; no PATH/user-Python
++  fallback.
++- Nested signed `AgentQuotaNative.app` resource.
++- Compile-time pinned resource manifest with owner/mode/size/hash/dev/inode/closure
++  checks and no-follow opens.
++- Critical executable absolute-path, ownership, mode, symlink, canonical-path and
++  identity checks.
++- DMG builder, lifecycle test, bundle audit, bundle manifest, CycloneDX SBOM and
++  SHA-256 inventory.
++- Explicit-off destructive checkbox and initially disabled confirmation action.
++- Install/upgrade/rollback/uninstall/purge instructions.
++
++## Package evidence
++
++Artifact class: `local unsigned development package`
++
++| File | Bytes | SHA-256 |
++|---|---:|---|
++| `Agent-Quota-0.1.0-arm64-local-unsigned.dmg` | 18,573,716 | `a209ee3f209d3308a3c63dc83c89b5b6a5a457adbe6993a1be2e768e0302a42f` |
++| `bundle-audit.json` | 18,539 | `2326698e96f41d95ed4a35cd097e4a629c5fd70a3266bb8a42f12e3a4de82257` |
++| `bundle-manifest.txt` | 14,537 | `1d47ef2038e4ad91fdddae6be685f7c23db6cbec04b36cbab98c0d6d6aae1aab` |
++| `sbom.cdx.json` | 83,059 | `87ab9f47fd91a4db0584e6884d3da6bb3b7841ec9dd0f21135c4419348e4f041` |
++
++- Bundle identifier: `com.agentquota.desktop`
++- Architecture: `arm64`
++- Deep strict codesign verification: pass (ad-hoc)
++- Notarized: no
++- Resource entries: `64`
++- Resource manifest SHA-256:
++  `5a7228c93daf53a758bebe6fde815d5a344d9c22bf075b8bf0ebf4440a7f9d80`
++- Mach-O inventory SHA-256:
++  `dc68b86ab7d828ef19c4ad9cb222f7d3e4bd14e3bde83fa2401eea32afa21a1d`
++- Quarantine attribute: absent
++- Audit errors: `0`
++
++## Automated gates
++
++| Gate | Result |
++|---|---|
++| Ruff lint / format | PASS |
++| mypy | PASS |
++| pytest + coverage | `103/103`, `90.61%` |
++| Renderer lint / typecheck / Vitest | PASS, `5/5` |
++| Renderer boundary / production build | PASS |
++| Playwright | `2/2` |
++| Rust fmt / clippy | PASS |
++| Rust tests | `22/22` |
++| Bundled sidecar real round-trip / persistence / purge / timeout-reap | PASS |
++| DMG mount / install / relaunch / hostile PATH / offline / upgrade / rollback / uninstall-preserve / reinstall | PASS |
++| No TCP listener | PASS |
++| Resource tamper and re-signed tamper fail-closed | PASS |
++| Full frozen contract release gate | PASS |
++
++Final frozen-gate evidence:
++
++- `release_input_sha256=e3dbd449e41ca8a9b2bd6d11d32e1184292f78034f85b637ec1c7d888ffdd837`
++- `mutation_case_count=50`
++- `mutation_results_sha256=6b267aef7791f75b5f35681ce0b68ce83037c09758a3ffc0283b3b65ba262964`
++- `source_bytes_unchanged=true`
++- `status=ok`
++
++The first full frozen-gate run rejected an Iteration 4 README status edit:
++`release_gate_error=mutation locator before-state mismatch:
++validation-input-changed`. The README was restored byte-for-byte because it is
++part of the frozen contract input. Runtime/package status is recorded in
++`CLAUDE.md`, `docs/INSTALLATION.md` and this report.
++
++## Three adversarial rounds
++
++### R1 — contents / dependencies / locks / SBOM
++
++- Verified Python, Node and Cargo locks plus CycloneDX inventory.
++- Verified no repository path or Homebrew dylib dependency in packaged Mach-O
++  closure.
++- Result: PASS; open P0/P1/P2 = `0/0/0`.
++
++### R2 — path / symlink / substitution / lifecycle
++
++- Verified resource closure, no escaping symlink, critical ownership/mode, no-follow
++  identity, compile-time manifest pin, signature failure and re-signed tamper
++  fail-closed behavior.
++- Verified upgrade/rollback/uninstall/reinstall lifecycle.
++- Result: PASS; open P0/P1/P2 = `0/0/0`.
++
++### R3 — installed runtime / regression / package
++
++- Installed current artifact at `/Applications/Agent Quota.app`.
++- Verified main process and bundled sidecar launch with no listener.
++- Verified offline/hostile-PATH lifecycle and complete automated regression suite.
++- External reviewer requested removal of the redundant naked native-helper output
++  and stronger evidence closure; both were corrected.
++- External reviewer final verdict: `P0 OPEN: 0`, `P1 OPEN: 0`, `P2 OPEN: 0`.
++- Result: PASS.
++
++## Scope and unresolved validation
++
++- No Developer ID signature or Apple notarization.
++- No clean macOS VM or Intel/universal-binary validation.
++- No real provider, credential, production service, deployment or database
++  migration.
++- Native secure credential entry remains a manual installed-app acceptance step;
++  automation intentionally does not inject secrets into the secure dialog.
++- Ad-hoc signing means Gatekeeper distribution behavior is not production-qualified.
+diff --git a/implementation/iteration-4-task-brief.md b/implementation/iteration-4-task-brief.md
+new file mode 100644
+index 0000000..461be4f
+--- /dev/null
++++ b/implementation/iteration-4-task-brief.md
+@@ -0,0 +1,96 @@
++# Iteration 4 — macOS package / install acceptance
++
++## Baseline
++
++- Repository snapshot: `3056549567029fe753f4f0007aa3f04c16312bbb`
++- Source archive: `agent-quota-iteration4-source-3056549.zip`
++- Archive bytes: `4,698,727`
++- Archive SHA-256: `b0ba63ad416ba724f3b20d66f00643958dbb18ff4a39decbe74c0edcd3acbb18`
++- Target: Apple Silicon macOS; local development package.
++
++## Background and goal
++
++Iterations 0–3 passed their documented gates. The current Tauri application can run
++from the repository, but its production bundle does not contain the Python 3.11
++sidecar/runtime or native helper. Complete the final packaging iteration so a user
++can install and run the prototype locally without a user Python installation or
++PATH dependency.
++
++## Architecture and immutable boundaries
++
++- React renderer -> strict Tauri command allowlist -> Rust trusted host -> framed
++  anonymous-pipe Python sidecar -> local SQLite/filesystem state.
++- Native macOS helper owns Keychain credential entry and destructive confirmation.
++- No HTTP/WebSocket listener; no renderer network/file/shell/process capability.
++- Preserve the 10-command/29-DTO contract, unknown-field rejection, CSP/navigation
++  policy, sidecar deadline/reap/outcome-unknown semantics, native TOCTOU protection,
++  and Keychain opaque-reference boundary.
++- Do not weaken or silently regenerate frozen `docs/contracts/*.json`.
++- Exact dependency locks remain authoritative.
++- Existing user changes must not be overwritten.
++
++## Required research and modification scope
++
++1. Design a relocatable, pinned Apple Silicon Python 3.11 runtime and deterministic
++   sidecar payload embedded inside the `.app`.
++2. Ensure Rust production lookup uses bundle resources only and never falls back to
++   user Python/PATH. Keep explicit development-only lookup testable.
++3. Bundle the macOS native helper as an executable resource.
++4. Produce `.app` and DMG, deterministic bundle inventory, SHA-256 closure, dependency
++   inventory/SBOM, and install/upgrade/rollback/uninstall/purge instructions.
++5. Detect absolute Homebrew paths, unexpected non-system dylibs, symlinks escaping
++   the bundle, missing executables, writable/substitutable critical resources, and
++   forbidden listeners.
++6. Repair documentation drift that still describes this repository as design-only.
++7. Add focused automation for package construction and installed/offline launch.
++
++## Deliverables
++
++- Source patch with all build/runtime/test/documentation changes.
++- `.app` and DMG local unsigned development artifacts.
++- Bundle manifest: relative path, type, mode, size, SHA-256 or symlink target.
++- Dependency/SBOM record with pinned versions and architecture.
++- Installer operations guide.
++- Iteration report with R1/R2/R3 evidence and unresolved risks.
++- Artifact manifest containing sizes and SHA-256 values.
++
++## Mandatory validation
++
++- Python: lint, format, typecheck, unit/property/contract tests, coverage.
++- Renderer: lint, typecheck, unit, boundary scan, production build, Playwright E2E.
++- Rust: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`.
++- Package: clean production build; bundle closure; Mach-O architecture/load-command
++  audit; no external Homebrew/working-copy reference; no listener.
++- Runtime: launch with hostile empty PATH and no user Python; offline first launch;
++  add account, quit, relaunch, persistence, refresh/export/disable/delete/purge;
++  uninstall without purge, reinstall, then explicit purge.
++- Full frozen contract release gate on the final source state.
++- Three independent adversarial rounds:
++  - R1: contents/dependencies/locks/SBOM.
++  - R2: signature/path/symlink/substitution/upgrade/rollback.
++  - R3: installed runtime/regression/package acceptance.
++
++## Forbidden operations and claims
++
++- No deployment, database migration, production configuration, real provider,
++  real API credential, or real user data.
++- No Git push, PR, release, or direct main mutation during engineering.
++- No security scan; the user explicitly skipped it.
++- Do not claim Developer ID signing, notarization, clean VM, Intel/universal support,
++  production validation, or successful installation without direct evidence.
++- Do not expose or request passwords, cookies, tokens, recovery codes, or Keychain
++  material.
++- Do not treat mocks as live-provider verification.
++
++## Acceptance
++
++- A fresh local install launches from the packaged `.app` with networking disabled,
++  hostile PATH, and no dependency on repository files or user Python.
++- All prototype functions are locally exercisable through trusted boundaries and
++  persisted across relaunch.
++- The DMG can install and run on the target Apple Silicon Mac.
++- Bundle/resource hashes close; critical binaries are arm64 and have no unresolved
++  non-system dependencies.
++- Full automated gates plus R1/R2/R3 pass with no unresolved P0/P1.
++- Because no Developer ID/notarization evidence is available, every artifact/report
++  must say `local unsigned development package`.
+diff --git a/native/AgentQuotaNative.swift b/native/AgentQuotaNative.swift
+index edb6590..a65003e 100644
+--- a/native/AgentQuotaNative.swift
++++ b/native/AgentQuotaNative.swift
+@@ -96,6 +96,15 @@ private enum NativeFailure: Error {
+     case keychain(OSStatus)
+ }
+ 
++@MainActor
++private final class DestructiveConfirmationGate: NSObject {
++    weak var confirmButton: NSButton?
++
++    @objc func update(_ checkbox: NSButton) {
++        confirmButton?.isEnabled = checkbox.state == .on
++    }
++}
++
+ private func emit(_ response: NativeResponse) {
+     let encoder = JSONEncoder()
+     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+@@ -288,12 +297,19 @@ private func destructiveDialog(_ request: NativeRequest) -> NativeResponse {
+     alert.informativeText = "\(summary)\nGeneration \(generation) · Plan \(digest.prefix(12))"
+     alert.addButton(withTitle: "取消")
+     alert.addButton(withTitle: "确认执行")
++    let confirmButton = alert.buttons[1]
++    confirmButton.isEnabled = false
+     let confirmation = NSButton(
+         checkboxWithTitle: "我已核对范围，并确认该操作可能不可恢复。",
+         target: nil,
+         action: nil
+     )
++    confirmation.state = .off
+     confirmation.setAccessibilityLabel("确认破坏性操作范围")
++    let gate = DestructiveConfirmationGate()
++    gate.confirmButton = confirmButton
++    confirmation.target = gate
++    confirmation.action = #selector(DestructiveConfirmationGate.update(_:))
+     alert.accessoryView = confirmation
+ 
+     var lostFocus = false
+@@ -307,6 +323,7 @@ private func destructiveDialog(_ request: NativeRequest) -> NativeResponse {
+     guard
+         response == .alertSecondButtonReturn,
+         confirmation.state == .on,
++        confirmButton.isEnabled,
+         !lostFocus
+     else {
+         return NativeResponse(
+diff --git a/pyproject.toml b/pyproject.toml
+index 25b13d0..af14cac 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -25,6 +25,9 @@ dev = [
+   "pytest-cov==6.2.1",
+   "ruff==0.12.7",
+ ]
++package = [
++  "pyinstaller==6.21.0",
++]
+ 
+ [tool.hatch.build.targets.wheel]
+ packages = ["src/agent_quota"]
+diff --git a/src-tauri/build.rs b/src-tauri/build.rs
+index 261851f..d0bba82 100644
+--- a/src-tauri/build.rs
++++ b/src-tauri/build.rs
+@@ -1,3 +1,13 @@
+ fn main() {
++    println!("cargo:rerun-if-env-changed=AQ_RESOURCE_MANIFEST_SHA256");
++    if std::env::var("PROFILE").ok().as_deref() == Some("release") {
++        let digest = std::env::var("AQ_RESOURCE_MANIFEST_SHA256")
++            .expect("release build requires AQ_RESOURCE_MANIFEST_SHA256");
++        assert!(
++            digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit()),
++            "AQ_RESOURCE_MANIFEST_SHA256 must be a SHA-256 hex digest"
++        );
++        println!("cargo:rustc-env=AQ_RESOURCE_MANIFEST_SHA256={digest}");
++    }
+     tauri_build::build();
+ }
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index a7b5883..367bac3 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -1,10 +1,16 @@
+ mod contract;
+ mod native;
+ pub mod protocol;
++#[cfg(any(not(debug_assertions), test))]
++mod resource;
+ pub mod supervisor;
+ 
+ use contract::{safe_error, validate_request, validate_response};
+-use native::{NativeError, NativeHost, helper_path};
++#[cfg(debug_assertions)]
++use native::helper_path;
++use native::{NativeError, NativeHost};
++#[cfg(not(debug_assertions))]
++use resource::ValidatedResources;
+ use serde_json::{Value, json};
+ use std::path::PathBuf;
+ use std::sync::Mutex;
+@@ -138,6 +144,14 @@ fn window_ready(app: &AppHandle) -> bool {
+         && window.is_focused().ok() == Some(true)
+ }
+ 
++fn restore_main_window(app: &AppHandle) {
++    if let Some(window) = app.get_webview_window("main") {
++        let _ = window.show();
++        let _ = window.unminimize();
++        let _ = window.set_focus();
++    }
++}
++
+ fn validated(command_id: &str, response: Value) -> CommandResult {
+     validate_response(command_id, response).map_err(|_| "response rejected".to_owned())
+ }
+@@ -210,6 +224,7 @@ fn credential_dialog_open(
+         }
+         Ok(response) if response.status == "reference-created" => {
+             let Some(reference) = response.opaque_reference else {
++                restore_main_window(&app);
+                 return validated(
+                     "credential_dialog_open",
+                     unavailable("credential_dialog_open", &request, "provider-unavailable"),
+@@ -247,6 +262,7 @@ fn credential_dialog_open(
+             native_error_code(&error),
+         ),
+     };
++    restore_main_window(&app);
+     validated("credential_dialog_open", response)
+ }
+ 
+@@ -286,6 +302,7 @@ fn destructive_confirmation_open(
+         "generation": plan["generation"],
+         "nonce": plan["nonce"]
+     }));
++    restore_main_window(&app);
+     let response = match native_response {
+         Ok(response) if response.status == "cancelled" => {
+             let _ = call_internal(
+@@ -297,6 +314,7 @@ fn destructive_confirmation_open(
+         }
+         Ok(response) if response.status == "confirmed" => {
+             let Some(token) = response.user_presence_token else {
++                restore_main_window(&app);
+                 return validated(
+                     "destructive_confirmation_open",
+                     unavailable(
+@@ -382,12 +400,14 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
+         "action": "credential",
+         "dialogPurpose": "replace-credential-reference"
+     }));
++    restore_main_window(&app);
+     let response = match native_response {
+         Ok(response) if response.status == "cancelled" => {
+             json!({"reauth_state": "cancelled", "status": "ok"})
+         }
+         Ok(response) if response.status == "reference-replaced" => {
+             let Some(reference) = response.opaque_reference else {
++                restore_main_window(&app);
+                 return validated(
+                     "reauthenticate",
+                     unavailable("reauthenticate", &request, "provider-unavailable"),
+@@ -440,7 +460,7 @@ fn scheduler_state(state: State<'_, HostState>, request: Value) -> CommandResult
+     call_sidecar(&state, "scheduler_state", request, DEFAULT_BUDGET_NS)
+ }
+ 
+-fn sidecar_spec(app: &tauri::App) -> Option<(PathBuf, Vec<String>)> {
++fn sidecar_spec(app: &tauri::App, executable: Option<PathBuf>) -> Option<(PathBuf, Vec<String>)> {
+     #[cfg(debug_assertions)]
+     let data_root = std::env::var_os("AQ_DATA_ROOT")
+         .map(PathBuf::from)
+@@ -455,17 +475,40 @@ fn sidecar_spec(app: &tauri::App) -> Option<(PathBuf, Vec<String>)> {
+     if let Some(path) = std::env::var_os("AQ_SIDECAR_EXECUTABLE") {
+         return Some((PathBuf::from(path), arguments));
+     }
+-    let path = app.path().resource_dir().ok()?.join("agent-quota-sidecar");
+-    Some((path, arguments))
++    executable.map(|path| (path, arguments))
++}
++
++#[cfg(debug_assertions)]
++fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
++    let resource_dir = app.path().resource_dir().ok();
++    let sidecar = resource_dir
++        .as_ref()
++        .map(|directory| directory.join("sidecar").join("agent-quota-sidecar"));
++    (sidecar, helper_path(resource_dir))
++}
++
++#[cfg(not(debug_assertions))]
++fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
++    const MANIFEST_SHA256: &str = env!("AQ_RESOURCE_MANIFEST_SHA256");
++    let validated: Option<ValidatedResources> = app
++        .path()
++        .resource_dir()
++        .ok()
++        .and_then(|directory| resource::validate(&directory, MANIFEST_SHA256).ok());
++    match validated {
++        Some(resources) => (Some(resources.sidecar), Some(resources.native)),
++        None => (None, None),
++    }
+ }
+ 
+ #[cfg_attr(mobile, tauri::mobile_entry_point)]
+ pub fn run() {
+     tauri::Builder::default()
+         .setup(|app| {
+-            let mut sidecar = sidecar_spec(app)
++            let (sidecar_executable, native_executable) = runtime_resources(app);
++            let mut sidecar = sidecar_spec(app, sidecar_executable)
+                 .and_then(|(path, arguments)| SidecarSupervisor::spawn(&path, &arguments).ok());
+-            let native = NativeHost::new(helper_path(app.path().resource_dir().ok()));
++            let native = NativeHost::new(native_executable);
+             if let Some(active) = sidecar.as_mut()
+                 && let Ok(pending) = active.call_internal(
+                     "host_internal.cleanup_pending",
+diff --git a/src-tauri/src/native.rs b/src-tauri/src/native.rs
+index f7c07b2..fcc0384 100644
+--- a/src-tauri/src/native.rs
++++ b/src-tauri/src/native.rs
+@@ -1,8 +1,8 @@
+ use serde::Deserialize;
+ use serde_json::Value;
+-use std::fs;
++use std::fs::{self, OpenOptions};
+ use std::io::{Read, Write};
+-use std::os::unix::fs::PermissionsExt;
++use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+ use std::path::{Path, PathBuf};
+ use std::process::{Child, Command, Stdio};
+ use std::sync::{Mutex, mpsc};
+@@ -118,7 +118,7 @@ impl NativeHost {
+ 
+     fn run(&self, request: Value, timeout: Duration) -> Result<NativeResponse, NativeError> {
+         let path = self.executable.as_deref().ok_or(NativeError::Unavailable)?;
+-        check_executable(path)?;
++        let path = check_executable(path)?;
+         let mut body = serde_json::to_vec(&request).map_err(|_| NativeError::Protocol)?;
+         if body.is_empty() || body.len() >= MAX_REQUEST_BYTES || body.contains(&b'\n') {
+             return Err(NativeError::Protocol);
+@@ -174,26 +174,55 @@ impl NativeHost {
+     }
+ }
+ 
++#[cfg(debug_assertions)]
+ pub fn helper_path(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
+-    #[cfg(debug_assertions)]
+     if let Some(path) = std::env::var_os("AQ_NATIVE_HELPER_EXECUTABLE") {
+         return Some(PathBuf::from(path));
+     }
+-    resource_dir.map(|directory| directory.join("agent-quota-native"))
++    resource_dir.map(|directory| {
++        directory
++            .join("native-helper")
++            .join("AgentQuotaNative.app")
++            .join("Contents")
++            .join("MacOS")
++            .join("AgentQuotaNative")
++    })
+ }
+ 
+-fn check_executable(path: &Path) -> Result<(), NativeError> {
++fn check_executable(path: &Path) -> Result<PathBuf, NativeError> {
+     if !path.is_absolute() {
+         return Err(NativeError::Unavailable);
+     }
+-    let metadata = fs::symlink_metadata(path).map_err(|_| NativeError::Unavailable)?;
+-    if metadata.file_type().is_symlink()
+-        || !metadata.is_file()
+-        || metadata.permissions().mode() & 0o111 == 0
++    let path_metadata = fs::symlink_metadata(path).map_err(|_| NativeError::Unavailable)?;
++    let mode = path_metadata.permissions().mode() & 0o7777;
++    let effective_uid = unsafe { libc::geteuid() };
++    if path_metadata.file_type().is_symlink()
++        || !path_metadata.is_file()
++        || mode & 0o100 == 0
++        || mode & 0o022 != 0
++        || !matches!(path_metadata.uid(), 0) && path_metadata.uid() != effective_uid
+     {
+         return Err(NativeError::Unavailable);
+     }
+-    Ok(())
++    let canonical = path.canonicalize().map_err(|_| NativeError::Unavailable)?;
++    let file = OpenOptions::new()
++        .read(true)
++        .custom_flags(libc::O_NOFOLLOW)
++        .open(&canonical)
++        .map_err(|_| NativeError::Unavailable)?;
++    let opened_metadata = file.metadata().map_err(|_| NativeError::Unavailable)?;
++    let final_metadata = fs::symlink_metadata(&canonical).map_err(|_| NativeError::Unavailable)?;
++    if path_metadata.dev() != opened_metadata.dev()
++        || path_metadata.ino() != opened_metadata.ino()
++        || opened_metadata.dev() != final_metadata.dev()
++        || opened_metadata.ino() != final_metadata.ino()
++        || opened_metadata.len() != final_metadata.len()
++        || opened_metadata.mode() != final_metadata.mode()
++        || opened_metadata.uid() != final_metadata.uid()
++    {
++        return Err(NativeError::Unavailable);
++    }
++    Ok(canonical)
+ }
+ 
+ fn terminate(child: &mut Child) {
+@@ -226,6 +255,26 @@ mod tests {
+         assert!(check_executable(Path::new("/bin/sh")).is_ok());
+     }
+ 
++    #[test]
++    fn executable_rejects_symlink_and_writable_mode() {
++        use std::os::unix::fs::symlink;
++
++        let directory = tempfile::tempdir().unwrap();
++        let executable = directory.path().join("helper");
++        fs::write(&executable, "#!/bin/sh\nexit 0\n").unwrap();
++        let mut permissions = fs::metadata(&executable).unwrap().permissions();
++        permissions.set_mode(0o755);
++        fs::set_permissions(&executable, permissions).unwrap();
++        let link = directory.path().join("helper-link");
++        symlink(&executable, &link).unwrap();
++        assert!(check_executable(&link).is_err());
++
++        let mut permissions = fs::metadata(&executable).unwrap().permissions();
++        permissions.set_mode(0o757);
++        fs::set_permissions(&executable, permissions).unwrap();
++        assert!(check_executable(&executable).is_err());
++    }
++
+     #[test]
+     fn gate_rejects_overlap_and_cooldown() {
+         let host = NativeHost::new(None);
+diff --git a/src-tauri/src/resource.rs b/src-tauri/src/resource.rs
+new file mode 100644
+index 0000000..ad3b23a
+--- /dev/null
++++ b/src-tauri/src/resource.rs
+@@ -0,0 +1,324 @@
++use serde::Deserialize;
++use sha2::{Digest, Sha256};
++use std::collections::BTreeSet;
++use std::fs::{self, File, Metadata, OpenOptions};
++use std::io::Read;
++use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
++use std::path::{Component, Path, PathBuf};
++
++#[derive(Debug, thiserror::Error)]
++pub enum ResourceError {
++    #[error("resource manifest is unavailable")]
++    Manifest,
++    #[error("resource manifest digest mismatch")]
++    ManifestDigest,
++    #[error("resource manifest contract mismatch")]
++    Contract,
++    #[error("resource path is unsafe")]
++    UnsafePath,
++    #[error("resource metadata mismatch")]
++    Metadata,
++    #[error("resource digest mismatch")]
++    Digest,
++    #[error("resource closure mismatch")]
++    Closure,
++}
++
++#[derive(Debug, Deserialize)]
++#[serde(deny_unknown_fields)]
++struct Manifest {
++    artifact_class: String,
++    entries: Vec<Entry>,
++    schema: String,
++}
++
++#[derive(Debug, Deserialize)]
++#[serde(deny_unknown_fields)]
++struct Entry {
++    bytes: u64,
++    mode: u32,
++    path: String,
++    sha256: String,
++}
++
++pub struct ValidatedResources {
++    pub native: PathBuf,
++    pub sidecar: PathBuf,
++}
++
++fn digest_bytes(bytes: &[u8]) -> String {
++    Sha256::digest(bytes)
++        .iter()
++        .map(|byte| format!("{byte:02x}"))
++        .collect()
++}
++
++fn digest_file(file: &mut File) -> Result<String, ResourceError> {
++    let mut digest = Sha256::new();
++    let mut buffer = [0_u8; 1024 * 1024];
++    loop {
++        let read = file.read(&mut buffer).map_err(|_| ResourceError::Digest)?;
++        if read == 0 {
++            break;
++        }
++        digest.update(&buffer[..read]);
++    }
++    Ok(digest
++        .finalize()
++        .iter()
++        .map(|byte| format!("{byte:02x}"))
++        .collect())
++}
++
++fn safe_relative(path: &str) -> bool {
++    let path = Path::new(path);
++    !path.as_os_str().is_empty()
++        && path
++            .components()
++            .all(|component| matches!(component, Component::Normal(_)))
++}
++
++fn same_identity(left: &Metadata, right: &Metadata) -> bool {
++    left.dev() == right.dev()
++        && left.ino() == right.ino()
++        && left.len() == right.len()
++        && left.mode() == right.mode()
++        && left.uid() == right.uid()
++}
++
++fn validate_entry(root: &Path, entry: &Entry) -> Result<(), ResourceError> {
++    if !safe_relative(&entry.path)
++        || entry.sha256.len() != 64
++        || !entry.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
++    {
++        return Err(ResourceError::Contract);
++    }
++    let path = root.join(&entry.path);
++    let path_metadata = fs::symlink_metadata(&path).map_err(|_| ResourceError::Metadata)?;
++    if path_metadata.file_type().is_symlink() || !path_metadata.is_file() {
++        return Err(ResourceError::UnsafePath);
++    }
++    let canonical = path.canonicalize().map_err(|_| ResourceError::UnsafePath)?;
++    if !canonical.starts_with(root) {
++        return Err(ResourceError::UnsafePath);
++    }
++    let mode = path_metadata.permissions().mode() & 0o7777;
++    let effective_uid = unsafe { libc::geteuid() };
++    if path_metadata.len() != entry.bytes
++        || mode != entry.mode
++        || mode & 0o022 != 0
++        || (!matches!(path_metadata.uid(), 0) && path_metadata.uid() != effective_uid)
++    {
++        return Err(ResourceError::Metadata);
++    }
++    let mut file = OpenOptions::new()
++        .read(true)
++        .custom_flags(libc::O_NOFOLLOW)
++        .open(&path)
++        .map_err(|_| ResourceError::Metadata)?;
++    let opened_metadata = file.metadata().map_err(|_| ResourceError::Metadata)?;
++    if !same_identity(&path_metadata, &opened_metadata) || digest_file(&mut file)? != entry.sha256 {
++        return Err(ResourceError::Digest);
++    }
++    let final_metadata = fs::symlink_metadata(&path).map_err(|_| ResourceError::Metadata)?;
++    if !same_identity(&opened_metadata, &final_metadata) {
++        return Err(ResourceError::Metadata);
++    }
++    Ok(())
++}
++
++fn collect_files(
++    root: &Path,
++    directory: &Path,
++    output: &mut BTreeSet<String>,
++) -> Result<(), ResourceError> {
++    for item in fs::read_dir(directory).map_err(|_| ResourceError::Closure)? {
++        let item = item.map_err(|_| ResourceError::Closure)?;
++        let path = item.path();
++        let metadata = fs::symlink_metadata(&path).map_err(|_| ResourceError::Closure)?;
++        if metadata.file_type().is_symlink() {
++            return Err(ResourceError::UnsafePath);
++        }
++        if metadata.is_dir() {
++            collect_files(root, &path, output)?;
++        } else if metadata.is_file() {
++            output.insert(
++                path.strip_prefix(root)
++                    .map_err(|_| ResourceError::UnsafePath)?
++                    .to_string_lossy()
++                    .into_owned(),
++            );
++        } else {
++            return Err(ResourceError::UnsafePath);
++        }
++    }
++    Ok(())
++}
++
++pub fn validate(
++    root: &Path,
++    expected_manifest_digest: &str,
++) -> Result<ValidatedResources, ResourceError> {
++    let root = root.canonicalize().map_err(|_| ResourceError::UnsafePath)?;
++    let manifest_path = root.join("resource-manifest.json");
++    let metadata = fs::symlink_metadata(&manifest_path).map_err(|_| ResourceError::Manifest)?;
++    if metadata.file_type().is_symlink() || !metadata.is_file() {
++        return Err(ResourceError::Manifest);
++    }
++    let mut manifest_file = OpenOptions::new()
++        .read(true)
++        .custom_flags(libc::O_NOFOLLOW)
++        .open(&manifest_path)
++        .map_err(|_| ResourceError::Manifest)?;
++    let opened_metadata = manifest_file
++        .metadata()
++        .map_err(|_| ResourceError::Manifest)?;
++    if !same_identity(&metadata, &opened_metadata) {
++        return Err(ResourceError::Manifest);
++    }
++    let mut bytes = Vec::new();
++    manifest_file
++        .read_to_end(&mut bytes)
++        .map_err(|_| ResourceError::Manifest)?;
++    let final_metadata =
++        fs::symlink_metadata(&manifest_path).map_err(|_| ResourceError::Manifest)?;
++    if !same_identity(&opened_metadata, &final_metadata) {
++        return Err(ResourceError::Manifest);
++    }
++    if digest_bytes(&bytes) != expected_manifest_digest {
++        return Err(ResourceError::ManifestDigest);
++    }
++    let manifest: Manifest = serde_json::from_slice(&bytes).map_err(|_| ResourceError::Contract)?;
++    if manifest.schema != "agent-quota-resource-manifest-v1"
++        || manifest.artifact_class != "local unsigned development package"
++        || manifest.entries.is_empty()
++    {
++        return Err(ResourceError::Contract);
++    }
++    let mut expected = BTreeSet::new();
++    for entry in &manifest.entries {
++        if !expected.insert(entry.path.clone()) {
++            return Err(ResourceError::Contract);
++        }
++        validate_entry(&root, entry)?;
++    }
++    let mut actual = BTreeSet::new();
++    collect_files(&root, &root.join("native-helper"), &mut actual)?;
++    collect_files(&root, &root.join("sidecar"), &mut actual)?;
++    if actual != expected {
++        return Err(ResourceError::Closure);
++    }
++    let native =
++        PathBuf::from("native-helper/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative");
++    let sidecar = PathBuf::from("sidecar/agent-quota-sidecar");
++    if !expected.contains(native.to_string_lossy().as_ref())
++        || !expected.contains(sidecar.to_string_lossy().as_ref())
++    {
++        return Err(ResourceError::Contract);
++    }
++    Ok(ValidatedResources {
++        native: root.join(native),
++        sidecar: root.join(sidecar),
++    })
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use serde_json::{Value, json};
++    use std::os::unix::fs::symlink;
++
++    fn fixture() -> (tempfile::TempDir, String) {
++        let directory = tempfile::tempdir().unwrap();
++        let root = directory.path();
++        let native =
++            root.join("native-helper/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative");
++        let sidecar = root.join("sidecar/agent-quota-sidecar");
++        fs::create_dir_all(native.parent().unwrap()).unwrap();
++        fs::create_dir_all(sidecar.parent().unwrap()).unwrap();
++        fs::write(&native, b"native").unwrap();
++        fs::write(&sidecar, b"sidecar").unwrap();
++        for path in [&native, &sidecar] {
++            let mut permissions = fs::metadata(path).unwrap().permissions();
++            permissions.set_mode(0o755);
++            fs::set_permissions(path, permissions).unwrap();
++        }
++        let entries: Vec<Value> = [&native, &sidecar]
++            .iter()
++            .map(|path| {
++                let metadata = fs::metadata(path).unwrap();
++                let mut file = File::open(path).unwrap();
++                json!({
++                    "bytes": metadata.len(),
++                    "mode": metadata.permissions().mode() & 0o7777,
++                    "path": path.strip_prefix(root).unwrap().to_string_lossy(),
++                    "sha256": digest_file(&mut file).unwrap()
++                })
++            })
++            .collect();
++        let bytes = serde_json::to_vec(&json!({
++            "artifact_class": "local unsigned development package",
++            "entries": entries,
++            "schema": "agent-quota-resource-manifest-v1"
++        }))
++        .unwrap();
++        fs::write(root.join("resource-manifest.json"), &bytes).unwrap();
++        (directory, digest_bytes(&bytes))
++    }
++
++    #[test]
++    fn accepts_closed_pinned_resource_tree() {
++        let (directory, digest) = fixture();
++        let resources = validate(directory.path(), &digest).unwrap();
++        assert!(
++            resources
++                .native
++                .ends_with("Contents/MacOS/AgentQuotaNative")
++        );
++        assert!(resources.sidecar.ends_with("sidecar/agent-quota-sidecar"));
++    }
++
++    #[test]
++    fn rejects_tamper_and_extra_file() {
++        let (directory, digest) = fixture();
++        fs::write(
++            directory.path().join("sidecar/agent-quota-sidecar"),
++            b"tampered",
++        )
++        .unwrap();
++        assert!(matches!(
++            validate(directory.path(), &digest),
++            Err(ResourceError::Metadata | ResourceError::Digest)
++        ));
++
++        let (directory, digest) = fixture();
++        fs::write(directory.path().join("sidecar/injected"), b"injected").unwrap();
++        assert!(matches!(
++            validate(directory.path(), &digest),
++            Err(ResourceError::Closure)
++        ));
++    }
++
++    #[test]
++    fn rejects_manifest_and_resource_symlinks() {
++        let (directory, digest) = fixture();
++        let manifest = directory.path().join("resource-manifest.json");
++        let moved = directory.path().join("manifest-real.json");
++        fs::rename(&manifest, &moved).unwrap();
++        symlink(&moved, &manifest).unwrap();
++        assert!(matches!(
++            validate(directory.path(), &digest),
++            Err(ResourceError::Manifest)
++        ));
++
++        let (directory, digest) = fixture();
++        let sidecar = directory.path().join("sidecar/agent-quota-sidecar");
++        let moved = directory.path().join("sidecar/sidecar-real");
++        fs::rename(&sidecar, &moved).unwrap();
++        symlink(&moved, &sidecar).unwrap();
++        assert!(matches!(
++            validate(directory.path(), &digest),
++            Err(ResourceError::UnsafePath)
++        ));
++    }
++}
+diff --git a/src-tauri/src/supervisor.rs b/src-tauri/src/supervisor.rs
+index 6679cb7..ed9c649 100644
+--- a/src-tauri/src/supervisor.rs
++++ b/src-tauri/src/supervisor.rs
+@@ -3,9 +3,10 @@ use crate::protocol::{Sequence, read_frame, write_frame};
+ use hmac::{Hmac, Mac};
+ use serde_json::{Value, json};
+ use sha2::Sha256;
+-use std::fs::File;
++use std::fs::{self, File, OpenOptions};
+ use std::io::{Read, Write};
+ use std::os::fd::AsRawFd;
++use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+ use std::os::unix::net::UnixStream;
+ use std::os::unix::process::CommandExt;
+ use std::path::Path;
+@@ -57,11 +58,46 @@ fn secret() -> Result<[u8; SECRET_BYTES], SupervisorError> {
+     Ok(value)
+ }
+ 
+-fn check_executable(path: &Path) -> Result<(), SupervisorError> {
+-    if !path.is_absolute() || !path.is_file() {
++fn check_executable(path: &Path) -> Result<std::path::PathBuf, SupervisorError> {
++    if !path.is_absolute() {
+         return Err(SupervisorError::InvalidExecutable);
+     }
+-    Ok(())
++    let path_metadata =
++        fs::symlink_metadata(path).map_err(|_| SupervisorError::InvalidExecutable)?;
++    let mode = path_metadata.permissions().mode() & 0o7777;
++    let effective_uid = unsafe { libc::geteuid() };
++    if path_metadata.file_type().is_symlink()
++        || !path_metadata.is_file()
++        || mode & 0o100 == 0
++        || mode & 0o022 != 0
++        || !matches!(path_metadata.uid(), 0) && path_metadata.uid() != effective_uid
++    {
++        return Err(SupervisorError::InvalidExecutable);
++    }
++    let canonical = path
++        .canonicalize()
++        .map_err(|_| SupervisorError::InvalidExecutable)?;
++    let file = OpenOptions::new()
++        .read(true)
++        .custom_flags(libc::O_NOFOLLOW)
++        .open(&canonical)
++        .map_err(|_| SupervisorError::InvalidExecutable)?;
++    let opened_metadata = file
++        .metadata()
++        .map_err(|_| SupervisorError::InvalidExecutable)?;
++    let final_metadata =
++        fs::symlink_metadata(&canonical).map_err(|_| SupervisorError::InvalidExecutable)?;
++    if path_metadata.dev() != opened_metadata.dev()
++        || path_metadata.ino() != opened_metadata.ino()
++        || opened_metadata.dev() != final_metadata.dev()
++        || opened_metadata.ino() != final_metadata.ino()
++        || opened_metadata.len() != final_metadata.len()
++        || opened_metadata.mode() != final_metadata.mode()
++        || opened_metadata.uid() != final_metadata.uid()
++    {
++        return Err(SupervisorError::InvalidExecutable);
++    }
++    Ok(canonical)
+ }
+ 
+ pub struct SidecarSupervisor {
+@@ -74,7 +110,7 @@ pub struct SidecarSupervisor {
+ 
+ impl SidecarSupervisor {
+     pub fn spawn(executable: &Path, arguments: &[String]) -> Result<Self, SupervisorError> {
+-        check_executable(executable)?;
++        let executable = check_executable(executable)?;
+         let secret = secret()?;
+         let (mut parent_secret, child_secret) =
+             UnixStream::pair().map_err(|_| SupervisorError::Io)?;
+@@ -271,6 +307,26 @@ mod tests {
+         assert!(check_executable(Path::new("/bin/sh")).is_ok());
+     }
+ 
++    #[test]
++    fn executable_rejects_symlink_and_writable_mode() {
++        use std::os::unix::fs::symlink;
++
++        let directory = tempfile::tempdir().unwrap();
++        let executable = directory.path().join("sidecar");
++        fs::write(&executable, "#!/bin/sh\nexit 0\n").unwrap();
++        let mut permissions = fs::metadata(&executable).unwrap().permissions();
++        permissions.set_mode(0o755);
++        fs::set_permissions(&executable, permissions).unwrap();
++        let link = directory.path().join("sidecar-link");
++        symlink(&executable, &link).unwrap();
++        assert!(check_executable(&link).is_err());
++
++        let mut permissions = fs::metadata(&executable).unwrap().permissions();
++        permissions.set_mode(0o775);
++        fs::set_permissions(&executable, permissions).unwrap();
++        assert!(check_executable(&executable).is_err());
++    }
++
+     #[test]
+     fn proof_is_stable_and_sensitive() {
+         let secret = [7_u8; SECRET_BYTES];
+diff --git a/src-tauri/tauri.conf.json b/src-tauri/tauri.conf.json
+index cc2bea7..5dbd009 100644
+--- a/src-tauri/tauri.conf.json
++++ b/src-tauri/tauri.conf.json
+@@ -28,6 +28,11 @@
+   "bundle": {
+     "active": true,
+     "targets": ["app", "dmg"],
++    "resources": {
++      "generated-resources/AgentQuotaNative.app": "native-helper/AgentQuotaNative.app",
++      "generated-resources/agent-quota-sidecar": "sidecar",
++      "generated-resources/resource-manifest.json": "resource-manifest.json"
++    },
+     "category": "Utility",
+     "shortDescription": "Local-first quota visibility",
+     "longDescription": "A local-first desktop utility for viewing redacted quota projections."
+diff --git a/tools/audit_macos_bundle.py b/tools/audit_macos_bundle.py
+new file mode 100755
+index 0000000..7a9e75b
+--- /dev/null
++++ b/tools/audit_macos_bundle.py
+@@ -0,0 +1,228 @@
++"""Fail closed on incomplete or non-relocatable macOS application bundles."""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import plistlib
++import stat
++import subprocess
++from pathlib import Path, PurePosixPath
++
++ALLOWED_DYLIB_PREFIXES = (
++    "/System/Library/",
++    "/usr/lib/",
++    "@executable_path/",
++    "@loader_path/",
++    "@rpath/",
++)
++REQUIRED_RESOURCES = (
++    "native-helper/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative",
++    "sidecar/agent-quota-sidecar",
++)
++
++
++def output(*command: str) -> str:
++    return subprocess.run(
++        command,
++        check=True,
++        capture_output=True,
++        text=True,
++    ).stdout
++
++
++def sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as stream:
++        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def verify_resource_manifest(resources: Path, errors: list[str]) -> tuple[str, int]:
++    manifest_path = resources / "resource-manifest.json"
++    try:
++        raw = manifest_path.read_bytes()
++        manifest = json.loads(raw)
++    except (OSError, json.JSONDecodeError):
++        errors.append("resource manifest is unreadable")
++        return "", 0
++    digest = hashlib.sha256(raw).hexdigest()
++    if (
++        set(manifest) != {"artifact_class", "entries", "schema"}
++        or manifest["artifact_class"] != "local unsigned development package"
++        or manifest["schema"] != "agent-quota-resource-manifest-v1"
++        or not isinstance(manifest["entries"], list)
++    ):
++        errors.append("resource manifest contract mismatch")
++        return digest, 0
++    expected: set[str] = set()
++    for entry in manifest["entries"]:
++        if not isinstance(entry, dict) or set(entry) != {"bytes", "mode", "path", "sha256"}:
++            errors.append("resource manifest entry contract mismatch")
++            continue
++        relative = entry["path"]
++        pure = PurePosixPath(relative) if isinstance(relative, str) else PurePosixPath(".")
++        if (
++            not isinstance(relative, str)
++            or pure.is_absolute()
++            or not pure.parts
++            or any(part in {"", ".", ".."} for part in pure.parts)
++            or relative in expected
++        ):
++            errors.append("unsafe or duplicate resource manifest path")
++            continue
++        expected.add(relative)
++        path = resources / relative
++        try:
++            metadata = path.lstat()
++        except OSError:
++            errors.append(f"missing manifest resource: {relative}")
++            continue
++        mode = stat.S_IMODE(metadata.st_mode)
++        if (
++            path.is_symlink()
++            or not stat.S_ISREG(metadata.st_mode)
++            or metadata.st_uid not in {0, os.geteuid()}
++            or mode & 0o022
++            or metadata.st_size != entry["bytes"]
++            or mode != entry["mode"]
++            or sha256(path) != entry["sha256"]
++        ):
++            errors.append(f"resource metadata/digest mismatch: {relative}")
++    actual = {
++        path.relative_to(resources).as_posix()
++        for parent in (resources / "native-helper", resources / "sidecar")
++        for path in parent.rglob("*")
++        if path.is_file() and not path.is_symlink()
++    }
++    for parent in (resources / "native-helper", resources / "sidecar"):
++        for path in parent.rglob("*"):
++            if path.is_symlink() or not (path.is_file() or path.is_dir()):
++                errors.append(f"unsafe resource node: {path.relative_to(resources).as_posix()}")
++    if actual != expected:
++        errors.append("resource file closure mismatch")
++    if not set(REQUIRED_RESOURCES).issubset(expected):
++        errors.append("required executable missing from resource manifest")
++    return digest, len(expected)
++
++
++def mach_o_files(app: Path) -> list[Path]:
++    results: list[Path] = []
++    for path in sorted(app.rglob("*")):
++        if path.is_file() and not path.is_symlink():
++            description = output("/usr/bin/file", "-b", str(path))
++            if "Mach-O" in description:
++                results.append(path)
++    return results
++
++
++def dylibs(path: Path) -> list[str]:
++    lines = output("/usr/bin/otool", "-L", str(path)).splitlines()[1:]
++    return [line.strip().split(" (", 1)[0] for line in lines if line.strip()]
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--app", type=Path, required=True)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    app = args.app.resolve(strict=True)
++    contents = app / "Contents"
++    with (contents / "Info.plist").open("rb") as stream:
++        plist = plistlib.load(stream)
++    executable = contents / "MacOS" / str(plist["CFBundleExecutable"])
++    resources = contents / "Resources"
++    errors: list[str] = []
++    manifest_digest, manifest_entries = verify_resource_manifest(resources, errors)
++
++    for path in (executable, *(resources / name for name in REQUIRED_RESOURCES)):
++        metadata = path.lstat() if path.exists() else None
++        if (
++            metadata is None
++            or path.is_symlink()
++            or not stat.S_ISREG(metadata.st_mode)
++            or stat.S_IMODE(metadata.st_mode) & 0o100 == 0
++            or stat.S_IMODE(metadata.st_mode) & 0o022 != 0
++            or metadata.st_uid not in {0, os.geteuid()}
++        ):
++            errors.append(f"unsafe executable: {path.relative_to(app)}")
++
++    for path in app.rglob("*"):
++        metadata = path.lstat()
++        if stat.S_IMODE(metadata.st_mode) & 0o022:
++            errors.append(f"group/world writable bundle path: {path.relative_to(app)}")
++        if path.is_symlink():
++            resolved = path.resolve()
++            if app not in resolved.parents:
++                errors.append(f"escaping symlink: {path.relative_to(app)} -> {os.readlink(path)}")
++
++    binaries: list[dict[str, object]] = []
++    for path in mach_o_files(app):
++        architecture = output("/usr/bin/lipo", "-archs", str(path)).strip().split()
++        dependencies = dylibs(path)
++        unexpected = [
++            dependency
++            for dependency in dependencies
++            if not dependency.startswith(ALLOWED_DYLIB_PREFIXES)
++        ]
++        if "arm64" not in architecture:
++            errors.append(f"missing arm64 slice: {path.relative_to(app)}")
++        if unexpected:
++            errors.append(f"unexpected dylib: {path.relative_to(app)}: {', '.join(unexpected)}")
++        binaries.append(
++            {
++                "path": path.relative_to(app).as_posix(),
++                "architecture": architecture,
++                "dependencies": dependencies,
++            }
++        )
++
++    signature = subprocess.run(
++        ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)],
++        capture_output=True,
++        text=True,
++    )
++    signature_details = subprocess.run(
++        ["/usr/bin/codesign", "-dv", "--verbose=4", str(app)],
++        capture_output=True,
++        text=True,
++        check=False,
++    ).stderr.strip()
++    binary_inventory = json.dumps(binaries, separators=(",", ":"), sort_keys=True).encode()
++    quarantine = subprocess.run(
++        ["/usr/bin/xattr", "-p", "com.apple.quarantine", str(app)],
++        capture_output=True,
++        text=True,
++    )
++    report = {
++        "artifact_class": "local unsigned development package",
++        "architecture": "arm64",
++        "bundle_id": plist.get("CFBundleIdentifier"),
++        "binaries": binaries,
++        "codesign_verify_exit": signature.returncode,
++        "codesign_verify_stderr": signature.stderr.strip(),
++        "codesign_details": signature_details.splitlines(),
++        "errors": errors,
++        "macho_inventory_sha256": hashlib.sha256(binary_inventory).hexdigest(),
++        "notarized": False,
++        "quarantine_attribute": (
++            quarantine.stdout.strip() if quarantine.returncode == 0 else "absent"
++        ),
++        "resource_manifest_entries": manifest_entries,
++        "resource_manifest_sha256": manifest_digest,
++        "status": "pass" if not errors and signature.returncode == 0 else "fail",
++    }
++    args.output.write_text(
++        json.dumps(report, indent=2, sort_keys=True) + "\n",
++        encoding="utf-8",
++    )
++    if report["status"] != "pass":
++        raise SystemExit("bundle audit failed")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/build_macos_package.sh b/tools/build_macos_package.sh
+new file mode 100755
+index 0000000..933aed1
+--- /dev/null
++++ b/tools/build_macos_package.sh
+@@ -0,0 +1,98 @@
++#!/bin/sh
++set -eu
++
++repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
++generated="$repo_root/src-tauri/generated-resources"
++pyi_root="$repo_root/build/pyinstaller"
++artifact_dir="$repo_root/artifacts/iteration-4"
++
++if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
++  echo "package build requires Apple Silicon macOS" >&2
++  exit 1
++fi
++
++if [ -n "${AQ_RUST_BIN:-}" ]; then
++  PATH="$AQ_RUST_BIN:$PATH"
++  export PATH
++fi
++
++for tool in uv pnpm xcrun cargo; do
++  if ! command -v "$tool" >/dev/null 2>&1; then
++    echo "missing build tool: $tool" >&2
++    exit 1
++  fi
++done
++
++/bin/rm -rf "$generated" "$pyi_root" "$artifact_dir"
++/bin/mkdir -p "$generated" "$pyi_root/work" "$pyi_root/spec" "$artifact_dir"
++
++cd "$repo_root"
++uv run --group package pyinstaller \
++  --clean \
++  --noconfirm \
++  --onedir \
++  --name agent-quota-sidecar \
++  --paths src \
++  --collect-data agent_quota \
++  --distpath "$generated" \
++  --workpath "$pyi_root/work" \
++  --specpath "$pyi_root/spec" \
++  tools/sidecar_entry.py
++
++# Tauri fails closed on resource symlinks; materialize the Python framework tree.
++/bin/mv "$generated/agent-quota-sidecar" "$pyi_root/agent-quota-sidecar-with-symlinks"
++/bin/cp -RL "$pyi_root/agent-quota-sidecar-with-symlinks" \
++  "$generated/agent-quota-sidecar"
++
++"$repo_root/tools/build_native_helper.sh"
++/usr/bin/ditto "$repo_root/src-tauri/bin/AgentQuotaNative.app" \
++  "$generated/AgentQuotaNative.app"
++/bin/chmod 0755 \
++  "$generated/agent-quota-sidecar/agent-quota-sidecar"
++/usr/bin/codesign --force --deep --sign - "$generated/agent-quota-sidecar/agent-quota-sidecar"
++
++uv run python tools/generate_resource_manifest.py \
++  --generated "$generated" \
++  --output "$generated/resource-manifest.json"
++resource_manifest_sha256=$(
++  /usr/bin/shasum -a 256 "$generated/resource-manifest.json" | /usr/bin/awk '{print $1}'
++)
++AQ_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256" \
++  pnpm tauri build --bundles app
++
++app="$repo_root/src-tauri/target/release/bundle/macos/Agent Quota.app"
++if [ ! -d "$app" ]; then
++  echo "Tauri application output is incomplete" >&2
++  exit 1
++fi
++/usr/bin/codesign --force --sign - "$app"
++/usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
++
++/usr/bin/ditto "$app" "$artifact_dir/Agent Quota.app"
++/usr/bin/hdiutil create \
++  -volname "Agent Quota" \
++  -srcfolder "$app" \
++  -ov \
++  -format UDZO \
++  "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
++/usr/bin/hdiutil verify "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
++
++uv run python tools/audit_macos_bundle.py \
++  --app "$artifact_dir/Agent Quota.app" \
++  --output "$artifact_dir/bundle-audit.json"
++uv run python tools/generate_bundle_manifest.py \
++  --root "$artifact_dir/Agent Quota.app" \
++  --output "$artifact_dir/bundle-manifest.txt"
++uv run python tools/generate_package_sbom.py \
++  --output "$artifact_dir/sbom.cdx.json"
++
++(
++  cd "$artifact_dir"
++  /usr/bin/shasum -a 256 \
++    "Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
++    "bundle-audit.json" \
++    "bundle-manifest.txt" \
++    "sbom.cdx.json" > artifact-sha256.txt
++)
++
++echo "$artifact_dir"
+diff --git a/tools/build_native_helper.sh b/tools/build_native_helper.sh
+index de6c6cd..43dfc9a 100755
+--- a/tools/build_native_helper.sh
++++ b/tools/build_native_helper.sh
+@@ -25,6 +25,3 @@ xcrun swiftc \
+ /usr/bin/plutil -insert CFBundlePackageType -string APPL "$app_plist"
+ /usr/bin/plutil -insert LSUIElement -bool true "$app_plist"
+ /usr/bin/codesign --force --deep --sign - "$app_dir"
+-
+-/bin/cp "$app_binary" "$output_dir/agent-quota-native"
+-/usr/bin/codesign --force --sign - "$output_dir/agent-quota-native"
+diff --git a/tools/generate_bundle_manifest.py b/tools/generate_bundle_manifest.py
+new file mode 100755
+index 0000000..888ddc1
+--- /dev/null
++++ b/tools/generate_bundle_manifest.py
+@@ -0,0 +1,58 @@
++"""Generate a deterministic bundle inventory."""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import os
++import stat
++import subprocess
++from pathlib import Path
++
++
++def sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as stream:
++        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def manifest(root: Path) -> list[str]:
++    rows = ["# path\ttype\tmode\tbytes\tsha256-or-target\txattr-names"]
++    for path in sorted(root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()):
++        relative = path.relative_to(root).as_posix()
++        metadata = path.lstat()
++        mode = f"{stat.S_IMODE(metadata.st_mode):04o}"
++        xattr_result = subprocess.run(
++            ["/usr/bin/xattr", str(path)],
++            check=False,
++            capture_output=True,
++            text=True,
++        )
++        xattrs = ",".join(sorted(xattr_result.stdout.splitlines())) or "-"
++        if path.is_symlink():
++            rows.append(f"{relative}\tsymlink\t{mode}\t0\t{os.readlink(path)}\t{xattrs}")
++        elif path.is_file():
++            rows.append(f"{relative}\tfile\t{mode}\t{metadata.st_size}\t{sha256(path)}\t{xattrs}")
++        elif path.is_dir():
++            rows.append(f"{relative}\tdirectory\t{mode}\t0\t-\t{xattrs}")
++        else:
++            rows.append(f"{relative}\tother\t{mode}\t0\t-\t{xattrs}")
++    return rows
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--root", type=Path, required=True)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    root = args.root.resolve(strict=True)
++    if not root.is_dir():
++        raise SystemExit("bundle root must be a directory")
++    args.output.write_text("\n".join(manifest(root)) + "\n", encoding="utf-8")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/generate_package_sbom.py b/tools/generate_package_sbom.py
+new file mode 100644
+index 0000000..b099a37
+--- /dev/null
++++ b/tools/generate_package_sbom.py
+@@ -0,0 +1,132 @@
++"""Generate a CycloneDX inventory from the authoritative lock files."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import subprocess
++import tomllib
++from pathlib import Path
++from typing import Any
++
++ROOT = Path(__file__).resolve().parent.parent
++
++
++def command(*arguments: str) -> str:
++    return subprocess.run(
++        arguments,
++        cwd=ROOT,
++        check=True,
++        capture_output=True,
++        text=True,
++    ).stdout
++
++
++def component(kind: str, name: str, version: str, purl: str) -> dict[str, Any]:
++    return {
++        "type": kind,
++        "bom-ref": purl,
++        "name": name,
++        "version": version,
++        "purl": purl,
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++
++    python_bom: dict[str, Any] = json.loads(
++        command(
++            "uv",
++            "export",
++            "--frozen",
++            "--no-default-groups",
++            "--group",
++            "package",
++            "--format",
++            "cyclonedx1.5",
++        )
++    )
++    components: list[dict[str, Any]] = list(python_bom.get("components", []))
++    components.extend(
++        [
++            component(
++                "application",
++                "agent-quota-desktop",
++                "0.1.0",
++                "pkg:generic/agent-quota-desktop@0.1.0",
++            ),
++            component(
++                "application",
++                "AgentQuotaNative",
++                "0.1.0",
++                "pkg:generic/agent-quota-native@0.1.0",
++            ),
++            component("framework", "CPython", "3.11.15", "pkg:generic/cpython@3.11.15"),
++        ]
++    )
++
++    license_groups: dict[str, list[dict[str, Any]]] = json.loads(
++        command("pnpm", "licenses", "list", "--prod", "--json")
++    )
++    for license_name, packages in license_groups.items():
++        for package in packages:
++            for version in package["versions"]:
++                entry = component(
++                    "library",
++                    package["name"],
++                    version,
++                    f"pkg:npm/{package['name']}@{version}",
++                )
++                entry["licenses"] = [{"license": {"id": license_name}}]
++                components.append(entry)
++
++    cargo_lock = tomllib.loads((ROOT / "src-tauri" / "Cargo.lock").read_text(encoding="utf-8"))
++    for package in cargo_lock["package"]:
++        name = str(package["name"])
++        version = str(package["version"])
++        components.append(component("library", name, version, f"pkg:cargo/{name}@{version}"))
++
++    unique: dict[str, dict[str, Any]] = {}
++    for entry in components:
++        unique[str(entry["bom-ref"])] = entry
++    ordered = sorted(
++        unique.values(),
++        key=lambda entry: (
++            str(entry["type"]),
++            str(entry["name"]).casefold(),
++            str(entry["version"]),
++        ),
++    )
++    bom = {
++        "bomFormat": "CycloneDX",
++        "specVersion": "1.5",
++        "version": 1,
++        "metadata": {
++            "component": component(
++                "application",
++                "agent-quota-desktop",
++                "0.1.0",
++                "pkg:generic/agent-quota-desktop@0.1.0",
++            ),
++            "properties": [
++                {
++                    "name": "agent-quota:artifact-class",
++                    "value": "local unsigned development package",
++                },
++                {"name": "agent-quota:target", "value": "aarch64-apple-darwin"},
++            ],
++        },
++        "components": ordered,
++    }
++    args.output.write_text(
++        json.dumps(bom, indent=2, sort_keys=True) + "\n",
++        encoding="utf-8",
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/generate_resource_manifest.py b/tools/generate_resource_manifest.py
+new file mode 100644
+index 0000000..1cd42b2
+--- /dev/null
++++ b/tools/generate_resource_manifest.py
+@@ -0,0 +1,73 @@
++"""Pin every executable resource byte before the Rust release build."""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import stat
++from pathlib import Path
++
++
++def sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as stream:
++        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def collect(root: Path, source: Path, destination: Path) -> list[dict[str, object]]:
++    entries: list[dict[str, object]] = []
++    for path in sorted(source.rglob("*"), key=lambda item: item.relative_to(source).as_posix()):
++        if path.is_symlink():
++            raise ValueError(f"resource symlink is forbidden: {path}")
++        if not path.is_file():
++            continue
++        relative = destination / path.relative_to(source)
++        metadata = path.stat()
++        entries.append(
++            {
++                "bytes": metadata.st_size,
++                "mode": stat.S_IMODE(metadata.st_mode),
++                "path": relative.as_posix(),
++                "sha256": sha256(path),
++            }
++        )
++    if not entries:
++        raise ValueError(f"empty resource tree: {source.relative_to(root)}")
++    return entries
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--generated", type=Path, required=True)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    generated = args.generated.resolve(strict=True)
++    entries = collect(
++        generated,
++        generated / "AgentQuotaNative.app",
++        Path("native-helper/AgentQuotaNative.app"),
++    )
++    entries.extend(
++        collect(
++            generated,
++            generated / "agent-quota-sidecar",
++            Path("sidecar"),
++        )
++    )
++    document = {
++        "artifact_class": "local unsigned development package",
++        "entries": sorted(entries, key=lambda entry: str(entry["path"])),
++        "schema": "agent-quota-resource-manifest-v1",
++    }
++    args.output.write_text(
++        json.dumps(document, separators=(",", ":"), sort_keys=True) + "\n",
++        encoding="utf-8",
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/sidecar_entry.py b/tools/sidecar_entry.py
+new file mode 100755
+index 0000000..45b4284
+--- /dev/null
++++ b/tools/sidecar_entry.py
+@@ -0,0 +1,6 @@
++"""Frozen sidecar executable entrypoint."""
++
++from agent_quota.sidecar import main  # type: ignore[import-untyped]
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/test_macos_package_lifecycle.sh b/tools/test_macos_package_lifecycle.sh
+new file mode 100755
+index 0000000..4082c32
+--- /dev/null
++++ b/tools/test_macos_package_lifecycle.sh
+@@ -0,0 +1,126 @@
++#!/bin/sh
++set -eu
++
++repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
++dmg=${1:-"$repo_root/artifacts/iteration-4/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"}
++test_root=$(mktemp -d /private/var/tmp/agent-quota-i4-lifecycle.XXXXXX)
++mount_point="$test_root/mount"
++applications="$test_root/Applications"
++installed="$applications/Agent Quota.app"
++backup="$test_root/rollback/Agent Quota.app"
++data_root="$test_root/home/Library/Application Support/com.agentquota.desktop"
++main_pid=
++mount_device=
++
++cleanup() {
++  if [ -n "$main_pid" ] && /bin/kill -0 "$main_pid" 2>/dev/null; then
++    /bin/kill -TERM "$main_pid" 2>/dev/null || true
++    wait "$main_pid" 2>/dev/null || true
++  fi
++  if [ -n "$mount_device" ]; then
++    /usr/bin/hdiutil detach "$mount_device" >/dev/null 2>&1 || true
++  fi
++}
++trap cleanup EXIT HUP INT TERM
++
++launch_and_check() {
++  executable="$installed/Contents/MacOS/agent-quota-desktop"
++  sidecar="$installed/Contents/Resources/sidecar/agent-quota-sidecar"
++  if [ ! -x "$executable" ] || [ ! -x "$sidecar" ]; then
++    echo "installed bundle is incomplete" >&2
++    exit 1
++  fi
++  /usr/bin/env -i \
++    HOME="$test_root/home" \
++    PATH=/nonexistent \
++    TMPDIR="$test_root/tmp" \
++    /usr/bin/sandbox-exec \
++    -p '(version 1) (allow default) (deny network*)' \
++    "$executable" >"$test_root/app.log" 2>&1 &
++  main_pid=$!
++  attempts=0
++  while [ "$attempts" -lt 50 ]; do
++    if ! /bin/kill -0 "$main_pid" 2>/dev/null; then
++      echo "application exited during launch" >&2
++      exit 1
++    fi
++    sidecar_pid=$(
++      /bin/ps -axo pid=,command= |
++        /usr/bin/awk -v target="$sidecar" 'index($0, target) {print $1; exit}'
++    )
++    if [ -n "$sidecar_pid" ]; then
++      break
++    fi
++    /bin/sleep 0.1
++    attempts=$((attempts + 1))
++  done
++  if [ -z "${sidecar_pid:-}" ]; then
++    echo "bundled sidecar did not start" >&2
++    exit 1
++  fi
++  for pid in "$main_pid" "$sidecar_pid"; do
++    if /usr/sbin/lsof -nP -a -p "$pid" -iTCP -iUDP 2>/dev/null |
++      /usr/bin/grep -q .; then
++      echo "network socket detected for PID $pid" >&2
++      exit 1
++    fi
++  done
++  /bin/kill -TERM "$main_pid"
++  wait "$main_pid" 2>/dev/null || true
++  main_pid=
++  attempts=0
++  while [ "$attempts" -lt 30 ]; do
++    if ! /bin/ps -axo command= | /usr/bin/grep -F "$sidecar" |
++      /usr/bin/grep -v grep >/dev/null; then
++      return
++    fi
++    /bin/sleep 0.1
++    attempts=$((attempts + 1))
++  done
++  echo "sidecar survived host shutdown" >&2
++  exit 1
++}
++
++/bin/mkdir -p "$mount_point" "$applications" "$test_root/rollback" \
++  "$test_root/home" "$test_root/tmp"
++attach=$(
++  /usr/bin/hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" "$dmg"
++)
++mount_device=$(printf '%s\n' "$attach" | /usr/bin/awk 'NR == 1 {print $1}')
++if [ ! -d "$mount_point/Agent Quota.app" ]; then
++  echo "DMG does not contain Agent Quota.app" >&2
++  exit 1
++fi
++
++# Install and relaunch.
++/usr/bin/ditto "$mount_point/Agent Quota.app" "$installed"
++/usr/bin/codesign --verify --deep --strict "$installed"
++launch_and_check
++launch_and_check
++
++# Upgrade replacement and rollback preserve application data.
++/bin/mkdir -p "$data_root"
++/usr/bin/touch "$data_root/lifecycle-sentinel"
++/usr/bin/ditto "$installed" "$backup"
++/bin/mv "$installed" "$test_root/replaced-app"
++/usr/bin/ditto "$mount_point/Agent Quota.app" "$installed"
++launch_and_check
++if [ ! -f "$data_root/lifecycle-sentinel" ]; then
++  echo "upgrade removed application data" >&2
++  exit 1
++fi
++/bin/mv "$installed" "$test_root/upgraded-app"
++/usr/bin/ditto "$backup" "$installed"
++launch_and_check
++
++# Normal uninstall preserves data; reinstall remains launchable.
++/bin/mv "$installed" "$test_root/uninstalled-app"
++if [ ! -f "$data_root/lifecycle-sentinel" ]; then
++  echo "uninstall removed application data" >&2
++  exit 1
++fi
++/usr/bin/ditto "$mount_point/Agent Quota.app" "$installed"
++launch_and_check
++
++echo "macOS package lifecycle PASS"
++echo "evidence_root=$test_root"
+diff --git a/uv.lock b/uv.lock
+index afab17e..2482f03 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -16,6 +16,9 @@ dev = [
+     { name = "pytest-cov" },
+     { name = "ruff" },
+ ]
++package = [
++    { name = "pyinstaller" },
++]
+ 
+ [package.metadata]
+ 
+@@ -28,6 +31,16 @@ dev = [
+     { name = "pytest-cov", specifier = "==6.2.1" },
+     { name = "ruff", specifier = "==0.12.7" },
+ ]
++package = [{ name = "pyinstaller", specifier = "==6.21.0" }]
++
++[[package]]
++name = "altgraph"
++version = "0.17.5"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/7e/f8/97fdf103f38fed6792a1601dbc16cc8aac56e7459a9fff08c812d8ae177a/altgraph-0.17.5.tar.gz", hash = "sha256:c87b395dd12fabde9c99573a9749d67da8d29ef9de0125c7f536699b4a9bc9e7", size = 48428, upload-time = "2025-11-21T20:35:50.583Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/a9/ba/000a1996d4308bc65120167c21241a3b205464a2e0b58deda26ae8ac21d1/altgraph-0.17.5-py2.py3-none-any.whl", hash = "sha256:f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597", size = 21228, upload-time = "2025-11-21T20:35:49.444Z" },
++]
+ 
+ [[package]]
+ name = "attrs"
+@@ -112,6 +125,18 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+ ]
+ 
++[[package]]
++name = "macholib"
++version = "1.16.4"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "altgraph" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/10/2f/97589876ea967487978071c9042518d28b958d87b17dceb7cdc1d881f963/macholib-1.16.4.tar.gz", hash = "sha256:f408c93ab2e995cd2c46e34fe328b130404be143469e41bc366c807448979362", size = 59427, upload-time = "2025-11-22T08:28:38.373Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/c7/d1/a9f36f8ecdf0fb7c9b1e78c8d7af12b8c8754e74851ac7b94a8305540fc7/macholib-1.16.4-py2.py3-none-any.whl", hash = "sha256:da1a3fa8266e30f0ce7e97c6a54eefaae8edd1e5f86f3eb8b95457cae90265ea", size = 38117, upload-time = "2025-11-22T08:28:36.939Z" },
++]
++
+ [[package]]
+ name = "mypy"
+ version = "1.17.1"
+@@ -159,6 +184,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
+ ]
+ 
++[[package]]
++name = "pefile"
++version = "2024.8.26"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/03/4f/2750f7f6f025a1507cd3b7218691671eecfd0bbebebe8b39aa0fe1d360b8/pefile-2024.8.26.tar.gz", hash = "sha256:3ff6c5d8b43e8c37bb6e6dd5085658d658a7a0bdcd20b6a07b1fcfc1c4e9d632", size = 76008, upload-time = "2024-08-26T20:58:38.155Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/54/16/12b82f791c7f50ddec566873d5bdd245baa1491bac11d15ffb98aecc8f8b/pefile-2024.8.26-py3-none-any.whl", hash = "sha256:76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f", size = 74766, upload-time = "2024-08-26T21:01:02.632Z" },
++]
++
+ [[package]]
+ name = "pluggy"
+ version = "1.6.0"
+@@ -177,6 +211,46 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl", hash = "sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176", size = 1231151, upload-time = "2026-03-29T13:29:30.038Z" },
+ ]
+ 
++[[package]]
++name = "pyinstaller"
++version = "6.21.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "altgraph" },
++    { name = "macholib", marker = "sys_platform == 'darwin'" },
++    { name = "packaging" },
++    { name = "pefile", marker = "sys_platform == 'win32'" },
++    { name = "pyinstaller-hooks-contrib" },
++    { name = "pywin32-ctypes", marker = "sys_platform == 'win32'" },
++    { name = "setuptools" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/d5/4d/ec706c3fcf39e26888c35b39615ff4d5865d184069666c47492cff1fbe50/pyinstaller-6.21.0.tar.gz", hash = "sha256:bb9fab705983e393a2d1cac77d6972513057ad800215fd861dc15ff5272e98fd", size = 4061519, upload-time = "2026-06-13T14:15:06.25Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/0c/4a/53cf98bf66daed012dc9cd78c8203f19a675d696f2fc12afcf8c5049a0e0/pyinstaller-6.21.0-py3-none-macosx_10_13_universal2.whl", hash = "sha256:327d132389f37912609e01be62810cf96b5aa95b613903e4b8692e0d12fb0eda", size = 1052350, upload-time = "2026-06-13T14:13:55.88Z" },
++    { url = "https://files.pythonhosted.org/packages/30/83/b591295c352ef464c50b4c6ffff1c4f771d875c9e833f578d1b9f564f6b3/pyinstaller-6.21.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:7071d4b094d5b40deeef5fa3d3b98a1b846087f7562b49209663d5f9281fe251", size = 748477, upload-time = "2026-06-13T14:14:00.327Z" },
++    { url = "https://files.pythonhosted.org/packages/3d/8f/88fff4e403873b1e22286911350e75ff00db014aa08e57045da9d4328993/pyinstaller-6.21.0-py3-none-manylinux2014_i686.whl", hash = "sha256:6b6374d652107dd4a2eeece903ff82bb4045bb5e1006c5a158a6dcdbefe84bf2", size = 760877, upload-time = "2026-06-13T14:14:04.836Z" },
++    { url = "https://files.pythonhosted.org/packages/8a/13/f0e48fbdfd1d05d948157121cea8b1b823dcb89efe6934b71fdd8bdb3f0f/pyinstaller-6.21.0-py3-none-manylinux2014_ppc64le.whl", hash = "sha256:4e3108b3f02384560da70e39b8bf22b0ad597d02bd68a40d76ea91c1cfa00cad", size = 759194, upload-time = "2026-06-13T14:14:10.61Z" },
++    { url = "https://files.pythonhosted.org/packages/dd/d5/ea7878cf9924ed30d946d8288777424e6d069d94f5bde56b4d0890069664/pyinstaller-6.21.0-py3-none-manylinux2014_s390x.whl", hash = "sha256:697532279f535ad572bda613db4f821540e235c7854ca6da4d3bf0373f4415ee", size = 754979, upload-time = "2026-06-13T14:14:15.226Z" },
++    { url = "https://files.pythonhosted.org/packages/9f/09/51b8905714b733bac66dbc041a7821372d70d888d273ae474c4037d4202d/pyinstaller-6.21.0-py3-none-manylinux2014_x86_64.whl", hash = "sha256:605169523a6b5ace39f13dfbff21add9f2bc43df99c7daf9394fefb2c45e8b6f", size = 754812, upload-time = "2026-06-13T14:14:20.264Z" },
++    { url = "https://files.pythonhosted.org/packages/4b/43/d77779439d8c6c2e27a77bcfbd1d5cc0f568ebb611bb472b11af81b5f177/pyinstaller-6.21.0-py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:5fa56746c1e76f93634d018502301378a2d0c382553d37d8c3c34ff436c12dd1", size = 753887, upload-time = "2026-06-13T14:14:25.268Z" },
++    { url = "https://files.pythonhosted.org/packages/51/8f/c22df1f6837784ac349057ba693f08e7b1ca7a0e06f9c33c63bc6280007b/pyinstaller-6.21.0-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:42395ec76df8e8120c36b13339d9db8cab83e316a12839ee303cc00fc941bb74", size = 753779, upload-time = "2026-06-13T14:14:29.445Z" },
++    { url = "https://files.pythonhosted.org/packages/c9/76/1ce8a27ce62ba8cf3a87c9ce6d575610f4e55d7cb0123e7512fc3f4b921a/pyinstaller-6.21.0-py3-none-win32.whl", hash = "sha256:c6b28d30d8fd99ce162ff3aab5013ed44dbfb747566b1f01b9bed7964d7c14e9", size = 1336462, upload-time = "2026-06-13T14:14:35.785Z" },
++    { url = "https://files.pythonhosted.org/packages/c1/fa/ca1d7e5257dd8566a9dfc0dfb02f8a8075eeb53d4b2d3c579f1276759042/pyinstaller-6.21.0-py3-none-win_amd64.whl", hash = "sha256:7fae06c494ce0ebfe6bd3055c0e409def884f63af2e3705d06bd431ad9237fc7", size = 1397487, upload-time = "2026-06-13T14:14:42.328Z" },
++    { url = "https://files.pythonhosted.org/packages/dc/75/21b51523ce8d96629b71311775a0a65f5f5a872124ab0de33e5c848f8bff/pyinstaller-6.21.0-py3-none-win_arm64.whl", hash = "sha256:f13c95c9c03fb567217135919f93815c305813126780b0ed6e0123cb8acaf025", size = 1346094, upload-time = "2026-06-13T14:14:48.914Z" },
++]
++
++[[package]]
++name = "pyinstaller-hooks-contrib"
++version = "2026.6"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "packaging" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/94/5b/c9fe0db5e83ee1c39b2258fa21d23b15e1a60786b6c5990ee5074ead8bb6/pyinstaller_hooks_contrib-2026.6.tar.gz", hash = "sha256:bef5002c32f4f50bd55b005da12cff64eca8783e7eaf86a06a62410164bab725", size = 173354, upload-time = "2026-06-08T22:37:16.152Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/e7/31/f2d7343d8ed5f7c4678377886f6ce533e6eaaa131b252ce950114c2a7efa/pyinstaller_hooks_contrib-2026.6-py3-none-any.whl", hash = "sha256:fd13b8ac126b35361175edacd41a0d97080b75dd5f4b594ecefefff969509dd3", size = 457159, upload-time = "2026-06-08T22:37:14.722Z" },
++]
++
+ [[package]]
+ name = "pyproject-hooks"
+ version = "1.2.0"
+@@ -216,6 +290,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/bc/16/4ea354101abb1287856baa4af2732be351c7bee728065aed451b678153fd/pytest_cov-6.2.1-py3-none-any.whl", hash = "sha256:f5bc4c23f42f1cdd23c70b1dab1bbaef4fc505ba950d53e0081d0730dd7e86d5", size = 24644, upload-time = "2025-06-12T10:47:45.932Z" },
+ ]
+ 
++[[package]]
++name = "pywin32-ctypes"
++version = "0.2.3"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/85/9f/01a1a99704853cb63f253eea009390c88e7131c67e66a0a02099a8c917cb/pywin32-ctypes-0.2.3.tar.gz", hash = "sha256:d162dc04946d704503b2edc4d55f3dba5c1d539ead017afa00142c38b9885755", size = 29471, upload-time = "2024-08-14T10:15:34.626Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/de/3d/8161f7711c017e01ac9f008dfddd9410dff3674334c233bde66e7ba65bbf/pywin32_ctypes-0.2.3-py3-none-any.whl", hash = "sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8", size = 30756, upload-time = "2024-08-14T10:15:33.187Z" },
++]
++
+ [[package]]
+ name = "ruff"
+ version = "0.12.7"
+@@ -241,6 +324,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/4c/9b/0b8aa09817b63e78d94b4977f18b1fcaead3165a5ee49251c5d5c245bb2d/ruff-0.12.7-py3-none-win_arm64.whl", hash = "sha256:dfce05101dbd11833a0776716d5d1578641b7fddb537fe7fa956ab85d1769b69", size = 11982083, upload-time = "2025-07-29T22:32:33.881Z" },
+ ]
+ 
++[[package]]
++name = "setuptools"
++version = "83.0.0"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/34/26/f5d29e25ffdb535afef2d35cdb55b325298f96debd670da4c325e08d70f4/setuptools-83.0.0.tar.gz", hash = "sha256:025bccbbf0fa05b6192bc64ae1e7b16e001fd6d6d4d5de03c97b1c1ade523bef", size = 1154254, upload-time = "2026-07-04T15:31:22.699Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/5d/40/e1e72872c6354b306daef1703549e8e83b4d43cfea356311bf722a043752/setuptools-83.0.0-py3-none-any.whl", hash = "sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3", size = 1008090, upload-time = "2026-07-04T15:31:20.885Z" },
++]
++
+ [[package]]
+ name = "sortedcontainers"
+ version = "2.4.0"

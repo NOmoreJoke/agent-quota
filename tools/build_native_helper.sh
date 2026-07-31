@@ -25,6 +25,3 @@ xcrun swiftc \
 /usr/bin/plutil -insert CFBundlePackageType -string APPL "$app_plist"
 /usr/bin/plutil -insert LSUIElement -bool true "$app_plist"
 /usr/bin/codesign --force --deep --sign - "$app_dir"
-
-/bin/cp "$app_binary" "$output_dir/agent-quota-native"
-/usr/bin/codesign --force --sign - "$output_dir/agent-quota-native"

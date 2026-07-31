@@ -25,6 +25,9 @@ dev = [
   "pytest-cov==6.2.1",
   "ruff==0.12.7",
 ]
+package = [
+  "pyinstaller==6.21.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_quota"]

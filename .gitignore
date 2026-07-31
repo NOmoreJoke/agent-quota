@@ -18,12 +18,13 @@ dist/
 coverage/
 *.tsbuildinfo
 src-tauri/target/
-src-tauri/bin/agent-quota-native
+src-tauri/generated-resources/
 src-tauri/bin/AgentQuotaNative.app/
 src-tauri/gen/schemas/
 playwright-report/
 test-results/
 output/playwright/
+artifacts/
 
 *.db
 *.sqlite

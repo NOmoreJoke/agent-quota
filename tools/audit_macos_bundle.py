@@ -1,0 +1,228 @@
+"""Fail closed on incomplete or non-relocatable macOS application bundles."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import plistlib
+import stat
+import subprocess
+from pathlib import Path, PurePosixPath
+
+ALLOWED_DYLIB_PREFIXES = (
+    "/System/Library/",
+    "/usr/lib/",
+    "@executable_path/",
+    "@loader_path/",
+    "@rpath/",
+)
+REQUIRED_RESOURCES = (
+    "native-helper/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative",
+    "sidecar/agent-quota-sidecar",
+)
+
+
+def output(*command: str) -> str:
+    return subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_resource_manifest(resources: Path, errors: list[str]) -> tuple[str, int]:
+    manifest_path = resources / "resource-manifest.json"
+    try:
+        raw = manifest_path.read_bytes()
+        manifest = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        errors.append("resource manifest is unreadable")
+        return "", 0
+    digest = hashlib.sha256(raw).hexdigest()
+    if (
+        set(manifest) != {"artifact_class", "entries", "schema"}
+        or manifest["artifact_class"] != "local unsigned development package"
+        or manifest["schema"] != "agent-quota-resource-manifest-v1"
+        or not isinstance(manifest["entries"], list)
+    ):
+        errors.append("resource manifest contract mismatch")
+        return digest, 0
+    expected: set[str] = set()
+    for entry in manifest["entries"]:
+        if not isinstance(entry, dict) or set(entry) != {"bytes", "mode", "path", "sha256"}:
+            errors.append("resource manifest entry contract mismatch")
+            continue
+        relative = entry["path"]
+        pure = PurePosixPath(relative) if isinstance(relative, str) else PurePosixPath(".")
+        if (
+            not isinstance(relative, str)
+            or pure.is_absolute()
+            or not pure.parts
+            or any(part in {"", ".", ".."} for part in pure.parts)
+            or relative in expected
+        ):
+            errors.append("unsafe or duplicate resource manifest path")
+            continue
+        expected.add(relative)
+        path = resources / relative
+        try:
+            metadata = path.lstat()
+        except OSError:
+            errors.append(f"missing manifest resource: {relative}")
+            continue
+        mode = stat.S_IMODE(metadata.st_mode)
+        if (
+            path.is_symlink()
+            or not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_uid not in {0, os.geteuid()}
+            or mode & 0o022
+            or metadata.st_size != entry["bytes"]
+            or mode != entry["mode"]
+            or sha256(path) != entry["sha256"]
+        ):
+            errors.append(f"resource metadata/digest mismatch: {relative}")
+    actual = {
+        path.relative_to(resources).as_posix()
+        for parent in (resources / "native-helper", resources / "sidecar")
+        for path in parent.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+    for parent in (resources / "native-helper", resources / "sidecar"):
+        for path in parent.rglob("*"):
+            if path.is_symlink() or not (path.is_file() or path.is_dir()):
+                errors.append(f"unsafe resource node: {path.relative_to(resources).as_posix()}")
+    if actual != expected:
+        errors.append("resource file closure mismatch")
+    if not set(REQUIRED_RESOURCES).issubset(expected):
+        errors.append("required executable missing from resource manifest")
+    return digest, len(expected)
+
+
+def mach_o_files(app: Path) -> list[Path]:
+    results: list[Path] = []
+    for path in sorted(app.rglob("*")):
+        if path.is_file() and not path.is_symlink():
+            description = output("/usr/bin/file", "-b", str(path))
+            if "Mach-O" in description:
+                results.append(path)
+    return results
+
+
+def dylibs(path: Path) -> list[str]:
+    lines = output("/usr/bin/otool", "-L", str(path)).splitlines()[1:]
+    return [line.strip().split(" (", 1)[0] for line in lines if line.strip()]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--app", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    app = args.app.resolve(strict=True)
+    contents = app / "Contents"
+    with (contents / "Info.plist").open("rb") as stream:
+        plist = plistlib.load(stream)
+    executable = contents / "MacOS" / str(plist["CFBundleExecutable"])
+    resources = contents / "Resources"
+    errors: list[str] = []
+    manifest_digest, manifest_entries = verify_resource_manifest(resources, errors)
+
+    for path in (executable, *(resources / name for name in REQUIRED_RESOURCES)):
+        metadata = path.lstat() if path.exists() else None
+        if (
+            metadata is None
+            or path.is_symlink()
+            or not stat.S_ISREG(metadata.st_mode)
+            or stat.S_IMODE(metadata.st_mode) & 0o100 == 0
+            or stat.S_IMODE(metadata.st_mode) & 0o022 != 0
+            or metadata.st_uid not in {0, os.geteuid()}
+        ):
+            errors.append(f"unsafe executable: {path.relative_to(app)}")
+
+    for path in app.rglob("*"):
+        metadata = path.lstat()
+        if stat.S_IMODE(metadata.st_mode) & 0o022:
+            errors.append(f"group/world writable bundle path: {path.relative_to(app)}")
+        if path.is_symlink():
+            resolved = path.resolve()
+            if app not in resolved.parents:
+                errors.append(f"escaping symlink: {path.relative_to(app)} -> {os.readlink(path)}")
+
+    binaries: list[dict[str, object]] = []
+    for path in mach_o_files(app):
+        architecture = output("/usr/bin/lipo", "-archs", str(path)).strip().split()
+        dependencies = dylibs(path)
+        unexpected = [
+            dependency
+            for dependency in dependencies
+            if not dependency.startswith(ALLOWED_DYLIB_PREFIXES)
+        ]
+        if "arm64" not in architecture:
+            errors.append(f"missing arm64 slice: {path.relative_to(app)}")
+        if unexpected:
+            errors.append(f"unexpected dylib: {path.relative_to(app)}: {', '.join(unexpected)}")
+        binaries.append(
+            {
+                "path": path.relative_to(app).as_posix(),
+                "architecture": architecture,
+                "dependencies": dependencies,
+            }
+        )
+
+    signature = subprocess.run(
+        ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)],
+        capture_output=True,
+        text=True,
+    )
+    signature_details = subprocess.run(
+        ["/usr/bin/codesign", "-dv", "--verbose=4", str(app)],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stderr.strip()
+    binary_inventory = json.dumps(binaries, separators=(",", ":"), sort_keys=True).encode()
+    quarantine = subprocess.run(
+        ["/usr/bin/xattr", "-p", "com.apple.quarantine", str(app)],
+        capture_output=True,
+        text=True,
+    )
+    report = {
+        "artifact_class": "local unsigned development package",
+        "architecture": "arm64",
+        "bundle_id": plist.get("CFBundleIdentifier"),
+        "binaries": binaries,
+        "codesign_verify_exit": signature.returncode,
+        "codesign_verify_stderr": signature.stderr.strip(),
+        "codesign_details": signature_details.splitlines(),
+        "errors": errors,
+        "macho_inventory_sha256": hashlib.sha256(binary_inventory).hexdigest(),
+        "notarized": False,
+        "quarantine_attribute": (
+            quarantine.stdout.strip() if quarantine.returncode == 0 else "absent"
+        ),
+        "resource_manifest_entries": manifest_entries,
+        "resource_manifest_sha256": manifest_digest,
+        "status": "pass" if not errors and signature.returncode == 0 else "fail",
+    }
+    args.output.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    if report["status"] != "pass":
+        raise SystemExit("bundle audit failed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

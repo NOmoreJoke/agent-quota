@@ -96,6 +96,15 @@ private enum NativeFailure: Error {
     case keychain(OSStatus)
 }
 
+@MainActor
+private final class DestructiveConfirmationGate: NSObject {
+    weak var confirmButton: NSButton?
+
+    @objc func update(_ checkbox: NSButton) {
+        confirmButton?.isEnabled = checkbox.state == .on
+    }
+}
+
 private func emit(_ response: NativeResponse) {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -288,12 +297,19 @@ private func destructiveDialog(_ request: NativeRequest) -> NativeResponse {
     alert.informativeText = "\(summary)\nGeneration \(generation) · Plan \(digest.prefix(12))"
     alert.addButton(withTitle: "取消")
     alert.addButton(withTitle: "确认执行")
+    let confirmButton = alert.buttons[1]
+    confirmButton.isEnabled = false
     let confirmation = NSButton(
         checkboxWithTitle: "我已核对范围，并确认该操作可能不可恢复。",
         target: nil,
         action: nil
     )
+    confirmation.state = .off
     confirmation.setAccessibilityLabel("确认破坏性操作范围")
+    let gate = DestructiveConfirmationGate()
+    gate.confirmButton = confirmButton
+    confirmation.target = gate
+    confirmation.action = #selector(DestructiveConfirmationGate.update(_:))
     alert.accessoryView = confirmation
 
     var lostFocus = false
@@ -307,6 +323,7 @@ private func destructiveDialog(_ request: NativeRequest) -> NativeResponse {
     guard
         response == .alertSecondButtonReturn,
         confirmation.state == .on,
+        confirmButton.isEnabled,
         !lostFocus
     else {
         return NativeResponse(

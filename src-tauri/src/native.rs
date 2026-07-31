@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use serde_json::Value;
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Mutex, mpsc};
@@ -118,7 +118,7 @@ impl NativeHost {
 
     fn run(&self, request: Value, timeout: Duration) -> Result<NativeResponse, NativeError> {
         let path = self.executable.as_deref().ok_or(NativeError::Unavailable)?;
-        check_executable(path)?;
+        let path = check_executable(path)?;
         let mut body = serde_json::to_vec(&request).map_err(|_| NativeError::Protocol)?;
         if body.is_empty() || body.len() >= MAX_REQUEST_BYTES || body.contains(&b'\n') {
             return Err(NativeError::Protocol);
@@ -174,26 +174,55 @@ impl NativeHost {
     }
 }
 
+#[cfg(debug_assertions)]
 pub fn helper_path(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
-    #[cfg(debug_assertions)]
     if let Some(path) = std::env::var_os("AQ_NATIVE_HELPER_EXECUTABLE") {
         return Some(PathBuf::from(path));
     }
-    resource_dir.map(|directory| directory.join("agent-quota-native"))
+    resource_dir.map(|directory| {
+        directory
+            .join("native-helper")
+            .join("AgentQuotaNative.app")
+            .join("Contents")
+            .join("MacOS")
+            .join("AgentQuotaNative")
+    })
 }
 
-fn check_executable(path: &Path) -> Result<(), NativeError> {
+fn check_executable(path: &Path) -> Result<PathBuf, NativeError> {
     if !path.is_absolute() {
         return Err(NativeError::Unavailable);
     }
-    let metadata = fs::symlink_metadata(path).map_err(|_| NativeError::Unavailable)?;
-    if metadata.file_type().is_symlink()
-        || !metadata.is_file()
-        || metadata.permissions().mode() & 0o111 == 0
+    let path_metadata = fs::symlink_metadata(path).map_err(|_| NativeError::Unavailable)?;
+    let mode = path_metadata.permissions().mode() & 0o7777;
+    let effective_uid = unsafe { libc::geteuid() };
+    if path_metadata.file_type().is_symlink()
+        || !path_metadata.is_file()
+        || mode & 0o100 == 0
+        || mode & 0o022 != 0
+        || !matches!(path_metadata.uid(), 0) && path_metadata.uid() != effective_uid
     {
         return Err(NativeError::Unavailable);
     }
-    Ok(())
+    let canonical = path.canonicalize().map_err(|_| NativeError::Unavailable)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&canonical)
+        .map_err(|_| NativeError::Unavailable)?;
+    let opened_metadata = file.metadata().map_err(|_| NativeError::Unavailable)?;
+    let final_metadata = fs::symlink_metadata(&canonical).map_err(|_| NativeError::Unavailable)?;
+    if path_metadata.dev() != opened_metadata.dev()
+        || path_metadata.ino() != opened_metadata.ino()
+        || opened_metadata.dev() != final_metadata.dev()
+        || opened_metadata.ino() != final_metadata.ino()
+        || opened_metadata.len() != final_metadata.len()
+        || opened_metadata.mode() != final_metadata.mode()
+        || opened_metadata.uid() != final_metadata.uid()
+    {
+        return Err(NativeError::Unavailable);
+    }
+    Ok(canonical)
 }
 
 fn terminate(child: &mut Child) {
@@ -224,6 +253,26 @@ mod tests {
         assert!(check_executable(Path::new("relative")).is_err());
         assert!(check_executable(Path::new("/definitely/missing")).is_err());
         assert!(check_executable(Path::new("/bin/sh")).is_ok());
+    }
+
+    #[test]
+    fn executable_rejects_symlink_and_writable_mode() {
+        use std::os::unix::fs::symlink;
+
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("helper");
+        fs::write(&executable, "#!/bin/sh\nexit 0\n").unwrap();
+        let mut permissions = fs::metadata(&executable).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&executable, permissions).unwrap();
+        let link = directory.path().join("helper-link");
+        symlink(&executable, &link).unwrap();
+        assert!(check_executable(&link).is_err());
+
+        let mut permissions = fs::metadata(&executable).unwrap().permissions();
+        permissions.set_mode(0o757);
+        fs::set_permissions(&executable, permissions).unwrap();
+        assert!(check_executable(&executable).is_err());
     }
 
     #[test]

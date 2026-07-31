@@ -3,9 +3,10 @@ use crate::protocol::{Sequence, read_frame, write_frame};
 use hmac::{Hmac, Mac};
 use serde_json::{Value, json};
 use sha2::Sha256;
-use std::fs::File;
+use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
@@ -57,11 +58,46 @@ fn secret() -> Result<[u8; SECRET_BYTES], SupervisorError> {
     Ok(value)
 }
 
-fn check_executable(path: &Path) -> Result<(), SupervisorError> {
-    if !path.is_absolute() || !path.is_file() {
+fn check_executable(path: &Path) -> Result<std::path::PathBuf, SupervisorError> {
+    if !path.is_absolute() {
         return Err(SupervisorError::InvalidExecutable);
     }
-    Ok(())
+    let path_metadata =
+        fs::symlink_metadata(path).map_err(|_| SupervisorError::InvalidExecutable)?;
+    let mode = path_metadata.permissions().mode() & 0o7777;
+    let effective_uid = unsafe { libc::geteuid() };
+    if path_metadata.file_type().is_symlink()
+        || !path_metadata.is_file()
+        || mode & 0o100 == 0
+        || mode & 0o022 != 0
+        || !matches!(path_metadata.uid(), 0) && path_metadata.uid() != effective_uid
+    {
+        return Err(SupervisorError::InvalidExecutable);
+    }
+    let canonical = path
+        .canonicalize()
+        .map_err(|_| SupervisorError::InvalidExecutable)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&canonical)
+        .map_err(|_| SupervisorError::InvalidExecutable)?;
+    let opened_metadata = file
+        .metadata()
+        .map_err(|_| SupervisorError::InvalidExecutable)?;
+    let final_metadata =
+        fs::symlink_metadata(&canonical).map_err(|_| SupervisorError::InvalidExecutable)?;
+    if path_metadata.dev() != opened_metadata.dev()
+        || path_metadata.ino() != opened_metadata.ino()
+        || opened_metadata.dev() != final_metadata.dev()
+        || opened_metadata.ino() != final_metadata.ino()
+        || opened_metadata.len() != final_metadata.len()
+        || opened_metadata.mode() != final_metadata.mode()
+        || opened_metadata.uid() != final_metadata.uid()
+    {
+        return Err(SupervisorError::InvalidExecutable);
+    }
+    Ok(canonical)
 }
 
 pub struct SidecarSupervisor {
@@ -74,7 +110,7 @@ pub struct SidecarSupervisor {
 
 impl SidecarSupervisor {
     pub fn spawn(executable: &Path, arguments: &[String]) -> Result<Self, SupervisorError> {
-        check_executable(executable)?;
+        let executable = check_executable(executable)?;
         let secret = secret()?;
         let (mut parent_secret, child_secret) =
             UnixStream::pair().map_err(|_| SupervisorError::Io)?;
@@ -269,6 +305,26 @@ mod tests {
         assert!(check_executable(Path::new("python")).is_err());
         assert!(check_executable(Path::new("/definitely/not/here")).is_err());
         assert!(check_executable(Path::new("/bin/sh")).is_ok());
+    }
+
+    #[test]
+    fn executable_rejects_symlink_and_writable_mode() {
+        use std::os::unix::fs::symlink;
+
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("sidecar");
+        fs::write(&executable, "#!/bin/sh\nexit 0\n").unwrap();
+        let mut permissions = fs::metadata(&executable).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&executable, permissions).unwrap();
+        let link = directory.path().join("sidecar-link");
+        symlink(&executable, &link).unwrap();
+        assert!(check_executable(&link).is_err());
+
+        let mut permissions = fs::metadata(&executable).unwrap().permissions();
+        permissions.set_mode(0o775);
+        fs::set_permissions(&executable, permissions).unwrap();
+        assert!(check_executable(&executable).is_err());
     }
 
     #[test]
