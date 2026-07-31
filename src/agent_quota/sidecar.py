@@ -9,10 +9,12 @@ import struct
 import sys
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import BinaryIO, Final
+from pathlib import Path
+from typing import BinaryIO, Final, cast
 
 from agent_quota.dto import RendererContract
 from agent_quota.errors import ContractViolation
+from agent_quota.native_control import NativeControlPlane
 
 MAX_FRAME_BYTES: Final = 1024 * 1024
 MAX_REMAINING_BUDGET_NS: Final = 9_000_000_000
@@ -23,6 +25,16 @@ ENVELOPE_FIELDS: Final = {
     "remaining_budget_ns",
     "request_id",
     "session_proof",
+}
+INTERNAL_COMMANDS: Final = {
+    "host_internal.cleanup_ack",
+    "host_internal.cleanup_pending",
+    "host_internal.credential_context",
+    "host_internal.credential_commit",
+    "host_internal.credential_references",
+    "host_internal.destructive_cancel",
+    "host_internal.destructive_commit",
+    "host_internal.destructive_prepare",
 }
 
 
@@ -63,7 +75,12 @@ def write_frame(stream: BinaryIO, value: dict[str, object]) -> None:
 
 def _proof_body(envelope: dict[str, object]) -> bytes:
     unsigned = {key: value for key, value in envelope.items() if key != "session_proof"}
-    return json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+    return json.dumps(
+        unsigned,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
 
 
 def session_proof(secret: bytes, envelope: dict[str, object]) -> str:
@@ -89,6 +106,7 @@ def read_session_secret(environment: dict[str, str] | None = None) -> bytes:
 class SidecarSession:
     secret: bytes
     contract: RendererContract
+    native: NativeControlPlane | None = None
     last_request_id: int = 0
 
     def dispatch(self, envelope: dict[str, object]) -> dict[str, object]:
@@ -120,10 +138,17 @@ class SidecarSession:
         ):
             raise ContractViolation("sidecar session proof mismatch")
 
-        self.contract.validate_command_request(command_id, payload)
+        internal = command_id in INTERNAL_COMMANDS
+        if internal:
+            _validate_internal_request(command_id, payload)
+        else:
+            self.contract.validate_command_request(command_id, payload)
         self.last_request_id = request_id
-        response = _safe_dispatch(command_id, payload)
-        self.contract.validate_command_response(command_id, response)
+        response = self._dispatch(command_id, payload)
+        if internal:
+            _validate_internal_response(command_id, response)
+        else:
+            self.contract.validate_command_response(command_id, response)
         return {
             "request_id": request_id,
             "response": response,
@@ -133,15 +158,29 @@ class SidecarSession:
             ),
         }
 
+    def _dispatch(self, command_id: str, payload: dict[str, object]) -> dict[str, object]:
+        if command_id in INTERNAL_COMMANDS:
+            if self.native is None:
+                raise ContractViolation("native control plane is unavailable")
+            return _internal_dispatch(self.native, command_id, payload)
+        return _safe_dispatch(command_id, payload, self.native)
 
-def _safe_dispatch(command_id: str, payload: dict[str, object]) -> dict[str, object]:
+
+def _safe_dispatch(
+    command_id: str,
+    payload: dict[str, object],
+    native: NativeControlPlane | None = None,
+) -> dict[str, object]:
     if command_id == "bootstrap_state":
         return {
             "application_state": {"launch_state": "ready", "offline": False},
             "status": "ok",
         }
     if command_id == "accounts_read":
-        return {"accounts": [], "status": "ok"}
+        return {
+            "accounts": [] if native is None else native.renderer_accounts(),
+            "status": "ok",
+        }
     if command_id == "quota_overview":
         return {
             "projection": {
@@ -175,12 +214,209 @@ def _safe_dispatch(command_id: str, payload: dict[str, object]) -> dict[str, obj
     raise ContractViolation("unknown renderer command")
 
 
+def _exact(payload: dict[str, object], fields: set[str]) -> None:
+    if set(payload) != fields:
+        raise ContractViolation("internal payload field closure mismatch")
+
+
+def _bounded_string(value: object, maximum: int = 128) -> str:
+    if not isinstance(value, str) or not 1 <= len(value.encode()) <= maximum:
+        raise ContractViolation("invalid internal string")
+    return value
+
+
+def _bounded_integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 2**63 - 1:
+        raise ContractViolation("invalid internal integer")
+    return value
+
+
+def _bounded_string_list(value: object) -> list[str]:
+    if (
+        not isinstance(value, list)
+        or not 1 <= len(value) <= 128
+        or any(not isinstance(item, str) or not 1 <= len(item.encode()) <= 128 for item in value)
+    ):
+        raise ContractViolation("invalid internal string list")
+    return value
+
+
+def _validate_internal_request(command_id: str, payload: dict[str, object]) -> None:
+    if command_id in {
+        "host_internal.cleanup_pending",
+        "host_internal.credential_references",
+    }:
+        _exact(payload, set())
+    elif command_id == "host_internal.cleanup_ack":
+        _exact(payload, {"references"})
+        _bounded_string_list(payload["references"])
+    elif command_id == "host_internal.credential_context":
+        _exact(payload, {"principal_ref"})
+        _bounded_string(payload["principal_ref"])
+    elif command_id == "host_internal.credential_commit":
+        _exact(
+            payload,
+            {
+                "credential_reference",
+                "expected_generation",
+                "principal_ref",
+                "purpose",
+            },
+        )
+        _bounded_string(payload["credential_reference"])
+        _bounded_string(payload["purpose"], 32)
+        if payload["principal_ref"] is not None:
+            _bounded_string(payload["principal_ref"])
+        if payload["expected_generation"] is not None:
+            _bounded_integer(payload["expected_generation"])
+    elif command_id == "host_internal.destructive_prepare":
+        _exact(payload, {"opaque_selection_handle", "operation_intent"})
+        _bounded_string(payload["operation_intent"], 32)
+        _bounded_string(payload["opaque_selection_handle"])
+    elif command_id == "host_internal.destructive_cancel":
+        _exact(payload, {"plan_id"})
+        _bounded_string(payload["plan_id"], 64)
+    elif command_id == "host_internal.destructive_commit":
+        _exact(
+            payload,
+            {"digest", "generation", "nonce", "plan_id", "user_presence_token"},
+        )
+        for field in ("digest", "nonce", "plan_id", "user_presence_token"):
+            _bounded_string(payload[field], 128)
+        _bounded_integer(payload["generation"])
+    else:
+        raise ContractViolation("unknown internal command")
+
+
+def _validate_internal_response(command_id: str, payload: dict[str, object]) -> None:
+    if command_id in {
+        "host_internal.cleanup_pending",
+        "host_internal.credential_references",
+    }:
+        _exact(payload, {"references", "status"})
+        if payload["references"] != []:
+            _bounded_string_list(payload["references"])
+        _bounded_string(payload["status"], 32)
+    elif command_id == "host_internal.cleanup_ack":
+        _exact(payload, {"status"})
+        _bounded_string(payload["status"], 32)
+    elif command_id == "host_internal.credential_context":
+        _exact(payload, {"credential_reference", "generation", "status"})
+        _bounded_string(payload["credential_reference"])
+        _bounded_integer(payload["generation"])
+    elif command_id == "host_internal.credential_commit":
+        _exact(payload, {"old_reference", "principal_ref", "status"})
+        _bounded_string(payload["principal_ref"])
+        if payload["old_reference"] is not None:
+            _bounded_string(payload["old_reference"])
+    elif command_id == "host_internal.destructive_prepare":
+        _exact(
+            payload,
+            {
+                "digest",
+                "generation",
+                "nonce",
+                "operation_intent",
+                "plan_id",
+                "status",
+                "summary",
+            },
+        )
+        for field in (
+            "digest",
+            "nonce",
+            "operation_intent",
+            "plan_id",
+            "status",
+            "summary",
+        ):
+            _bounded_string(payload[field], 256)
+        _bounded_integer(payload["generation"])
+    elif command_id in {
+        "host_internal.destructive_cancel",
+    }:
+        _exact(payload, {"status"})
+        _bounded_string(payload["status"], 32)
+    elif command_id == "host_internal.destructive_commit":
+        _exact(payload, {"cleanup_references", "status"})
+        if payload["cleanup_references"] != []:
+            _bounded_string_list(payload["cleanup_references"])
+        _bounded_string(payload["status"], 32)
+    else:
+        raise ContractViolation("unknown internal command")
+
+
+def _internal_dispatch(
+    native: NativeControlPlane,
+    command_id: str,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    try:
+        if command_id == "host_internal.cleanup_pending":
+            return {"references": native.cleanup_pending(), "status": "ok"}
+        if command_id == "host_internal.credential_references":
+            return {"references": native.credential_references(), "status": "ok"}
+        if command_id == "host_internal.cleanup_ack":
+            native.acknowledge_cleanup(cast(list[str], payload["references"]))
+            return {"status": "acknowledged"}
+        if command_id == "host_internal.credential_context":
+            reference, generation = native.credential_reference(str(payload["principal_ref"]))
+            return {
+                "credential_reference": reference,
+                "generation": generation,
+                "status": "ok",
+            }
+        if command_id == "host_internal.credential_commit":
+            commit = native.commit_credential(
+                purpose=str(payload["purpose"]),
+                credential_reference=str(payload["credential_reference"]),
+                principal_ref=(
+                    None if payload["principal_ref"] is None else str(payload["principal_ref"])
+                ),
+                expected_generation=(
+                    None
+                    if payload["expected_generation"] is None
+                    else cast(int, payload["expected_generation"])
+                ),
+            )
+            return {
+                "old_reference": commit.old_reference,
+                "principal_ref": commit.principal_ref,
+                "status": "committed",
+            }
+        if command_id == "host_internal.destructive_prepare":
+            plan = native.prepare_destructive(
+                operation_intent=str(payload["operation_intent"]),
+                opaque_selection_handle=str(payload["opaque_selection_handle"]),
+            )
+            return {"status": "prepared", **plan.host_projection()}
+        if command_id == "host_internal.destructive_cancel":
+            native.cancel_destructive(str(payload["plan_id"]))
+            return {"status": "cancelled"}
+        if command_id == "host_internal.destructive_commit":
+            cleanup_references = native.commit_destructive(
+                plan_id=str(payload["plan_id"]),
+                digest=str(payload["digest"]),
+                generation=cast(int, payload["generation"]),
+                nonce=str(payload["nonce"]),
+                user_presence_token=str(payload["user_presence_token"]),
+            )
+            return {
+                "cleanup_references": list(cleanup_references),
+                "status": "committed",
+            }
+    except (OSError, OverflowError, ValueError) as error:
+        raise ContractViolation("internal operation rejected") from error
+    raise ContractViolation("unknown internal command")
+
+
 def serve(
     input_stream: BinaryIO,
     output_stream: BinaryIO,
     secret: bytes,
+    native: NativeControlPlane | None = None,
 ) -> None:
-    session = SidecarSession(secret=secret, contract=RendererContract())
+    session = SidecarSession(secret=secret, contract=RendererContract(), native=native)
     while True:
         try:
             envelope = read_frame(input_stream)
@@ -193,8 +429,13 @@ def serve(
 def main() -> int:
     try:
         secret = read_session_secret()
-        serve(sys.stdin.buffer, sys.stdout.buffer, secret)
-    except (ContractViolation, EOFError, OSError):
+        arguments = sys.argv[1:]
+        if len(arguments) != 2 or arguments[0] != "--data-root":
+            raise ContractViolation("native data root argument is unavailable")
+        data_root = Path(arguments[1])
+        native = NativeControlPlane(data_root)
+        serve(sys.stdin.buffer, sys.stdout.buffer, secret, native)
+    except (ContractViolation, EOFError, OSError, ValueError):
         return 64
     return 0
 

@@ -19,6 +19,7 @@ coverage/
 *.tsbuildinfo
 src-tauri/target/
 src-tauri/bin/agent-quota-native
+src-tauri/bin/AgentQuotaNative.app/
 src-tauri/gen/schemas/
 playwright-report/
 test-results/

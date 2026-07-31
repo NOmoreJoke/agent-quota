@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
+import secrets
 import stat
 from pathlib import Path
 
@@ -75,3 +77,41 @@ def same_identity(left: os.stat_result, right: os.stat_result) -> bool:
         right.st_ino,
         stat.S_IFMT(right.st_mode),
     )
+
+
+def atomic_write_private(path: Path, payload: bytes) -> None:
+    """Atomically replace one private regular file inside a private directory."""
+
+    if not path.is_absolute() or not path.name or len(payload) > 1024 * 1024:
+        raise ValueError("invalid private write")
+    directory = open_directory_nofollow(path.parent, require_owner=True, require_mode=0o700)
+    temporary = f".{path.name}.{secrets.token_hex(8)}.tmp"
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            temporary,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+            dir_fd=directory,
+        )
+        view = memoryview(payload)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("private write made no progress")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = -1
+        os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
+        os.fsync(directory)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(temporary, dir_fd=directory)
+        os.close(directory)

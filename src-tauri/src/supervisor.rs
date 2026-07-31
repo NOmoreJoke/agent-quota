@@ -1,5 +1,5 @@
 use crate::contract::{validate_request, validate_response};
-use crate::protocol::{ProtocolError, Sequence, read_frame, write_frame};
+use crate::protocol::{Sequence, read_frame, write_frame};
 use hmac::{Hmac, Mac};
 use serde_json::{Value, json};
 use sha2::Sha256;
@@ -124,7 +124,31 @@ impl SidecarSupervisor {
         payload: Value,
         remaining_budget_ns: u64,
     ) -> Result<Value, SupervisorError> {
-        validate_request(command_id, &payload).map_err(|_| SupervisorError::Contract)?;
+        self.call_checked(command_id, payload, remaining_budget_ns, true)
+    }
+
+    pub fn call_internal(
+        &mut self,
+        command_id: &str,
+        payload: Value,
+        remaining_budget_ns: u64,
+    ) -> Result<Value, SupervisorError> {
+        if !command_id.starts_with("host_internal.") {
+            return Err(SupervisorError::Contract);
+        }
+        self.call_checked(command_id, payload, remaining_budget_ns, false)
+    }
+
+    fn call_checked(
+        &mut self,
+        command_id: &str,
+        payload: Value,
+        remaining_budget_ns: u64,
+        renderer_contract: bool,
+    ) -> Result<Value, SupervisorError> {
+        if renderer_contract {
+            validate_request(command_id, &payload).map_err(|_| SupervisorError::Contract)?;
+        }
         let request_id = self
             .sequence
             .next_request(
@@ -150,7 +174,7 @@ impl SidecarSupervisor {
         });
         write_frame(&mut self.stdin, &request).map_err(|_| SupervisorError::Io)?;
 
-        let mut stdout = self.stdout.take().ok_or(SupervisorError::Protocol)?;
+        let mut stdout = self.stdout.take().ok_or(SupervisorError::OutcomeUnknown)?;
         let (sender, receiver) = mpsc::sync_channel(1);
         std::thread::spawn(move || {
             let result = read_frame(&mut stdout);
@@ -166,29 +190,36 @@ impl SidecarSupervisor {
             }
         };
         self.stdout = Some(stdout);
-        let response = response.map_err(|error| match error {
-            ProtocolError::Io(_) => SupervisorError::Io,
-            _ => SupervisorError::Protocol,
-        })?;
-        let object = response.as_object().ok_or(SupervisorError::Protocol)?;
+        let response = response.map_err(|_| SupervisorError::OutcomeUnknown)?;
+        let object = response
+            .as_object()
+            .ok_or(SupervisorError::OutcomeUnknown)?;
         if object.len() != 3
             || !object.contains_key("request_id")
             || !object.contains_key("response")
             || !object.contains_key("session_proof")
             || object["request_id"].as_u64() != Some(request_id)
         {
-            return Err(SupervisorError::Protocol);
+            return Err(SupervisorError::OutcomeUnknown);
         }
         let unsigned_response = json!({
             "request_id": request_id,
             "response": object["response"]
         });
-        let expected = proof(&self.secret, &unsigned_response)?;
+        let expected =
+            proof(&self.secret, &unsigned_response).map_err(|_| SupervisorError::OutcomeUnknown)?;
         if object["session_proof"].as_str() != Some(expected.as_str()) {
-            return Err(SupervisorError::Protocol);
+            return Err(SupervisorError::OutcomeUnknown);
         }
-        validate_response(command_id, object["response"].clone())
-            .map_err(|_| SupervisorError::Contract)
+        if renderer_contract {
+            validate_response(command_id, object["response"].clone())
+                .map_err(|_| SupervisorError::OutcomeUnknown)
+        } else {
+            object["response"]
+                .as_object()
+                .ok_or(SupervisorError::OutcomeUnknown)?;
+            Ok(object["response"].clone())
+        }
     }
 
     pub fn terminate_and_reap(&mut self) -> Result<(), SupervisorError> {
@@ -258,13 +289,109 @@ mod tests {
         let Some(executable) = std::env::var_os("AQ_SIDECAR_TEST_EXECUTABLE") else {
             return;
         };
-        let mut supervisor =
-            SidecarSupervisor::spawn(Path::new(&executable), &[]).expect("spawn real sidecar");
+        let data_root = tempfile::tempdir().expect("temporary data root");
+        let canonical_root = data_root
+            .path()
+            .canonicalize()
+            .expect("canonical data root");
+        let arguments = vec![
+            "--data-root".to_owned(),
+            canonical_root.to_string_lossy().into_owned(),
+        ];
+        let mut supervisor = SidecarSupervisor::spawn(Path::new(&executable), &arguments)
+            .expect("spawn real sidecar");
         let response = supervisor
             .call("bootstrap_state", json!({}), 2_000_000_000)
             .expect("sidecar response");
         assert_eq!(response["status"], "ok");
         supervisor.terminate_and_reap().expect("reap real sidecar");
+    }
+
+    #[test]
+    fn real_python_sidecar_persists_native_account_and_commits_purge() {
+        let Some(executable) = std::env::var_os("AQ_SIDECAR_TEST_EXECUTABLE") else {
+            return;
+        };
+        let data_root = tempfile::tempdir().expect("temporary data root");
+        let canonical_root = data_root
+            .path()
+            .canonicalize()
+            .expect("canonical data root");
+        let arguments = vec![
+            "--data-root".to_owned(),
+            canonical_root.to_string_lossy().into_owned(),
+        ];
+        {
+            let mut supervisor = SidecarSupervisor::spawn(Path::new(&executable), &arguments)
+                .expect("spawn real sidecar");
+            let committed = supervisor
+                .call_internal(
+                    "host_internal.credential_commit",
+                    json!({
+                        "credential_reference":
+                            "credential-00000000-0000-4000-8000-000000000001",
+                        "expected_generation": null,
+                        "principal_ref": null,
+                        "purpose": "create-credential-reference"
+                    }),
+                    2_000_000_000,
+                )
+                .expect("commit credential reference");
+            assert_eq!(committed["status"], "committed");
+            supervisor.terminate_and_reap().expect("reap sidecar");
+        }
+        let mut supervisor = SidecarSupervisor::spawn(Path::new(&executable), &arguments)
+            .expect("restart real sidecar");
+        let accounts = supervisor
+            .call(
+                "accounts_read",
+                json!({"scope_ref": "scope-all"}),
+                2_000_000_000,
+            )
+            .expect("read persisted accounts");
+        assert_eq!(accounts["accounts"].as_array().unwrap().len(), 1);
+        let plan = supervisor
+            .call_internal(
+                "host_internal.destructive_prepare",
+                json!({
+                    "operation_intent": "purge",
+                    "opaque_selection_handle": "selection-all-local-data"
+                }),
+                2_000_000_000,
+            )
+            .expect("prepare purge");
+        let purge = supervisor
+            .call_internal(
+                "host_internal.destructive_commit",
+                json!({
+                    "digest": plan["digest"],
+                    "generation": plan["generation"],
+                    "nonce": plan["nonce"],
+                    "plan_id": plan["plan_id"],
+                    "user_presence_token": "00000000-0000-4000-8000-000000000001"
+                }),
+                2_000_000_000,
+            )
+            .expect("commit purge");
+        assert_eq!(purge["status"], "committed");
+        assert_eq!(purge["cleanup_references"].as_array().unwrap().len(), 1);
+        let acknowledged = supervisor
+            .call_internal(
+                "host_internal.cleanup_ack",
+                json!({"references": purge["cleanup_references"]}),
+                2_000_000_000,
+            )
+            .expect("acknowledge Keychain cleanup");
+        assert_eq!(acknowledged["status"], "acknowledged");
+        let empty = supervisor
+            .call(
+                "accounts_read",
+                json!({"scope_ref": "scope-all"}),
+                2_000_000_000,
+            )
+            .expect("read empty accounts");
+        assert!(empty["accounts"].as_array().unwrap().is_empty());
+        supervisor.terminate_and_reap().expect("reap sidecar");
     }
 
     #[test]

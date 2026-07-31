@@ -82,6 +82,8 @@
 
 ## Iteration 3 — macOS trusted native surfaces
 
+状态：`PASS`（2026-07-31；R1/R2/R3；未解决 P0/P1/P2 = 0；基线 `50b209f9a4284e2182b6f3f75fd86259e4a91b47`）
+
 交付物：
 
 - Keychain opaque-reference flow。

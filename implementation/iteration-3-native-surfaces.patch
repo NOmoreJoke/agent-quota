@@ -1,0 +1,3075 @@
+diff --git a/.gitignore b/.gitignore
+index a9a1681..c2b7a4e 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -19,6 +19,7 @@ coverage/
+ *.tsbuildinfo
+ src-tauri/target/
+ src-tauri/bin/agent-quota-native
++src-tauri/bin/AgentQuotaNative.app/
+ src-tauri/gen/schemas/
+ playwright-report/
+ test-results/
+diff --git a/docs/ITERATION_PLAN.md b/docs/ITERATION_PLAN.md
+index 18ffb04..b8ce28d 100644
+--- a/docs/ITERATION_PLAN.md
++++ b/docs/ITERATION_PLAN.md
+@@ -82,6 +82,8 @@
+ 
+ ## Iteration 3 — macOS trusted native surfaces
+ 
++状态：`PASS`（2026-07-31；R1/R2/R3；未解决 P0/P1/P2 = 0；基线 `50b209f9a4284e2182b6f3f75fd86259e4a91b47`）
++
+ 交付物：
+ 
+ - Keychain opaque-reference flow。
+diff --git a/implementation/iteration-3-report.md b/implementation/iteration-3-report.md
+new file mode 100644
+index 0000000..fab710c
+--- /dev/null
++++ b/implementation/iteration-3-report.md
+@@ -0,0 +1,100 @@
++# Iteration 3 — macOS trusted native surfaces
++
++状态：`PASS`（R1/R2/R3；未解决 P0/P1/P2 = 0）
++基线：`50b209f9a4284e2182b6f3f75fd86259e4a91b47` (`dev`)
++外部审查对话：<https://chatgpt.com/c/6a6c103b-c278-83ea-8154-06948ddd7429>
++
++## 外部代理交付审计
++
++- ChatGPT Pro 被要求提供实际实现、unified patch、报告、manifest 与测试证据。
++- Pro 明确报告尚未完成代码修改和 patch；该回复未被视为交付，也未直接落地。
++- Codex 基于冻结 contracts 独立实现、审查、运行门禁并生成本仓库 artifact。
++
++## 实现边界
++
++- Renderer 仍为冻结的 10 commands / 29 DTO；未新增 secret、credential reference、plan、digest、nonce 或 user-presence 字段。
++- 凭据正文只存在于独立 AppKit `NSSecureTextField`、短生命周期原生缓冲和 Security.framework。
++- Keychain service 固定为 `com.agentquota.desktop.credentials.v1`；account 使用 `credential-<uuid>` exact lookup。
++- Rust host 校验 foreground/visible/key-window，执行单 active dialog、750 ms cooldown、bounded stdin/stdout、timeout 与 kill/reap。
++- host-core 私有命令使用既有匿名管道、session HMAC 和严格单调 request ID；`host_internal.*` 不可由 Renderer 调用。
++- Python core 持久化的只有脱敏账户元数据、opaque Keychain reference、generation 与待清理 reference；文件为 0700 root 下 0600 atomic JSON。
++- destructive 流程：core prepare plan/digest/generation/nonce -> AppKit 展示并捕获 user presence -> core 重验并 commit -> Keychain cleanup/ack；取消、失焦、超时、漂移、重复均不提交。
++- replace/purge/delete 的旧 Keychain reference 进入持久化 cleanup queue；删除成功后 ack，启动时自动重试。
++- 不执行 Provider I/O，不使用真实凭据，不迁移既有 SQLite schema。
++
++## 状态机
++
++### Credential
++
++`idle -> foreground gate -> native secure dialog -> cancelled | Keychain add -> core commit -> visible account`
++
++- core commit 失败：立即删除新 Keychain item。
++- replace：expected account generation 必须一致；commit 后旧 reference 进入 cleanup queue。
++- restart：`accounts_read` 从私有元数据恢复脱敏账户，不读取 secret。
++
++### Destructive
++
++`idle -> core prepare -> native confirm -> cancelled | presence token -> core revalidate -> committed -> Keychain cleanup/ack`
++
++- plan 60 秒过期；同时最多 8 个 core plan；host 同时最多 1 个原生 dialog。
++- digest/generation/nonce/plan ID/token 任一不一致：拒绝。
++- commit 后 plan 消费；重复提交与 token replay：拒绝。
++- sidecar crash/timeout：host 丢弃 session并返回安全错误，不自动重放。
++
++## 对抗性审查
++
++### R1 — ownership / contract
++
++- PASS：Renderer command/DTO 数量未变；权威 contracts 未修改。
++- PASS：native helper、Rust host、Python core 的职责及失败回滚闭合。
++- PASS：重启持久化由真实跨进程 Rust/Python 测试覆盖。
++
++### R2 — spoof / spam / TOCTOU / exfiltration
++
++- 修复：Python `json.dumps` 默认 ASCII escape 与 Rust UTF-8 JSON 导致中文账户名 response HMAC 不一致；proof 改为 canonical UTF-8。
++- 修复：replace/purge 后旧 Keychain item 可能孤儿化；新增持久化 cleanup/ack/retry。
++- 修复：credential reference / presence token 正则允许错误连字符位置；改为精确 UUID 分组。
++- 修复：native state 的 `Path` 检查后读取存在替换窗口；改为目录 FD、逐级 `O_NOFOLLOW`、owner/mode/nlink 校验。
++- 修复：损坏 native state 的 `ValueError` 未被 sidecar 顶层收敛；统一无 traceback、退出码 64。
++- 修复：native helper stdin/stdout 异常路径可能遗留 child；统一 TERM -> 200 ms grace -> KILL -> wait。
++- 修复：credential commit `outcome-unknown` 时误删新 Keychain item，可能形成已提交 metadata -> 缺失 secret；结果未知不再删除，启动时由 core active-reference 集合驱动同 helper/signing identity 下的 orphan prune。
++- PASS：foreground/key-window、single-active/cooldown、bounded protocol、unknown fields、generation drift、plan expiry、cancel、duplicate、replay。
++- PASS：Renderer bundle/boundary 门禁；敏感字段只作为冻结 denylist 名称存在，不存在相应数据通路或输入控件。
++
++### R3 — macOS runtime / regression
++
++- PASS：Swift warnings-as-errors、ad-hoc app/helper codesign、真实临时 Keychain add/read/update/delete/cleanup。
++- PASS：真实 Tauri `.app` 启动、Python sidecar 连接、AppKit credential dialog 调起。
++- 修复：`NSWindow.didResignKey` 在正常关闭 `NSAlert` 时也触发，导致保存/确认必然被误判为取消；改为应用级 `didResignActive`。
++- PASS：使用非真实测试串完成新增；页面显示 1 个账户；状态文件 0600；exact Keychain item 存在。
++- PASS：退出并重启 `.app` 后账户仍恢复；Renderer 未收到凭据正文或 opaque reference。
++- PASS：原生 purge 显示准确范围、generation、digest；未勾选不能提交；确认后状态、cleanup queue、Keychain 全部归零；再次重启仍为空。
++- PASS：两轮隔离 runtime 均移入废纸篓；固定 Keychain service 无残留。
++- PASS：同一已签名 helper 独立创建未提交 Keychain item；下一次 `.app` 启动按空 active-reference 集合自动 prune，exact lookup 返回 not-found。
++
++## 已执行门禁
++
++| 命令/证据 | 结果 |
++|---|---|
++| Ruff format/check | PASS |
++| mypy strict | PASS |
++| pytest + branch coverage | PASS — 103 tests；90.61% |
++| Swift `-warnings-as-errors` | PASS |
++| Keychain self-test add/read/update/delete/retained-orphan prune | PASS |
++| helper `.app` + raw helper ad-hoc codesign verify | PASS |
++| cargo fmt/clippy `-D warnings` | PASS |
++| Rust tests（显式启用真实 Python sidecar restart） | PASS — 17 |
++| pnpm lint/typecheck/boundary/test/build | PASS — Vitest 5 |
++| Playwright | PASS — 2 |
++| debug `.app` bundle build + ad-hoc deep sign verify | PASS |
++| 固定 release/50-case gate | PASS — 50；deterministic；source unchanged；results `6b267aef7791f75b5f35681ce0b68ce83037c09758a3ffc0283b3b65ba262964` |
++| 安全扫描 | SKIPPED — 用户明确要求 |
++| 原生成功/重启/purge UI E2E | PASS — 真实 AppKit/Keychain；仅非真实测试串 |
++
++## 当前限制
++
++- 当前 helper 与 sidecar 通过 debug-only absolute environment override 接线；正式 bundle pin/signature/resource closure 属 Iteration 4。
++- 未连接真实 Provider；账户仅验证 Keychain reference 与脱敏元数据生命周期。
++- debug `.app` 仅 ad-hoc 签名；未完成 notarization、Developer ID 签名、DMG/PKG 或干净用户安装验收。
++- ad-hoc helper 重编译会改变签名主体；跨构建 Keychain ACL 连续性不计入本轮通过项，必须由 Iteration 4 的稳定 Developer ID 签名与升级验收闭合。
++- release gate 的 `release_authority` 明确为 `audit-evidence-only-not-a-release-authority`；不构成生产发布、签名或安装证明。
+diff --git a/native/AgentQuotaNative.swift b/native/AgentQuotaNative.swift
+index 3a53dd2..edb6590 100644
+--- a/native/AgentQuotaNative.swift
++++ b/native/AgentQuotaNative.swift
+@@ -3,17 +3,92 @@ import Foundation
+ import Security
+ 
+ private let service = "com.agentquota.desktop.credentials.v1"
++private let maxRequestBytes = 4096
+ 
+-private struct NativeRequest: Decodable {
++private struct NativeRequest {
+     let action: String
+     let dialogPurpose: String?
+     let operationIntent: String?
++    let planSummary: String?
++    let planDigest: String?
++    let generation: Int64?
++    let nonce: String?
++    let opaqueReference: String?
++    let retainedReferences: [String]?
++
++    init(data: Data) throws {
++        guard
++            data.count <= maxRequestBytes,
++            let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],
++            value.keys.allSatisfy({ Self.allowedKeys.contains($0) }),
++            let action = value["action"] as? String,
++            action.utf8.count <= 32
++        else {
++            throw NativeFailure.invalidRequest
++        }
++        let required: Set<String>
++        switch action {
++        case "credential":
++            required = ["action", "dialogPurpose"]
++        case "destructive":
++            required = [
++                "action", "generation", "nonce", "operationIntent", "planDigest", "planSummary",
++            ]
++        case "keychain-delete":
++            required = ["action", "opaqueReference"]
++        case "keychain-prune":
++            required = ["action", "retainedReferences"]
++        default:
++            throw NativeFailure.invalidRequest
++        }
++        guard Set(value.keys) == required else { throw NativeFailure.invalidRequest }
++        self.action = action
++        dialogPurpose = value["dialogPurpose"] as? String
++        operationIntent = value["operationIntent"] as? String
++        planSummary = value["planSummary"] as? String
++        planDigest = value["planDigest"] as? String
++        if let number = value["generation"] as? NSNumber {
++            guard
++                CFGetTypeID(number) != CFBooleanGetTypeID(),
++                !CFNumberIsFloatType(number)
++            else {
++                throw NativeFailure.invalidRequest
++            }
++            generation = number.int64Value
++        } else {
++            generation = nil
++        }
++        nonce = value["nonce"] as? String
++        opaqueReference = value["opaqueReference"] as? String
++        retainedReferences = value["retainedReferences"] as? [String]
++        for item in [
++            dialogPurpose, operationIntent, planSummary, planDigest, nonce, opaqueReference,
++        ].compactMap({ $0 }) where item.isEmpty || item.utf8.count > 256 {
++            throw NativeFailure.invalidRequest
++        }
++        if action == "keychain-prune" {
++            guard
++                let references = retainedReferences,
++                references.count <= 64,
++                Set(references).count == references.count,
++                references.allSatisfy(isCredentialReference)
++            else {
++                throw NativeFailure.invalidRequest
++            }
++        }
++    }
++
++    private static let allowedKeys: Set<String> = [
++        "action", "dialogPurpose", "generation", "nonce", "opaqueReference",
++        "operationIntent", "planDigest", "planSummary", "retainedReferences",
++    ]
+ }
+ 
+ private struct NativeResponse: Encodable {
+     let status: String
+     let opaqueReference: String?
+     let errorCode: String?
++    let userPresenceToken: String?
+ }
+ 
+ private enum NativeFailure: Error {
+@@ -24,23 +99,66 @@ private enum NativeFailure: Error {
+ private func emit(_ response: NativeResponse) {
+     let encoder = JSONEncoder()
+     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+-    guard let data = try? encoder.encode(response) else { exit(70) }
++    guard let data = try? encoder.encode(response), data.count <= maxRequestBytes else { exit(70) }
+     FileHandle.standardOutput.write(data)
+     FileHandle.standardOutput.write(Data([0x0A]))
+ }
+ 
+-private func keychainAdd(account: String, secret: inout [UInt8]) throws {
++private func withSecretData<T>(
++    _ secret: inout [UInt8],
++    operation: (NSData) throws -> T
++) rethrows -> T {
+     defer { secret.resetBytes(in: secret.indices) }
+-    let data = Data(secret)
++    return try secret.withUnsafeMutableBytes { buffer in
++        let data = NSData(bytesNoCopy: buffer.baseAddress!, length: buffer.count, freeWhenDone: false)
++        return try operation(data)
++    }
++}
++
++private func keychainAdd(account: String, secret: inout [UInt8]) throws {
++    try withSecretData(&secret) { data in
++        let query: [CFString: Any] = [
++            kSecClass: kSecClassGenericPassword,
++            kSecAttrService: service,
++            kSecAttrAccount: account,
++            kSecAttrLabel: "Agent Quota credential reference",
++            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
++            kSecValueData: data,
++        ]
++        let status = SecItemAdd(query as CFDictionary, nil)
++        guard status == errSecSuccess else { throw NativeFailure.keychain(status) }
++    }
++}
++
++private func keychainRead(account: String) throws -> Data {
+     let query: [CFString: Any] = [
+         kSecClass: kSecClassGenericPassword,
+         kSecAttrService: service,
+         kSecAttrAccount: account,
+-        kSecAttrLabel: "Agent Quota credential reference",
+-        kSecValueData: data,
++        kSecMatchLimit: kSecMatchLimitOne,
++        kSecReturnData: true,
+     ]
+-    let status = SecItemAdd(query as CFDictionary, nil)
+-    guard status == errSecSuccess else { throw NativeFailure.keychain(status) }
++    var result: CFTypeRef?
++    let status = SecItemCopyMatching(query as CFDictionary, &result)
++    guard status == errSecSuccess, let data = result as? Data else {
++        throw NativeFailure.keychain(status)
++    }
++    return data
++}
++
++private func keychainUpdate(account: String, secret: inout [UInt8]) throws {
++    try withSecretData(&secret) { data in
++        let query: [CFString: Any] = [
++            kSecClass: kSecClassGenericPassword,
++            kSecAttrService: service,
++            kSecAttrAccount: account,
++        ]
++        let status = SecItemUpdate(
++            query as CFDictionary,
++            [kSecValueData: data] as CFDictionary
++        )
++        guard status == errSecSuccess else { throw NativeFailure.keychain(status) }
++    }
+ }
+ 
+ private func keychainDelete(account: String) -> OSStatus {
+@@ -52,89 +170,290 @@ private func keychainDelete(account: String) -> OSStatus {
+     return SecItemDelete(query as CFDictionary)
+ }
+ 
++private func keychainErrorCode(_ status: OSStatus) -> String {
++    switch status {
++    case errSecDuplicateItem:
++        return "duplicate"
++    case errSecInteractionNotAllowed, errSecAuthFailed:
++        return "keychain-locked"
++    default:
++        return "keychain-write-failed"
++    }
++}
++
++@MainActor
++private func prepareApplication() {
++    let application = NSApplication.shared
++    application.setActivationPolicy(.accessory)
++    application.finishLaunching()
++    application.activate(ignoringOtherApps: true)
++}
++
+ @MainActor
+ private func credentialDialog(purpose: String) -> NativeResponse {
+-    NSApplication.shared.activate(ignoringOtherApps: true)
++    guard ["create-credential-reference", "replace-credential-reference"].contains(purpose) else {
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: "invalid-request",
++            userPresenceToken: nil
++        )
++    }
++    prepareApplication()
+     let alert = NSAlert()
+     alert.alertStyle = .informational
+     alert.messageText = purpose == "replace-credential-reference" ? "替换本机凭据" : "添加本机凭据"
+-    alert.informativeText = "凭据只写入 macOS 钥匙串，不会进入网页界面、IPC 或日志。"
++    alert.informativeText = "凭据只写入 macOS 钥匙串，不进入网页、Tauri IPC、日志或参数。"
+     alert.addButton(withTitle: "保存到钥匙串")
+     alert.addButton(withTitle: "取消")
+ 
+     let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 54))
+     let secure = NSSecureTextField(frame: NSRect(x: 0, y: 18, width: 360, height: 28))
+     secure.placeholderString = "API Key / Token"
+-    secure.setAccessibilityLabel("凭据")
++    secure.setAccessibilityLabel("本机安全凭据")
+     container.addSubview(secure)
+     alert.accessoryView = container
+     alert.window.initialFirstResponder = secure
+ 
+-    guard alert.runModal() == .alertFirstButtonReturn else {
++    var lostFocus = false
++    let observer = NotificationCenter.default.addObserver(
++        forName: NSApplication.didResignActiveNotification,
++        object: NSApplication.shared,
++        queue: .main
++    ) { _ in lostFocus = true }
++    defer { NotificationCenter.default.removeObserver(observer) }
++    guard alert.runModal() == .alertFirstButtonReturn, !lostFocus else {
+         secure.stringValue = ""
+-        return NativeResponse(status: "cancelled", opaqueReference: nil, errorCode: nil)
++        return NativeResponse(
++            status: "cancelled", opaqueReference: nil, errorCode: nil, userPresenceToken: nil
++        )
+     }
+     var bytes = Array(secure.stringValue.utf8)
+     secure.stringValue = ""
+     guard !bytes.isEmpty, bytes.count <= 16_384 else {
+         bytes.resetBytes(in: bytes.indices)
+-        return NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-secret")
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: "invalid-secret",
++            userPresenceToken: nil
++        )
+     }
+     let reference = "credential-\(UUID().uuidString.lowercased())"
+     do {
+         try keychainAdd(account: reference, secret: &bytes)
+-        let status = purpose == "replace-credential-reference"
+-            ? "reference-replaced"
+-            : "reference-created"
+-        return NativeResponse(status: status, opaqueReference: reference, errorCode: nil)
++        return NativeResponse(
++            status: purpose == "replace-credential-reference"
++                ? "reference-replaced" : "reference-created",
++            opaqueReference: reference,
++            errorCode: nil,
++            userPresenceToken: nil
++        )
+     } catch NativeFailure.keychain(let status) {
+-        let code: String
+-        switch status {
+-        case errSecDuplicateItem: code = "duplicate"
+-        case errSecInteractionNotAllowed, errSecAuthFailed: code = "keychain-locked"
+-        default: code = "keychain-write-failed"
+-        }
+-        return NativeResponse(status: "error", opaqueReference: nil, errorCode: code)
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: keychainErrorCode(status),
++            userPresenceToken: nil
++        )
+     } catch {
+-        return NativeResponse(status: "error", opaqueReference: nil, errorCode: "keychain-write-failed")
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: "keychain-write-failed",
++            userPresenceToken: nil
++        )
+     }
+ }
+ 
+ @MainActor
+-private func destructiveDialog(intent: String) -> NativeResponse {
+-    NSApplication.shared.activate(ignoringOtherApps: true)
++private func destructiveDialog(_ request: NativeRequest) -> NativeResponse {
++    let allowedIntents = [
++        "cascade", "delete", "destructive-config-diff", "disable", "purge",
++    ]
++    guard
++        let intent = request.operationIntent,
++        allowedIntents.contains(intent),
++        let summary = request.planSummary,
++        let digest = request.planDigest,
++        digest.count == 64,
++        digest.allSatisfy({ $0.isHexDigit }),
++        let generation = request.generation,
++        generation >= 0,
++        let nonce = request.nonce,
++        nonce.count == 32,
++        nonce.allSatisfy({ $0.isHexDigit })
++    else {
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: "invalid-request",
++            userPresenceToken: nil
++        )
++    }
++    prepareApplication()
+     let alert = NSAlert()
+     alert.alertStyle = .critical
+-    alert.messageText = "确认\(intent)"
+-    alert.informativeText = "此窗口只确认意图；宿主会在提交前重新校验选择范围和版本。请输入 DELETE。"
++    alert.messageText = "确认破坏性操作：\(intent)"
++    alert.informativeText = "\(summary)\nGeneration \(generation) · Plan \(digest.prefix(12))"
+     alert.addButton(withTitle: "取消")
+-    alert.addButton(withTitle: "确认")
+-    let confirmation = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 28))
+-    confirmation.placeholderString = "DELETE"
+-    confirmation.setAccessibilityLabel("破坏性操作确认文本")
++    alert.addButton(withTitle: "确认执行")
++    let confirmation = NSButton(
++        checkboxWithTitle: "我已核对范围，并确认该操作可能不可恢复。",
++        target: nil,
++        action: nil
++    )
++    confirmation.setAccessibilityLabel("确认破坏性操作范围")
+     alert.accessoryView = confirmation
+-    alert.window.initialFirstResponder = confirmation
++
++    var lostFocus = false
++    let observer = NotificationCenter.default.addObserver(
++        forName: NSApplication.didResignActiveNotification,
++        object: NSApplication.shared,
++        queue: .main
++    ) { _ in lostFocus = true }
++    defer { NotificationCenter.default.removeObserver(observer) }
+     let response = alert.runModal()
+-    let matched = confirmation.stringValue == "DELETE"
+-    confirmation.stringValue = ""
+-    guard response == .alertSecondButtonReturn, matched else {
+-        return NativeResponse(status: "cancelled", opaqueReference: nil, errorCode: nil)
++    guard
++        response == .alertSecondButtonReturn,
++        confirmation.state == .on,
++        !lostFocus
++    else {
++        return NativeResponse(
++            status: "cancelled", opaqueReference: nil, errorCode: nil, userPresenceToken: nil
++        )
++    }
++    return NativeResponse(
++        status: "confirmed",
++        opaqueReference: nil,
++        errorCode: nil,
++        userPresenceToken: UUID().uuidString.lowercased()
++    )
++}
++
++private func isCredentialReference(_ reference: String) -> Bool {
++    reference.count == 47
++        && reference.hasPrefix("credential-")
++        && UUID(uuidString: String(reference.dropFirst("credential-".count))) != nil
++}
++
++private func deleteReference(_ reference: String) -> NativeResponse {
++    guard isCredentialReference(reference) else {
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: "invalid-request",
++            userPresenceToken: nil
++        )
++    }
++    let status = keychainDelete(account: reference)
++    if status == errSecSuccess {
++        return NativeResponse(
++            status: "deleted", opaqueReference: nil, errorCode: nil, userPresenceToken: nil
++        )
++    }
++    if status == errSecItemNotFound {
++        return NativeResponse(
++            status: "not-found", opaqueReference: nil, errorCode: nil, userPresenceToken: nil
++        )
++    }
++    return NativeResponse(
++        status: "error", opaqueReference: nil, errorCode: keychainErrorCode(status),
++        userPresenceToken: nil
++    )
++}
++
++private func keychainAccounts() throws -> [String] {
++    let query: [CFString: Any] = [
++        kSecClass: kSecClassGenericPassword,
++        kSecAttrService: service,
++        kSecMatchLimit: kSecMatchLimitAll,
++        kSecReturnAttributes: true,
++    ]
++    var result: CFTypeRef?
++    let status = SecItemCopyMatching(query as CFDictionary, &result)
++    if status == errSecItemNotFound {
++        return []
++    }
++    guard status == errSecSuccess else {
++        throw NativeFailure.keychain(status)
++    }
++    let rows: [Any]
++    if let values = result as? [Any] {
++        rows = values
++    } else if let value = result {
++        rows = [value]
++    } else {
++        rows = []
++    }
++    return rows.compactMap { row in
++        (row as? [String: Any])?[kSecAttrAccount as String] as? String
++    }
++}
++
++private func pruneReferences(retaining retainedReferences: [String]) -> NativeResponse {
++    let retained = Set(retainedReferences)
++    do {
++        for reference in try keychainAccounts()
++        where isCredentialReference(reference) && !retained.contains(reference) {
++            let status = keychainDelete(account: reference)
++            guard status == errSecSuccess || status == errSecItemNotFound else {
++                throw NativeFailure.keychain(status)
++            }
++        }
++        return NativeResponse(
++            status: "pruned", opaqueReference: nil, errorCode: nil, userPresenceToken: nil
++        )
++    } catch NativeFailure.keychain(let status) {
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: keychainErrorCode(status),
++            userPresenceToken: nil
++        )
++    } catch {
++        return NativeResponse(
++            status: "error", opaqueReference: nil, errorCode: "keychain-write-failed",
++            userPresenceToken: nil
++        )
+     }
+-    return NativeResponse(status: "confirmed", opaqueReference: nil, errorCode: nil)
+ }
+ 
+ private func selfTestKeychain() -> Int32 {
+     let account = "self-test-\(UUID().uuidString.lowercased())"
+-    var secret = Array("temporary-agent-quota-self-test".utf8)
++    let retainedReference = "credential-\(UUID().uuidString.lowercased())"
++    let orphanReference = "credential-\(UUID().uuidString.lowercased())"
++    var first = Array("temporary-agent-quota-self-test-a".utf8)
++    var second = Array("temporary-agent-quota-self-test-b".utf8)
++    var retainedSecret = Array("temporary-agent-quota-retained".utf8)
++    var orphanSecret = Array("temporary-agent-quota-orphan".utf8)
++    defer { _ = keychainDelete(account: account) }
++    defer { _ = keychainDelete(account: retainedReference) }
++    defer { _ = keychainDelete(account: orphanReference) }
+     do {
+-        try keychainAdd(account: account, secret: &secret)
+-        let deleteStatus = keychainDelete(account: account)
+-        guard deleteStatus == errSecSuccess else { return 3 }
+-        emit(NativeResponse(status: "self-test-ok", opaqueReference: nil, errorCode: nil))
++        try keychainAdd(account: account, secret: &first)
++        guard try keychainRead(account: account) == Data(
++            "temporary-agent-quota-self-test-a".utf8
++        ) else { return 3 }
++        try keychainUpdate(account: account, secret: &second)
++        guard try keychainRead(account: account) == Data(
++            "temporary-agent-quota-self-test-b".utf8
++        ) else { return 4 }
++        guard keychainDelete(account: account) == errSecSuccess else { return 5 }
++        do {
++            _ = try keychainRead(account: account)
++            return 6
++        } catch NativeFailure.keychain(let status) where status == errSecItemNotFound {}
++        try keychainAdd(account: retainedReference, secret: &retainedSecret)
++        try keychainAdd(account: orphanReference, secret: &orphanSecret)
++        guard pruneReferences(retaining: [retainedReference]).status == "pruned" else {
++            return 7
++        }
++        _ = try keychainRead(account: retainedReference)
++        do {
++            _ = try keychainRead(account: orphanReference)
++            return 8
++        } catch NativeFailure.keychain(let status) where status == errSecItemNotFound {}
++        emit(
++            NativeResponse(
++                status: "self-test-ok", opaqueReference: nil, errorCode: nil,
++                userPresenceToken: nil
++            )
++        )
+         return 0
+     } catch {
+-        _ = keychainDelete(account: account)
+-        emit(NativeResponse(status: "self-test-failed", opaqueReference: nil, errorCode: nil))
++        emit(
++            NativeResponse(
++                status: "self-test-failed", opaqueReference: nil, errorCode: nil,
++                userPresenceToken: nil
++            )
++        )
+         return 2
+     }
+ }
+@@ -150,28 +469,58 @@ private struct AgentQuotaNative {
+             guard
+                 let line = readLine(strippingNewline: true),
+                 let data = line.data(using: .utf8),
+-                data.count <= 4096,
+-                let request = try? JSONDecoder().decode(NativeRequest.self, from: data)
++                let request = try? NativeRequest(data: data)
+             else {
+-                emit(NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-request"))
++                emit(
++                    NativeResponse(
++                        status: "error", opaqueReference: nil, errorCode: "invalid-request",
++                        userPresenceToken: nil
++                    )
++                )
+                 exit(64)
+             }
+             let response: NativeResponse
+             switch request.action {
+             case "credential":
+                 guard let purpose = request.dialogPurpose else {
+-                    emit(NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-request"))
++                    emit(
++                        NativeResponse(
++                            status: "error", opaqueReference: nil, errorCode: "invalid-request",
++                            userPresenceToken: nil
++                        )
++                    )
+                     exit(64)
+                 }
+                 response = credentialDialog(purpose: purpose)
+             case "destructive":
+-                guard let intent = request.operationIntent else {
+-                    emit(NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-request"))
++                response = destructiveDialog(request)
++            case "keychain-delete":
++                guard let reference = request.opaqueReference else {
++                    emit(
++                        NativeResponse(
++                            status: "error", opaqueReference: nil, errorCode: "invalid-request",
++                            userPresenceToken: nil
++                        )
++                    )
++                    exit(64)
++                }
++                response = deleteReference(reference)
++            case "keychain-prune":
++                guard let references = request.retainedReferences else {
++                    emit(
++                        NativeResponse(
++                            status: "error", opaqueReference: nil, errorCode: "invalid-request",
++                            userPresenceToken: nil
++                        )
++                    )
+                     exit(64)
+                 }
+-                response = destructiveDialog(intent: intent)
++                response = pruneReferences(retaining: references)
+             default:
+-                response = NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-request")
++                response = NativeResponse(
++                    status: "error", opaqueReference: nil, errorCode: "invalid-request",
++                    userPresenceToken: nil
++                )
+             }
+             emit(response)
+         }
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index b303d0f..a7b5883 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -1,13 +1,15 @@
+ mod contract;
++mod native;
+ pub mod protocol;
+ pub mod supervisor;
+ 
+ use contract::{safe_error, validate_request, validate_response};
++use native::{NativeError, NativeHost, helper_path};
+ use serde_json::{Value, json};
+ use std::path::PathBuf;
+ use std::sync::Mutex;
+ use supervisor::{SidecarSupervisor, SupervisorError};
+-use tauri::{Manager, State};
++use tauri::{AppHandle, Manager, State};
+ 
+ type CommandResult = Result<Value, String>;
+ const DEFAULT_BUDGET_NS: u64 = 2_000_000_000;
+@@ -15,6 +17,7 @@ const REFRESH_BUDGET_NS: u64 = 9_000_000_000;
+ 
+ struct HostState {
+     sidecar: Mutex<Option<SidecarSupervisor>>,
++    native: NativeHost,
+ }
+ 
+ fn unavailable(command_id: &str, request: &Value, code: &str) -> Value {
+@@ -99,6 +102,64 @@ fn call_sidecar(
+     validate_response(command_id, response).map_err(|_| "response rejected".to_owned())
+ }
+ 
++fn call_internal(
++    state: &State<'_, HostState>,
++    command_id: &str,
++    request: Value,
++) -> Result<Value, SupervisorError> {
++    let mut guard = state
++        .sidecar
++        .lock()
++        .map_err(|_| SupervisorError::Protocol)?;
++    let sidecar = guard.as_mut().ok_or(SupervisorError::Spawn)?;
++    match sidecar.call_internal(command_id, request, DEFAULT_BUDGET_NS) {
++        Ok(response) => Ok(response),
++        Err(error) => {
++            *guard = None;
++            Err(error)
++        }
++    }
++}
++
++fn native_error_code(error: &NativeError) -> &'static str {
++    match error {
++        NativeError::Timeout => "timeout",
++        NativeError::Busy | NativeError::Unavailable => "not-authorized",
++        NativeError::Protocol | NativeError::Process => "provider-unavailable",
++    }
++}
++
++fn window_ready(app: &AppHandle) -> bool {
++    let Some(window) = app.get_webview_window("main") else {
++        return false;
++    };
++    window.is_visible().ok() == Some(true)
++        && window.is_minimized().ok() == Some(false)
++        && window.is_focused().ok() == Some(true)
++}
++
++fn validated(command_id: &str, response: Value) -> CommandResult {
++    validate_response(command_id, response).map_err(|_| "response rejected".to_owned())
++}
++
++fn cleanup_references(state: &State<'_, HostState>, references: &Value) {
++    let Some(references) = references.as_array() else {
++        return;
++    };
++    let acknowledged: Vec<&str> = references
++        .iter()
++        .filter_map(Value::as_str)
++        .filter(|reference| state.native.delete_reference(reference).is_ok())
++        .collect();
++    if !acknowledged.is_empty() {
++        let _ = call_internal(
++            state,
++            "host_internal.cleanup_ack",
++            json!({"references": acknowledged}),
++        );
++    }
++}
++
+ #[tauri::command]
+ fn bootstrap_state(state: State<'_, HostState>, request: Value) -> CommandResult {
+     call_sidecar(&state, "bootstrap_state", request, DEFAULT_BUDGET_NS)
+@@ -125,30 +186,248 @@ fn config_validate_apply(state: State<'_, HostState>, request: Value) -> Command
+ }
+ 
+ #[tauri::command]
+-fn credential_dialog_open(request: Value) -> CommandResult {
++fn credential_dialog_open(
++    app: AppHandle,
++    state: State<'_, HostState>,
++    request: Value,
++) -> CommandResult {
+     validate_request("credential_dialog_open", &request)
+         .map_err(|_| "request rejected".to_owned())?;
+-    validate_response(
+-        "credential_dialog_open",
+-        unavailable("credential_dialog_open", &request, "not-authorized"),
+-    )
+-    .map_err(|_| "response rejected".to_owned())
++    if !window_ready(&app)
++        || request["dialog_purpose"].as_str() != Some("create-credential-reference")
++    {
++        return validated(
++            "credential_dialog_open",
++            unavailable("credential_dialog_open", &request, "not-authorized"),
++        );
++    }
++    let response = match state.native.credential(json!({
++        "action": "credential",
++        "dialogPurpose": "create-credential-reference"
++    })) {
++        Ok(response) if response.status == "cancelled" => {
++            json!({"opaque_reference_status": "cancelled", "status": "cancelled"})
++        }
++        Ok(response) if response.status == "reference-created" => {
++            let Some(reference) = response.opaque_reference else {
++                return validated(
++                    "credential_dialog_open",
++                    unavailable("credential_dialog_open", &request, "provider-unavailable"),
++                );
++            };
++            match call_internal(
++                &state,
++                "host_internal.credential_commit",
++                json!({
++                    "credential_reference": reference,
++                    "expected_generation": null,
++                    "principal_ref": null,
++                    "purpose": "create-credential-reference"
++                }),
++            ) {
++                Ok(result) if result["status"] == "committed" => {
++                    json!({"opaque_reference_status": "reference-created", "status": "ok"})
++                }
++                Err(SupervisorError::OutcomeUnknown) => {
++                    unavailable("credential_dialog_open", &request, "outcome-unknown")
++                }
++                _ => {
++                    let _ = state.native.delete_reference(&reference);
++                    unavailable("credential_dialog_open", &request, "provider-unavailable")
++                }
++            }
++        }
++        Ok(response) => {
++            let _ = response.error_code;
++            unavailable("credential_dialog_open", &request, "not-authorized")
++        }
++        Err(error) => unavailable(
++            "credential_dialog_open",
++            &request,
++            native_error_code(&error),
++        ),
++    };
++    validated("credential_dialog_open", response)
+ }
+ 
+ #[tauri::command]
+-fn destructive_confirmation_open(request: Value) -> CommandResult {
++fn destructive_confirmation_open(
++    app: AppHandle,
++    state: State<'_, HostState>,
++    request: Value,
++) -> CommandResult {
+     validate_request("destructive_confirmation_open", &request)
+         .map_err(|_| "request rejected".to_owned())?;
+-    validate_response(
+-        "destructive_confirmation_open",
+-        unavailable("destructive_confirmation_open", &request, "not-authorized"),
+-    )
+-    .map_err(|_| "response rejected".to_owned())
++    if !window_ready(&app) {
++        return validated(
++            "destructive_confirmation_open",
++            unavailable("destructive_confirmation_open", &request, "not-authorized"),
++        );
++    }
++    let plan = match call_internal(&state, "host_internal.destructive_prepare", request.clone()) {
++        Ok(plan) => plan,
++        Err(_) => {
++            return validated(
++                "destructive_confirmation_open",
++                unavailable(
++                    "destructive_confirmation_open",
++                    &request,
++                    "provider-unavailable",
++                ),
++            );
++        }
++    };
++    let plan_id = plan["plan_id"].as_str().unwrap_or_default().to_owned();
++    let native_response = state.native.destructive(json!({
++        "action": "destructive",
++        "operationIntent": plan["operation_intent"],
++        "planSummary": plan["summary"],
++        "planDigest": plan["digest"],
++        "generation": plan["generation"],
++        "nonce": plan["nonce"]
++    }));
++    let response = match native_response {
++        Ok(response) if response.status == "cancelled" => {
++            let _ = call_internal(
++                &state,
++                "host_internal.destructive_cancel",
++                json!({"plan_id": plan_id}),
++            );
++            json!({"status": "cancelled"})
++        }
++        Ok(response) if response.status == "confirmed" => {
++            let Some(token) = response.user_presence_token else {
++                return validated(
++                    "destructive_confirmation_open",
++                    unavailable(
++                        "destructive_confirmation_open",
++                        &request,
++                        "provider-unavailable",
++                    ),
++                );
++            };
++            match call_internal(
++                &state,
++                "host_internal.destructive_commit",
++                json!({
++                    "digest": plan["digest"],
++                    "generation": plan["generation"],
++                    "nonce": plan["nonce"],
++                    "plan_id": plan_id,
++                    "user_presence_token": token
++                }),
++            ) {
++                Ok(result) if result["status"] == "committed" => {
++                    cleanup_references(&state, &result["cleanup_references"]);
++                    json!({"status": "committed"})
++                }
++                Err(SupervisorError::OutcomeUnknown) => {
++                    unavailable("destructive_confirmation_open", &request, "outcome-unknown")
++                }
++                _ => unavailable(
++                    "destructive_confirmation_open",
++                    &request,
++                    "provider-unavailable",
++                ),
++            }
++        }
++        Ok(_) => {
++            let _ = call_internal(
++                &state,
++                "host_internal.destructive_cancel",
++                json!({"plan_id": plan_id}),
++            );
++            unavailable("destructive_confirmation_open", &request, "not-authorized")
++        }
++        Err(error) => {
++            let _ = call_internal(
++                &state,
++                "host_internal.destructive_cancel",
++                json!({"plan_id": plan_id}),
++            );
++            unavailable(
++                "destructive_confirmation_open",
++                &request,
++                native_error_code(&error),
++            )
++        }
++    };
++    validated("destructive_confirmation_open", response)
+ }
+ 
+ #[tauri::command]
+-fn reauthenticate(state: State<'_, HostState>, request: Value) -> CommandResult {
+-    call_sidecar(&state, "reauthenticate", request, DEFAULT_BUDGET_NS)
++fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -> CommandResult {
++    validate_request("reauthenticate", &request).map_err(|_| "request rejected".to_owned())?;
++    if !window_ready(&app) {
++        return validated(
++            "reauthenticate",
++            unavailable("reauthenticate", &request, "not-authorized"),
++        );
++    }
++    let principal = request["principal_ref"].as_str().unwrap_or_default();
++    let context = match call_internal(
++        &state,
++        "host_internal.credential_context",
++        json!({"principal_ref": principal}),
++    ) {
++        Ok(context) => context,
++        Err(_) => {
++            return validated(
++                "reauthenticate",
++                unavailable("reauthenticate", &request, "not-authorized"),
++            );
++        }
++    };
++    let native_response = state.native.credential(json!({
++        "action": "credential",
++        "dialogPurpose": "replace-credential-reference"
++    }));
++    let response = match native_response {
++        Ok(response) if response.status == "cancelled" => {
++            json!({"reauth_state": "cancelled", "status": "ok"})
++        }
++        Ok(response) if response.status == "reference-replaced" => {
++            let Some(reference) = response.opaque_reference else {
++                return validated(
++                    "reauthenticate",
++                    unavailable("reauthenticate", &request, "provider-unavailable"),
++                );
++            };
++            match call_internal(
++                &state,
++                "host_internal.credential_commit",
++                json!({
++                    "credential_reference": reference,
++                    "expected_generation": context["generation"],
++                    "principal_ref": principal,
++                    "purpose": "replace-credential-reference"
++                }),
++            ) {
++                Ok(result) if result["status"] == "committed" => {
++                    if let Some(old) = result["old_reference"].as_str() {
++                        if state.native.delete_reference(old).is_ok() {
++                            let _ = call_internal(
++                                &state,
++                                "host_internal.cleanup_ack",
++                                json!({"references": [old]}),
++                            );
++                        }
++                    }
++                    json!({"reauth_state": "succeeded", "status": "ok"})
++                }
++                Err(SupervisorError::OutcomeUnknown) => {
++                    unavailable("reauthenticate", &request, "outcome-unknown")
++                }
++                _ => {
++                    let _ = state.native.delete_reference(&reference);
++                    unavailable("reauthenticate", &request, "provider-unavailable")
++                }
++            }
++        }
++        Ok(_) => unavailable("reauthenticate", &request, "not-authorized"),
++        Err(error) => unavailable("reauthenticate", &request, native_error_code(&error)),
++    };
++    validated("reauthenticate", response)
+ }
+ 
+ #[tauri::command]
+@@ -162,22 +441,66 @@ fn scheduler_state(state: State<'_, HostState>, request: Value) -> CommandResult
+ }
+ 
+ fn sidecar_spec(app: &tauri::App) -> Option<(PathBuf, Vec<String>)> {
++    #[cfg(debug_assertions)]
++    let data_root = std::env::var_os("AQ_DATA_ROOT")
++        .map(PathBuf::from)
++        .or_else(|| app.path().app_data_dir().ok())?;
++    #[cfg(not(debug_assertions))]
++    let data_root = app.path().app_data_dir().ok()?;
++    let arguments = vec![
++        "--data-root".to_owned(),
++        data_root.to_string_lossy().into_owned(),
++    ];
+     #[cfg(debug_assertions)]
+     if let Some(path) = std::env::var_os("AQ_SIDECAR_EXECUTABLE") {
+-        return Some((PathBuf::from(path), Vec::new()));
++        return Some((PathBuf::from(path), arguments));
+     }
+     let path = app.path().resource_dir().ok()?.join("agent-quota-sidecar");
+-    Some((path, Vec::new()))
++    Some((path, arguments))
+ }
+ 
+ #[cfg_attr(mobile, tauri::mobile_entry_point)]
+ pub fn run() {
+     tauri::Builder::default()
+         .setup(|app| {
+-            let sidecar = sidecar_spec(app)
++            let mut sidecar = sidecar_spec(app)
+                 .and_then(|(path, arguments)| SidecarSupervisor::spawn(&path, &arguments).ok());
++            let native = NativeHost::new(helper_path(app.path().resource_dir().ok()));
++            if let Some(active) = sidecar.as_mut()
++                && let Ok(pending) = active.call_internal(
++                    "host_internal.cleanup_pending",
++                    json!({}),
++                    DEFAULT_BUDGET_NS,
++                )
++                && let Some(references) = pending["references"].as_array()
++            {
++                let acknowledged: Vec<&str> = references
++                    .iter()
++                    .filter_map(Value::as_str)
++                    .filter(|reference| native.delete_reference(reference).is_ok())
++                    .collect();
++                if !acknowledged.is_empty() {
++                    let _ = active.call_internal(
++                        "host_internal.cleanup_ack",
++                        json!({"references": acknowledged}),
++                        DEFAULT_BUDGET_NS,
++                    );
++                }
++            }
++            if let Some(active) = sidecar.as_mut()
++                && let Ok(retained) = active.call_internal(
++                    "host_internal.credential_references",
++                    json!({}),
++                    DEFAULT_BUDGET_NS,
++                )
++                && let Some(references) = retained["references"].as_array()
++            {
++                let retained: Vec<&str> = references.iter().filter_map(Value::as_str).collect();
++                let _ = native.prune_references(&retained);
++            }
+             app.manage(HostState {
+                 sidecar: Mutex::new(sidecar),
++                native,
+             });
+             Ok(())
+         })
+diff --git a/src-tauri/src/native.rs b/src-tauri/src/native.rs
+new file mode 100644
+index 0000000..f7c07b2
+--- /dev/null
++++ b/src-tauri/src/native.rs
+@@ -0,0 +1,315 @@
++use serde::Deserialize;
++use serde_json::Value;
++use std::fs;
++use std::io::{Read, Write};
++use std::os::unix::fs::PermissionsExt;
++use std::path::{Path, PathBuf};
++use std::process::{Child, Command, Stdio};
++use std::sync::{Mutex, mpsc};
++use std::thread;
++use std::time::{Duration, Instant};
++
++const MAX_REQUEST_BYTES: usize = 4096;
++const MAX_RESPONSE_BYTES: u64 = 4096;
++const CREDENTIAL_TIMEOUT: Duration = Duration::from_secs(120);
++const DESTRUCTIVE_TIMEOUT: Duration = Duration::from_secs(60);
++const CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
++const DIALOG_COOLDOWN: Duration = Duration::from_millis(750);
++const TERM_GRACE: Duration = Duration::from_millis(200);
++
++#[derive(Debug, thiserror::Error)]
++pub enum NativeError {
++    #[error("native helper is unavailable")]
++    Unavailable,
++    #[error("native dialog is already active or cooling down")]
++    Busy,
++    #[error("native helper protocol failed")]
++    Protocol,
++    #[error("native helper timed out")]
++    Timeout,
++    #[error("native helper process failed")]
++    Process,
++}
++
++#[derive(Debug, Deserialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct NativeResponse {
++    pub status: String,
++    pub opaque_reference: Option<String>,
++    pub error_code: Option<String>,
++    pub user_presence_token: Option<String>,
++}
++
++#[derive(Debug)]
++struct DialogState {
++    active: bool,
++    next_allowed: Instant,
++}
++
++pub struct NativeHost {
++    executable: Option<PathBuf>,
++    gate: Mutex<DialogState>,
++}
++
++impl NativeHost {
++    pub fn new(executable: Option<PathBuf>) -> Self {
++        Self {
++            executable,
++            gate: Mutex::new(DialogState {
++                active: false,
++                next_allowed: Instant::now(),
++            }),
++        }
++    }
++
++    pub fn credential(&self, request: Value) -> Result<NativeResponse, NativeError> {
++        self.run_gated(request, CREDENTIAL_TIMEOUT)
++    }
++
++    pub fn destructive(&self, request: Value) -> Result<NativeResponse, NativeError> {
++        self.run_gated(request, DESTRUCTIVE_TIMEOUT)
++    }
++
++    pub fn delete_reference(&self, reference: &str) -> Result<(), NativeError> {
++        let response = self.run(
++            serde_json::json!({
++                "action": "keychain-delete",
++                "opaqueReference": reference
++            }),
++            CLEANUP_TIMEOUT,
++        )?;
++        if matches!(response.status.as_str(), "deleted" | "not-found") {
++            Ok(())
++        } else {
++            Err(NativeError::Process)
++        }
++    }
++
++    pub fn prune_references(&self, retained_references: &[&str]) -> Result<(), NativeError> {
++        let response = self.run(
++            serde_json::json!({
++                "action": "keychain-prune",
++                "retainedReferences": retained_references
++            }),
++            CLEANUP_TIMEOUT,
++        )?;
++        if response.status == "pruned" {
++            Ok(())
++        } else {
++            Err(NativeError::Process)
++        }
++    }
++
++    fn run_gated(&self, request: Value, timeout: Duration) -> Result<NativeResponse, NativeError> {
++        {
++            let mut state = self.gate.lock().map_err(|_| NativeError::Busy)?;
++            if state.active || Instant::now() < state.next_allowed {
++                return Err(NativeError::Busy);
++            }
++            state.active = true;
++        }
++        let result = self.run(request, timeout);
++        if let Ok(mut state) = self.gate.lock() {
++            state.active = false;
++            state.next_allowed = Instant::now() + DIALOG_COOLDOWN;
++        }
++        result
++    }
++
++    fn run(&self, request: Value, timeout: Duration) -> Result<NativeResponse, NativeError> {
++        let path = self.executable.as_deref().ok_or(NativeError::Unavailable)?;
++        check_executable(path)?;
++        let mut body = serde_json::to_vec(&request).map_err(|_| NativeError::Protocol)?;
++        if body.is_empty() || body.len() >= MAX_REQUEST_BYTES || body.contains(&b'\n') {
++            return Err(NativeError::Protocol);
++        }
++        body.push(b'\n');
++        let mut child = Command::new(path)
++            .env_clear()
++            .stdin(Stdio::piped())
++            .stdout(Stdio::piped())
++            .stderr(Stdio::null())
++            .spawn()
++            .map_err(|_| NativeError::Process)?;
++        if let Some(mut stdin) = child.stdin.take() {
++            if stdin.write_all(&body).is_err() {
++                terminate(&mut child);
++                return Err(NativeError::Process);
++            }
++        } else {
++            terminate(&mut child);
++            return Err(NativeError::Process);
++        }
++        let Some(stdout) = child.stdout.take() else {
++            terminate(&mut child);
++            return Err(NativeError::Process);
++        };
++        let (sender, receiver) = mpsc::sync_channel(1);
++        thread::spawn(move || {
++            let mut bytes = Vec::new();
++            let result = stdout.take(MAX_RESPONSE_BYTES + 1).read_to_end(&mut bytes);
++            let _ = sender.send((result, bytes));
++        });
++        let (read_result, bytes) = match receiver.recv_timeout(timeout) {
++            Ok(result) => result,
++            Err(_) => {
++                terminate(&mut child);
++                return Err(NativeError::Timeout);
++            }
++        };
++        if read_result.is_err() {
++            terminate(&mut child);
++            return Err(NativeError::Process);
++        }
++        let status = child.wait().map_err(|_| NativeError::Process)?;
++        if !status.success()
++            || bytes.is_empty()
++            || bytes.len() > MAX_RESPONSE_BYTES as usize
++            || bytes.iter().filter(|byte| **byte == b'\n').count() != 1
++            || bytes.last() != Some(&b'\n')
++        {
++            return Err(NativeError::Protocol);
++        }
++        serde_json::from_slice(&bytes[..bytes.len() - 1]).map_err(|_| NativeError::Protocol)
++    }
++}
++
++pub fn helper_path(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
++    #[cfg(debug_assertions)]
++    if let Some(path) = std::env::var_os("AQ_NATIVE_HELPER_EXECUTABLE") {
++        return Some(PathBuf::from(path));
++    }
++    resource_dir.map(|directory| directory.join("agent-quota-native"))
++}
++
++fn check_executable(path: &Path) -> Result<(), NativeError> {
++    if !path.is_absolute() {
++        return Err(NativeError::Unavailable);
++    }
++    let metadata = fs::symlink_metadata(path).map_err(|_| NativeError::Unavailable)?;
++    if metadata.file_type().is_symlink()
++        || !metadata.is_file()
++        || metadata.permissions().mode() & 0o111 == 0
++    {
++        return Err(NativeError::Unavailable);
++    }
++    Ok(())
++}
++
++fn terminate(child: &mut Child) {
++    if child.try_wait().ok().flatten().is_some() {
++        return;
++    }
++    // SAFETY: the PID is owned by this Child and SIGTERM is a valid signal.
++    unsafe {
++        libc::kill(child.id() as i32, libc::SIGTERM);
++    }
++    let deadline = Instant::now() + TERM_GRACE;
++    while Instant::now() < deadline {
++        if child.try_wait().ok().flatten().is_some() {
++            return;
++        }
++        thread::sleep(Duration::from_millis(10));
++    }
++    let _ = child.kill();
++    let _ = child.wait();
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn executable_must_be_absolute_regular_and_executable() {
++        assert!(check_executable(Path::new("relative")).is_err());
++        assert!(check_executable(Path::new("/definitely/missing")).is_err());
++        assert!(check_executable(Path::new("/bin/sh")).is_ok());
++    }
++
++    #[test]
++    fn gate_rejects_overlap_and_cooldown() {
++        let host = NativeHost::new(None);
++        {
++            let mut state = host.gate.lock().unwrap();
++            state.active = true;
++        }
++        assert!(matches!(
++            host.credential(serde_json::json!({})),
++            Err(NativeError::Busy)
++        ));
++        {
++            let mut state = host.gate.lock().unwrap();
++            state.active = false;
++            state.next_allowed = Instant::now() + Duration::from_secs(1);
++        }
++        assert!(matches!(
++            host.destructive(serde_json::json!({})),
++            Err(NativeError::Busy)
++        ));
++    }
++
++    #[test]
++    fn native_response_rejects_unknown_fields() {
++        let invalid = br#"{"status":"cancelled","opaqueReference":null,"errorCode":null,"userPresenceToken":null,"extra":true}"#;
++        assert!(serde_json::from_slice::<NativeResponse>(invalid).is_err());
++    }
++
++    #[test]
++    fn helper_supervisor_accepts_one_closed_bounded_response() {
++        let directory = tempfile::tempdir().unwrap();
++        let executable = directory.path().join("fixture-helper");
++        fs::write(
++            &executable,
++            "#!/bin/sh\nread request\nprintf '%s\\n' '{\"status\":\"reference-created\",\"opaqueReference\":\"credential-00000000-0000-4000-8000-000000000001\"}'\n",
++        )
++        .unwrap();
++        let mut permissions = fs::metadata(&executable).unwrap().permissions();
++        permissions.set_mode(0o700);
++        fs::set_permissions(&executable, permissions).unwrap();
++        let host = NativeHost::new(Some(executable));
++        let response = host
++            .credential(serde_json::json!({
++                "action": "credential",
++                "dialogPurpose": "create-credential-reference"
++            }))
++            .unwrap();
++        assert_eq!(response.status, "reference-created");
++        assert_eq!(
++            response.opaque_reference.as_deref(),
++            Some("credential-00000000-0000-4000-8000-000000000001")
++        );
++    }
++
++    #[test]
++    fn helper_supervisor_accepts_closed_prune_response() {
++        let directory = tempfile::tempdir().unwrap();
++        let executable = directory.path().join("fixture-helper");
++        fs::write(
++            &executable,
++            "#!/bin/sh\nread request\nprintf '%s\\n' '{\"status\":\"pruned\"}'\n",
++        )
++        .unwrap();
++        let mut permissions = fs::metadata(&executable).unwrap().permissions();
++        permissions.set_mode(0o700);
++        fs::set_permissions(&executable, permissions).unwrap();
++        let host = NativeHost::new(Some(executable));
++        host.prune_references(&["credential-00000000-0000-4000-8000-000000000001"])
++            .unwrap();
++    }
++
++    #[test]
++    fn helper_timeout_uses_term_kill_and_reap() {
++        let directory = tempfile::tempdir().unwrap();
++        let executable = directory.path().join("hanging-helper");
++        fs::write(&executable, "#!/bin/sh\ntrap '' TERM\nsleep 5\n").unwrap();
++        let mut permissions = fs::metadata(&executable).unwrap().permissions();
++        permissions.set_mode(0o700);
++        fs::set_permissions(&executable, permissions).unwrap();
++        let host = NativeHost::new(Some(executable));
++        let result = host.run(
++            serde_json::json!({"action": "test"}),
++            Duration::from_millis(10),
++        );
++        assert!(matches!(result, Err(NativeError::Timeout)));
++    }
++}
+diff --git a/src-tauri/src/supervisor.rs b/src-tauri/src/supervisor.rs
+index 85fb250..6679cb7 100644
+--- a/src-tauri/src/supervisor.rs
++++ b/src-tauri/src/supervisor.rs
+@@ -1,5 +1,5 @@
+ use crate::contract::{validate_request, validate_response};
+-use crate::protocol::{ProtocolError, Sequence, read_frame, write_frame};
++use crate::protocol::{Sequence, read_frame, write_frame};
+ use hmac::{Hmac, Mac};
+ use serde_json::{Value, json};
+ use sha2::Sha256;
+@@ -124,7 +124,31 @@ impl SidecarSupervisor {
+         payload: Value,
+         remaining_budget_ns: u64,
+     ) -> Result<Value, SupervisorError> {
+-        validate_request(command_id, &payload).map_err(|_| SupervisorError::Contract)?;
++        self.call_checked(command_id, payload, remaining_budget_ns, true)
++    }
++
++    pub fn call_internal(
++        &mut self,
++        command_id: &str,
++        payload: Value,
++        remaining_budget_ns: u64,
++    ) -> Result<Value, SupervisorError> {
++        if !command_id.starts_with("host_internal.") {
++            return Err(SupervisorError::Contract);
++        }
++        self.call_checked(command_id, payload, remaining_budget_ns, false)
++    }
++
++    fn call_checked(
++        &mut self,
++        command_id: &str,
++        payload: Value,
++        remaining_budget_ns: u64,
++        renderer_contract: bool,
++    ) -> Result<Value, SupervisorError> {
++        if renderer_contract {
++            validate_request(command_id, &payload).map_err(|_| SupervisorError::Contract)?;
++        }
+         let request_id = self
+             .sequence
+             .next_request(
+@@ -150,7 +174,7 @@ impl SidecarSupervisor {
+         });
+         write_frame(&mut self.stdin, &request).map_err(|_| SupervisorError::Io)?;
+ 
+-        let mut stdout = self.stdout.take().ok_or(SupervisorError::Protocol)?;
++        let mut stdout = self.stdout.take().ok_or(SupervisorError::OutcomeUnknown)?;
+         let (sender, receiver) = mpsc::sync_channel(1);
+         std::thread::spawn(move || {
+             let result = read_frame(&mut stdout);
+@@ -166,29 +190,36 @@ impl SidecarSupervisor {
+             }
+         };
+         self.stdout = Some(stdout);
+-        let response = response.map_err(|error| match error {
+-            ProtocolError::Io(_) => SupervisorError::Io,
+-            _ => SupervisorError::Protocol,
+-        })?;
+-        let object = response.as_object().ok_or(SupervisorError::Protocol)?;
++        let response = response.map_err(|_| SupervisorError::OutcomeUnknown)?;
++        let object = response
++            .as_object()
++            .ok_or(SupervisorError::OutcomeUnknown)?;
+         if object.len() != 3
+             || !object.contains_key("request_id")
+             || !object.contains_key("response")
+             || !object.contains_key("session_proof")
+             || object["request_id"].as_u64() != Some(request_id)
+         {
+-            return Err(SupervisorError::Protocol);
++            return Err(SupervisorError::OutcomeUnknown);
+         }
+         let unsigned_response = json!({
+             "request_id": request_id,
+             "response": object["response"]
+         });
+-        let expected = proof(&self.secret, &unsigned_response)?;
++        let expected =
++            proof(&self.secret, &unsigned_response).map_err(|_| SupervisorError::OutcomeUnknown)?;
+         if object["session_proof"].as_str() != Some(expected.as_str()) {
+-            return Err(SupervisorError::Protocol);
++            return Err(SupervisorError::OutcomeUnknown);
++        }
++        if renderer_contract {
++            validate_response(command_id, object["response"].clone())
++                .map_err(|_| SupervisorError::OutcomeUnknown)
++        } else {
++            object["response"]
++                .as_object()
++                .ok_or(SupervisorError::OutcomeUnknown)?;
++            Ok(object["response"].clone())
+         }
+-        validate_response(command_id, object["response"].clone())
+-            .map_err(|_| SupervisorError::Contract)
+     }
+ 
+     pub fn terminate_and_reap(&mut self) -> Result<(), SupervisorError> {
+@@ -258,8 +289,17 @@ mod tests {
+         let Some(executable) = std::env::var_os("AQ_SIDECAR_TEST_EXECUTABLE") else {
+             return;
+         };
+-        let mut supervisor =
+-            SidecarSupervisor::spawn(Path::new(&executable), &[]).expect("spawn real sidecar");
++        let data_root = tempfile::tempdir().expect("temporary data root");
++        let canonical_root = data_root
++            .path()
++            .canonicalize()
++            .expect("canonical data root");
++        let arguments = vec![
++            "--data-root".to_owned(),
++            canonical_root.to_string_lossy().into_owned(),
++        ];
++        let mut supervisor = SidecarSupervisor::spawn(Path::new(&executable), &arguments)
++            .expect("spawn real sidecar");
+         let response = supervisor
+             .call("bootstrap_state", json!({}), 2_000_000_000)
+             .expect("sidecar response");
+@@ -267,6 +307,93 @@ mod tests {
+         supervisor.terminate_and_reap().expect("reap real sidecar");
+     }
+ 
++    #[test]
++    fn real_python_sidecar_persists_native_account_and_commits_purge() {
++        let Some(executable) = std::env::var_os("AQ_SIDECAR_TEST_EXECUTABLE") else {
++            return;
++        };
++        let data_root = tempfile::tempdir().expect("temporary data root");
++        let canonical_root = data_root
++            .path()
++            .canonicalize()
++            .expect("canonical data root");
++        let arguments = vec![
++            "--data-root".to_owned(),
++            canonical_root.to_string_lossy().into_owned(),
++        ];
++        {
++            let mut supervisor = SidecarSupervisor::spawn(Path::new(&executable), &arguments)
++                .expect("spawn real sidecar");
++            let committed = supervisor
++                .call_internal(
++                    "host_internal.credential_commit",
++                    json!({
++                        "credential_reference":
++                            "credential-00000000-0000-4000-8000-000000000001",
++                        "expected_generation": null,
++                        "principal_ref": null,
++                        "purpose": "create-credential-reference"
++                    }),
++                    2_000_000_000,
++                )
++                .expect("commit credential reference");
++            assert_eq!(committed["status"], "committed");
++            supervisor.terminate_and_reap().expect("reap sidecar");
++        }
++        let mut supervisor = SidecarSupervisor::spawn(Path::new(&executable), &arguments)
++            .expect("restart real sidecar");
++        let accounts = supervisor
++            .call(
++                "accounts_read",
++                json!({"scope_ref": "scope-all"}),
++                2_000_000_000,
++            )
++            .expect("read persisted accounts");
++        assert_eq!(accounts["accounts"].as_array().unwrap().len(), 1);
++        let plan = supervisor
++            .call_internal(
++                "host_internal.destructive_prepare",
++                json!({
++                    "operation_intent": "purge",
++                    "opaque_selection_handle": "selection-all-local-data"
++                }),
++                2_000_000_000,
++            )
++            .expect("prepare purge");
++        let purge = supervisor
++            .call_internal(
++                "host_internal.destructive_commit",
++                json!({
++                    "digest": plan["digest"],
++                    "generation": plan["generation"],
++                    "nonce": plan["nonce"],
++                    "plan_id": plan["plan_id"],
++                    "user_presence_token": "00000000-0000-4000-8000-000000000001"
++                }),
++                2_000_000_000,
++            )
++            .expect("commit purge");
++        assert_eq!(purge["status"], "committed");
++        assert_eq!(purge["cleanup_references"].as_array().unwrap().len(), 1);
++        let acknowledged = supervisor
++            .call_internal(
++                "host_internal.cleanup_ack",
++                json!({"references": purge["cleanup_references"]}),
++                2_000_000_000,
++            )
++            .expect("acknowledge Keychain cleanup");
++        assert_eq!(acknowledged["status"], "acknowledged");
++        let empty = supervisor
++            .call(
++                "accounts_read",
++                json!({"scope_ref": "scope-all"}),
++                2_000_000_000,
++            )
++            .expect("read empty accounts");
++        assert!(empty["accounts"].as_array().unwrap().is_empty());
++        supervisor.terminate_and_reap().expect("reap sidecar");
++    }
++
+     #[test]
+     fn hanging_child_times_out_and_is_reaped_when_python_is_available() {
+         let Some(python) = std::env::var_os("AQ_PYTHON_TEST_EXECUTABLE") else {
+diff --git a/src/agent_quota/filesystem.py b/src/agent_quota/filesystem.py
+index d7d8bf7..71f90f9 100644
+--- a/src/agent_quota/filesystem.py
++++ b/src/agent_quota/filesystem.py
+@@ -2,7 +2,9 @@
+ 
+ from __future__ import annotations
+ 
++import contextlib
+ import os
++import secrets
+ import stat
+ from pathlib import Path
+ 
+@@ -75,3 +77,41 @@ def same_identity(left: os.stat_result, right: os.stat_result) -> bool:
+         right.st_ino,
+         stat.S_IFMT(right.st_mode),
+     )
++
++
++def atomic_write_private(path: Path, payload: bytes) -> None:
++    """Atomically replace one private regular file inside a private directory."""
++
++    if not path.is_absolute() or not path.name or len(payload) > 1024 * 1024:
++        raise ValueError("invalid private write")
++    directory = open_directory_nofollow(path.parent, require_owner=True, require_mode=0o700)
++    temporary = f".{path.name}.{secrets.token_hex(8)}.tmp"
++    descriptor = -1
++    try:
++        descriptor = os.open(
++            temporary,
++            os.O_WRONLY
++            | os.O_CREAT
++            | os.O_EXCL
++            | getattr(os, "O_NOFOLLOW", 0)
++            | getattr(os, "O_CLOEXEC", 0),
++            0o600,
++            dir_fd=directory,
++        )
++        view = memoryview(payload)
++        while view:
++            written = os.write(descriptor, view)
++            if written <= 0:
++                raise OSError("private write made no progress")
++            view = view[written:]
++        os.fsync(descriptor)
++        os.close(descriptor)
++        descriptor = -1
++        os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
++        os.fsync(directory)
++    finally:
++        if descriptor >= 0:
++            os.close(descriptor)
++        with contextlib.suppress(FileNotFoundError):
++            os.unlink(temporary, dir_fd=directory)
++        os.close(directory)
+diff --git a/src/agent_quota/native_control.py b/src/agent_quota/native_control.py
+new file mode 100644
+index 0000000..a7a07f3
+--- /dev/null
++++ b/src/agent_quota/native_control.py
+@@ -0,0 +1,448 @@
++"""Host-only native credential metadata and destructive two-phase control."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import re
++import secrets
++import stat
++import time
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Final, cast
++
++from agent_quota.filesystem import atomic_write_private, open_directory_nofollow, read_regular_at
++
++STATE_SCHEMA: Final = "aq-native-account-state-v1"
++MAX_ACCOUNTS: Final = 64
++PLAN_TTL_NS: Final = 60_000_000_000
++UUID_PATTERN: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
++REFERENCE_PATTERN: Final = re.compile(rf"credential-{UUID_PATTERN}\Z")
++PRINCIPAL_PATTERN: Final = re.compile(r"principal-[0-9a-f]{24}\Z")
++TOKEN_PATTERN: Final = re.compile(rf"{UUID_PATTERN}\Z")
++INTENTS: Final = {
++    "cascade",
++    "delete",
++    "destructive-config-diff",
++    "disable",
++    "purge",
++}
++
++
++@dataclass(frozen=True)
++class CredentialCommit:
++    principal_ref: str
++    old_reference: str | None
++
++
++@dataclass(frozen=True)
++class DestructivePlan:
++    plan_id: str
++    operation_intent: str
++    opaque_selection_handle: str
++    summary: str
++    digest: str
++    generation: int
++    nonce: str
++    expires_at_ns: int
++
++    def host_projection(self) -> dict[str, object]:
++        return {
++            "plan_id": self.plan_id,
++            "operation_intent": self.operation_intent,
++            "summary": self.summary,
++            "digest": self.digest,
++            "generation": self.generation,
++            "nonce": self.nonce,
++        }
++
++
++class NativeControlPlane:
++    """Persistent redacted metadata; Keychain remains the secret authority."""
++
++    def __init__(self, data_root: Path) -> None:
++        if not data_root.is_absolute():
++            raise ValueError("native data root must be absolute")
++        self.data_root = data_root
++        self.path = data_root / "native-accounts-v1.json"
++        self._pending: dict[str, DestructivePlan] = {}
++        self._used_presence_tokens: set[str] = set()
++        self._ensure_root()
++        self._state = self._load()
++
++    def _ensure_root(self) -> None:
++        self.data_root.mkdir(parents=True, exist_ok=True, mode=0o700)
++        descriptor = open_directory_nofollow(self.data_root, require_owner=True)
++        try:
++            os.fchmod(descriptor, 0o700)
++        finally:
++            os.close(descriptor)
++
++    @staticmethod
++    def _empty_state() -> dict[str, object]:
++        return {
++            "schema": STATE_SCHEMA,
++            "generation": 0,
++            "accounts": [],
++            "pending_keychain_deletions": [],
++        }
++
++    def _load(self) -> dict[str, object]:
++        directory = open_directory_nofollow(
++            self.data_root,
++            require_owner=True,
++            require_mode=0o700,
++        )
++        try:
++            try:
++                payload, metadata = read_regular_at(directory, self.path.name)
++            except FileNotFoundError:
++                return self._empty_state()
++            except OSError as error:
++                raise ValueError("native state must be a regular file") from error
++        finally:
++            os.close(directory)
++        if stat.S_IMODE(metadata.st_mode) != 0o600:
++            raise ValueError("native state permissions mismatch")
++        if len(payload) > 64 * 1024:
++            raise ValueError("native state is oversized")
++        document: object = json.loads(payload.decode("utf-8"))
++        self._validate_state(document)
++        return cast(dict[str, object], document)
++
++    @staticmethod
++    def _validate_state(document: object) -> None:
++        if not isinstance(document, dict) or set(document) != {
++            "schema",
++            "generation",
++            "accounts",
++            "pending_keychain_deletions",
++        }:
++            raise ValueError("native state shape mismatch")
++        if document["schema"] != STATE_SCHEMA:
++            raise ValueError("native state schema mismatch")
++        generation = document["generation"]
++        accounts = document["accounts"]
++        pending_deletions = document["pending_keychain_deletions"]
++        if (
++            isinstance(generation, bool)
++            or not isinstance(generation, int)
++            or not 0 <= generation <= 2**63 - 1
++            or not isinstance(accounts, list)
++            or len(accounts) > MAX_ACCOUNTS
++            or not isinstance(pending_deletions, list)
++            or len(pending_deletions) > MAX_ACCOUNTS * 2
++        ):
++            raise ValueError("native state bounds mismatch")
++        seen_principals: set[str] = set()
++        seen_references: set[str] = set()
++        for account in accounts:
++            if not isinstance(account, dict) or set(account) != {
++                "credential_reference",
++                "display_label",
++                "generation",
++                "lifecycle",
++                "principal_ref",
++            }:
++                raise ValueError("native account shape mismatch")
++            principal = account["principal_ref"]
++            reference = account["credential_reference"]
++            label = account["display_label"]
++            account_generation = account["generation"]
++            if (
++                not isinstance(principal, str)
++                or PRINCIPAL_PATTERN.fullmatch(principal) is None
++                or principal in seen_principals
++                or not isinstance(reference, str)
++                or REFERENCE_PATTERN.fullmatch(reference) is None
++                or reference in seen_references
++                or not isinstance(label, str)
++                or not 1 <= len(label.encode()) <= 128
++                or account["lifecycle"] not in {"active", "disabled", "needs-reauth"}
++                or isinstance(account_generation, bool)
++                or not isinstance(account_generation, int)
++                or not 1 <= account_generation <= generation
++            ):
++                raise ValueError("native account value mismatch")
++            seen_principals.add(principal)
++            seen_references.add(reference)
++        if any(
++            not isinstance(reference, str) or REFERENCE_PATTERN.fullmatch(reference) is None
++            for reference in pending_deletions
++        ) or len(set(pending_deletions)) != len(pending_deletions):
++            raise ValueError("pending keychain deletion mismatch")
++
++    def _persist(self) -> None:
++        self._validate_state(self._state)
++        payload = json.dumps(
++            self._state,
++            ensure_ascii=False,
++            sort_keys=True,
++            separators=(",", ":"),
++        ).encode()
++        atomic_write_private(self.path, payload)
++
++    @property
++    def generation(self) -> int:
++        value = self._state["generation"]
++        assert isinstance(value, int)
++        return value
++
++    @property
++    def accounts(self) -> list[dict[str, object]]:
++        value = self._state["accounts"]
++        assert isinstance(value, list)
++        return value
++
++    @property
++    def pending_keychain_deletions(self) -> list[str]:
++        value = self._state["pending_keychain_deletions"]
++        assert isinstance(value, list)
++        return cast(list[str], value)
++
++    def renderer_accounts(self) -> list[dict[str, object]]:
++        return [
++            {
++                "principal_ref": account["principal_ref"],
++                "display_label": account["display_label"],
++                "lifecycle": account["lifecycle"],
++            }
++            for account in self.accounts
++        ]
++
++    def credential_reference(self, principal_ref: str) -> tuple[str, int]:
++        self._validate_principal(principal_ref)
++        for account in self.accounts:
++            if account["principal_ref"] == principal_ref:
++                reference = account["credential_reference"]
++                generation = account["generation"]
++                assert isinstance(reference, str)
++                assert isinstance(generation, int)
++                return reference, generation
++        raise ValueError("unknown principal")
++
++    def commit_credential(
++        self,
++        *,
++        purpose: str,
++        credential_reference: str,
++        principal_ref: str | None,
++        expected_generation: int | None,
++    ) -> CredentialCommit:
++        self._validate_reference(credential_reference)
++        if any(
++            account["credential_reference"] == credential_reference for account in self.accounts
++        ):
++            raise ValueError("credential reference already committed")
++        if purpose == "create-credential-reference":
++            if principal_ref is not None or expected_generation is not None:
++                raise ValueError("create credential context mismatch")
++            if len(self.accounts) >= MAX_ACCOUNTS:
++                raise ValueError("native account limit reached")
++            next_generation = self._next_generation()
++            principal = (
++                "principal-" + hashlib.sha256(credential_reference.encode()).hexdigest()[:24]
++            )
++            self.accounts.append(
++                {
++                    "principal_ref": principal,
++                    "credential_reference": credential_reference,
++                    "display_label": f"本机凭据 {len(self.accounts) + 1}",
++                    "lifecycle": "active",
++                    "generation": next_generation,
++                }
++            )
++            self._state["generation"] = next_generation
++            self._persist()
++            return CredentialCommit(principal, None)
++        if purpose != "replace-credential-reference":
++            raise ValueError("unknown credential purpose")
++        if principal_ref is None or expected_generation is None:
++            raise ValueError("replace credential context is missing")
++        self._validate_principal(principal_ref)
++        for account in self.accounts:
++            if account["principal_ref"] != principal_ref:
++                continue
++            if account["generation"] != expected_generation:
++                raise ValueError("credential generation drift")
++            old_reference = account["credential_reference"]
++            next_generation = self._next_generation()
++            account["credential_reference"] = credential_reference
++            account["generation"] = next_generation
++            account["lifecycle"] = "active"
++            self._queue_keychain_deletion(old_reference)
++            self._state["generation"] = next_generation
++            self._persist()
++            assert isinstance(old_reference, str)
++            return CredentialCommit(principal_ref, old_reference)
++        raise ValueError("unknown principal")
++
++    def cleanup_pending(self) -> list[str]:
++        return list(self.pending_keychain_deletions)
++
++    def credential_references(self) -> list[str]:
++        return [cast(str, account["credential_reference"]) for account in self.accounts]
++
++    def acknowledge_cleanup(self, references: list[str]) -> None:
++        if not references or len(references) > MAX_ACCOUNTS * 2:
++            raise ValueError("invalid cleanup acknowledgement")
++        for reference in references:
++            self._validate_reference(reference)
++            if reference not in self.pending_keychain_deletions:
++                raise ValueError("unknown cleanup reference")
++        acknowledged = set(references)
++        self.pending_keychain_deletions[:] = [
++            reference
++            for reference in self.pending_keychain_deletions
++            if reference not in acknowledged
++        ]
++        self._persist()
++
++    def prepare_destructive(
++        self,
++        *,
++        operation_intent: str,
++        opaque_selection_handle: str,
++    ) -> DestructivePlan:
++        now = time.monotonic_ns()
++        self._pending = {
++            plan_id: plan for plan_id, plan in self._pending.items() if plan.expires_at_ns > now
++        }
++        if len(self._pending) >= 8:
++            raise ValueError("too many active destructive plans")
++        if operation_intent not in INTENTS:
++            raise ValueError("unknown destructive intent")
++        if not 1 <= len(opaque_selection_handle.encode()) <= 128:
++            raise ValueError("invalid selection handle")
++        if operation_intent == "purge" and opaque_selection_handle != "selection-all-local-data":
++            raise ValueError("purge scope mismatch")
++        if operation_intent in {"delete", "disable", "cascade"}:
++            self._validate_principal(opaque_selection_handle)
++            if not any(
++                account["principal_ref"] == opaque_selection_handle for account in self.accounts
++            ):
++                raise ValueError("unknown destructive selection")
++        plan_id = secrets.token_hex(16)
++        nonce = secrets.token_hex(16)
++        generation = self.generation
++        summary = self._plan_summary(operation_intent, opaque_selection_handle)
++        payload = {
++            "generation": generation,
++            "intent": operation_intent,
++            "plan_id": plan_id,
++            "selection": opaque_selection_handle,
++            "summary": summary,
++        }
++        digest = hashlib.sha256(
++            b"agent-quota:native-destructive-plan:v1\0"
++            + json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
++        ).hexdigest()
++        plan = DestructivePlan(
++            plan_id=plan_id,
++            operation_intent=operation_intent,
++            opaque_selection_handle=opaque_selection_handle,
++            summary=summary,
++            digest=digest,
++            generation=generation,
++            nonce=nonce,
++            expires_at_ns=now + PLAN_TTL_NS,
++        )
++        self._pending[plan_id] = plan
++        return plan
++
++    def cancel_destructive(self, plan_id: str) -> bool:
++        return self._pending.pop(plan_id, None) is not None
++
++    def commit_destructive(
++        self,
++        *,
++        plan_id: str,
++        digest: str,
++        generation: int,
++        nonce: str,
++        user_presence_token: str,
++    ) -> tuple[str, ...]:
++        if TOKEN_PATTERN.fullmatch(user_presence_token) is None:
++            raise ValueError("invalid user presence token")
++        if user_presence_token in self._used_presence_tokens:
++            raise ValueError("user presence token replay")
++        plan = self._pending.pop(plan_id, None)
++        if plan is None:
++            raise ValueError("unknown or consumed destructive plan")
++        if time.monotonic_ns() >= plan.expires_at_ns:
++            raise ValueError("destructive plan expired")
++        if (
++            plan.digest != digest
++            or plan.generation != generation
++            or plan.nonce != nonce
++            or self.generation != generation
++        ):
++            raise ValueError("destructive plan drift")
++        cleanup_references = self._apply_destructive(plan)
++        if len(self._used_presence_tokens) >= 1024:
++            self._used_presence_tokens.clear()
++        self._used_presence_tokens.add(user_presence_token)
++        return cleanup_references
++
++    def _apply_destructive(self, plan: DestructivePlan) -> tuple[str, ...]:
++        removed_references: list[str] = []
++        if plan.operation_intent == "purge":
++            removed_references = [
++                cast(str, account["credential_reference"]) for account in self.accounts
++            ]
++            self.accounts.clear()
++        elif plan.operation_intent in {"delete", "cascade"}:
++            removed_references = [
++                cast(str, account["credential_reference"])
++                for account in self.accounts
++                if account["principal_ref"] == plan.opaque_selection_handle
++            ]
++            self.accounts[:] = [
++                account
++                for account in self.accounts
++                if account["principal_ref"] != plan.opaque_selection_handle
++            ]
++        elif plan.operation_intent == "disable":
++            for account in self.accounts:
++                if account["principal_ref"] == plan.opaque_selection_handle:
++                    account["lifecycle"] = "disabled"
++        elif plan.operation_intent != "destructive-config-diff":
++            raise ValueError("unknown destructive intent")
++        for reference in removed_references:
++            self._queue_keychain_deletion(reference)
++        self._state["generation"] = self._next_generation()
++        self._persist()
++        return tuple(removed_references)
++
++    def _plan_summary(self, operation_intent: str, selection: str) -> str:
++        if operation_intent == "purge":
++            return f"清理 {len(self.accounts)} 个本机凭据引用及全部脱敏账户元数据"
++        if operation_intent == "destructive-config-diff":
++            return "应用需要原生确认的破坏性配置变更"
++        return f"{operation_intent} 本机账户 {selection}"
++
++    def _next_generation(self) -> int:
++        if self.generation >= 2**63 - 1:
++            raise OverflowError("native state generation overflow")
++        return self.generation + 1
++
++    def _queue_keychain_deletion(self, reference: object) -> None:
++        if not isinstance(reference, str):
++            raise ValueError("invalid cleanup reference")
++        self._validate_reference(reference)
++        if reference not in self.pending_keychain_deletions:
++            if len(self.pending_keychain_deletions) >= MAX_ACCOUNTS * 2:
++                raise ValueError("pending cleanup limit reached")
++            self.pending_keychain_deletions.append(reference)
++
++    @staticmethod
++    def _validate_reference(value: str) -> None:
++        if REFERENCE_PATTERN.fullmatch(value) is None:
++            raise ValueError("invalid credential reference")
++
++    @staticmethod
++    def _validate_principal(value: str) -> None:
++        if PRINCIPAL_PATTERN.fullmatch(value) is None:
++            raise ValueError("invalid principal reference")
+diff --git a/src/agent_quota/sidecar.py b/src/agent_quota/sidecar.py
+index 2d1ef00..facfb2b 100644
+--- a/src/agent_quota/sidecar.py
++++ b/src/agent_quota/sidecar.py
+@@ -9,10 +9,12 @@ import struct
+ import sys
+ from dataclasses import dataclass
+ from hashlib import sha256
+-from typing import BinaryIO, Final
++from pathlib import Path
++from typing import BinaryIO, Final, cast
+ 
+ from agent_quota.dto import RendererContract
+ from agent_quota.errors import ContractViolation
++from agent_quota.native_control import NativeControlPlane
+ 
+ MAX_FRAME_BYTES: Final = 1024 * 1024
+ MAX_REMAINING_BUDGET_NS: Final = 9_000_000_000
+@@ -24,6 +26,16 @@ ENVELOPE_FIELDS: Final = {
+     "request_id",
+     "session_proof",
+ }
++INTERNAL_COMMANDS: Final = {
++    "host_internal.cleanup_ack",
++    "host_internal.cleanup_pending",
++    "host_internal.credential_context",
++    "host_internal.credential_commit",
++    "host_internal.credential_references",
++    "host_internal.destructive_cancel",
++    "host_internal.destructive_commit",
++    "host_internal.destructive_prepare",
++}
+ 
+ 
+ def read_exact(stream: BinaryIO, length: int) -> bytes:
+@@ -63,7 +75,12 @@ def write_frame(stream: BinaryIO, value: dict[str, object]) -> None:
+ 
+ def _proof_body(envelope: dict[str, object]) -> bytes:
+     unsigned = {key: value for key, value in envelope.items() if key != "session_proof"}
+-    return json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
++    return json.dumps(
++        unsigned,
++        ensure_ascii=False,
++        sort_keys=True,
++        separators=(",", ":"),
++    ).encode()
+ 
+ 
+ def session_proof(secret: bytes, envelope: dict[str, object]) -> str:
+@@ -89,6 +106,7 @@ def read_session_secret(environment: dict[str, str] | None = None) -> bytes:
+ class SidecarSession:
+     secret: bytes
+     contract: RendererContract
++    native: NativeControlPlane | None = None
+     last_request_id: int = 0
+ 
+     def dispatch(self, envelope: dict[str, object]) -> dict[str, object]:
+@@ -120,10 +138,17 @@ class SidecarSession:
+         ):
+             raise ContractViolation("sidecar session proof mismatch")
+ 
+-        self.contract.validate_command_request(command_id, payload)
++        internal = command_id in INTERNAL_COMMANDS
++        if internal:
++            _validate_internal_request(command_id, payload)
++        else:
++            self.contract.validate_command_request(command_id, payload)
+         self.last_request_id = request_id
+-        response = _safe_dispatch(command_id, payload)
+-        self.contract.validate_command_response(command_id, response)
++        response = self._dispatch(command_id, payload)
++        if internal:
++            _validate_internal_response(command_id, response)
++        else:
++            self.contract.validate_command_response(command_id, response)
+         return {
+             "request_id": request_id,
+             "response": response,
+@@ -133,15 +158,29 @@ class SidecarSession:
+             ),
+         }
+ 
++    def _dispatch(self, command_id: str, payload: dict[str, object]) -> dict[str, object]:
++        if command_id in INTERNAL_COMMANDS:
++            if self.native is None:
++                raise ContractViolation("native control plane is unavailable")
++            return _internal_dispatch(self.native, command_id, payload)
++        return _safe_dispatch(command_id, payload, self.native)
++
+ 
+-def _safe_dispatch(command_id: str, payload: dict[str, object]) -> dict[str, object]:
++def _safe_dispatch(
++    command_id: str,
++    payload: dict[str, object],
++    native: NativeControlPlane | None = None,
++) -> dict[str, object]:
+     if command_id == "bootstrap_state":
+         return {
+             "application_state": {"launch_state": "ready", "offline": False},
+             "status": "ok",
+         }
+     if command_id == "accounts_read":
+-        return {"accounts": [], "status": "ok"}
++        return {
++            "accounts": [] if native is None else native.renderer_accounts(),
++            "status": "ok",
++        }
+     if command_id == "quota_overview":
+         return {
+             "projection": {
+@@ -175,12 +214,209 @@ def _safe_dispatch(command_id: str, payload: dict[str, object]) -> dict[str, obj
+     raise ContractViolation("unknown renderer command")
+ 
+ 
++def _exact(payload: dict[str, object], fields: set[str]) -> None:
++    if set(payload) != fields:
++        raise ContractViolation("internal payload field closure mismatch")
++
++
++def _bounded_string(value: object, maximum: int = 128) -> str:
++    if not isinstance(value, str) or not 1 <= len(value.encode()) <= maximum:
++        raise ContractViolation("invalid internal string")
++    return value
++
++
++def _bounded_integer(value: object) -> int:
++    if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 2**63 - 1:
++        raise ContractViolation("invalid internal integer")
++    return value
++
++
++def _bounded_string_list(value: object) -> list[str]:
++    if (
++        not isinstance(value, list)
++        or not 1 <= len(value) <= 128
++        or any(not isinstance(item, str) or not 1 <= len(item.encode()) <= 128 for item in value)
++    ):
++        raise ContractViolation("invalid internal string list")
++    return value
++
++
++def _validate_internal_request(command_id: str, payload: dict[str, object]) -> None:
++    if command_id in {
++        "host_internal.cleanup_pending",
++        "host_internal.credential_references",
++    }:
++        _exact(payload, set())
++    elif command_id == "host_internal.cleanup_ack":
++        _exact(payload, {"references"})
++        _bounded_string_list(payload["references"])
++    elif command_id == "host_internal.credential_context":
++        _exact(payload, {"principal_ref"})
++        _bounded_string(payload["principal_ref"])
++    elif command_id == "host_internal.credential_commit":
++        _exact(
++            payload,
++            {
++                "credential_reference",
++                "expected_generation",
++                "principal_ref",
++                "purpose",
++            },
++        )
++        _bounded_string(payload["credential_reference"])
++        _bounded_string(payload["purpose"], 32)
++        if payload["principal_ref"] is not None:
++            _bounded_string(payload["principal_ref"])
++        if payload["expected_generation"] is not None:
++            _bounded_integer(payload["expected_generation"])
++    elif command_id == "host_internal.destructive_prepare":
++        _exact(payload, {"opaque_selection_handle", "operation_intent"})
++        _bounded_string(payload["operation_intent"], 32)
++        _bounded_string(payload["opaque_selection_handle"])
++    elif command_id == "host_internal.destructive_cancel":
++        _exact(payload, {"plan_id"})
++        _bounded_string(payload["plan_id"], 64)
++    elif command_id == "host_internal.destructive_commit":
++        _exact(
++            payload,
++            {"digest", "generation", "nonce", "plan_id", "user_presence_token"},
++        )
++        for field in ("digest", "nonce", "plan_id", "user_presence_token"):
++            _bounded_string(payload[field], 128)
++        _bounded_integer(payload["generation"])
++    else:
++        raise ContractViolation("unknown internal command")
++
++
++def _validate_internal_response(command_id: str, payload: dict[str, object]) -> None:
++    if command_id in {
++        "host_internal.cleanup_pending",
++        "host_internal.credential_references",
++    }:
++        _exact(payload, {"references", "status"})
++        if payload["references"] != []:
++            _bounded_string_list(payload["references"])
++        _bounded_string(payload["status"], 32)
++    elif command_id == "host_internal.cleanup_ack":
++        _exact(payload, {"status"})
++        _bounded_string(payload["status"], 32)
++    elif command_id == "host_internal.credential_context":
++        _exact(payload, {"credential_reference", "generation", "status"})
++        _bounded_string(payload["credential_reference"])
++        _bounded_integer(payload["generation"])
++    elif command_id == "host_internal.credential_commit":
++        _exact(payload, {"old_reference", "principal_ref", "status"})
++        _bounded_string(payload["principal_ref"])
++        if payload["old_reference"] is not None:
++            _bounded_string(payload["old_reference"])
++    elif command_id == "host_internal.destructive_prepare":
++        _exact(
++            payload,
++            {
++                "digest",
++                "generation",
++                "nonce",
++                "operation_intent",
++                "plan_id",
++                "status",
++                "summary",
++            },
++        )
++        for field in (
++            "digest",
++            "nonce",
++            "operation_intent",
++            "plan_id",
++            "status",
++            "summary",
++        ):
++            _bounded_string(payload[field], 256)
++        _bounded_integer(payload["generation"])
++    elif command_id in {
++        "host_internal.destructive_cancel",
++    }:
++        _exact(payload, {"status"})
++        _bounded_string(payload["status"], 32)
++    elif command_id == "host_internal.destructive_commit":
++        _exact(payload, {"cleanup_references", "status"})
++        if payload["cleanup_references"] != []:
++            _bounded_string_list(payload["cleanup_references"])
++        _bounded_string(payload["status"], 32)
++    else:
++        raise ContractViolation("unknown internal command")
++
++
++def _internal_dispatch(
++    native: NativeControlPlane,
++    command_id: str,
++    payload: dict[str, object],
++) -> dict[str, object]:
++    try:
++        if command_id == "host_internal.cleanup_pending":
++            return {"references": native.cleanup_pending(), "status": "ok"}
++        if command_id == "host_internal.credential_references":
++            return {"references": native.credential_references(), "status": "ok"}
++        if command_id == "host_internal.cleanup_ack":
++            native.acknowledge_cleanup(cast(list[str], payload["references"]))
++            return {"status": "acknowledged"}
++        if command_id == "host_internal.credential_context":
++            reference, generation = native.credential_reference(str(payload["principal_ref"]))
++            return {
++                "credential_reference": reference,
++                "generation": generation,
++                "status": "ok",
++            }
++        if command_id == "host_internal.credential_commit":
++            commit = native.commit_credential(
++                purpose=str(payload["purpose"]),
++                credential_reference=str(payload["credential_reference"]),
++                principal_ref=(
++                    None if payload["principal_ref"] is None else str(payload["principal_ref"])
++                ),
++                expected_generation=(
++                    None
++                    if payload["expected_generation"] is None
++                    else cast(int, payload["expected_generation"])
++                ),
++            )
++            return {
++                "old_reference": commit.old_reference,
++                "principal_ref": commit.principal_ref,
++                "status": "committed",
++            }
++        if command_id == "host_internal.destructive_prepare":
++            plan = native.prepare_destructive(
++                operation_intent=str(payload["operation_intent"]),
++                opaque_selection_handle=str(payload["opaque_selection_handle"]),
++            )
++            return {"status": "prepared", **plan.host_projection()}
++        if command_id == "host_internal.destructive_cancel":
++            native.cancel_destructive(str(payload["plan_id"]))
++            return {"status": "cancelled"}
++        if command_id == "host_internal.destructive_commit":
++            cleanup_references = native.commit_destructive(
++                plan_id=str(payload["plan_id"]),
++                digest=str(payload["digest"]),
++                generation=cast(int, payload["generation"]),
++                nonce=str(payload["nonce"]),
++                user_presence_token=str(payload["user_presence_token"]),
++            )
++            return {
++                "cleanup_references": list(cleanup_references),
++                "status": "committed",
++            }
++    except (OSError, OverflowError, ValueError) as error:
++        raise ContractViolation("internal operation rejected") from error
++    raise ContractViolation("unknown internal command")
++
++
+ def serve(
+     input_stream: BinaryIO,
+     output_stream: BinaryIO,
+     secret: bytes,
++    native: NativeControlPlane | None = None,
+ ) -> None:
+-    session = SidecarSession(secret=secret, contract=RendererContract())
++    session = SidecarSession(secret=secret, contract=RendererContract(), native=native)
+     while True:
+         try:
+             envelope = read_frame(input_stream)
+@@ -193,8 +429,13 @@ def serve(
+ def main() -> int:
+     try:
+         secret = read_session_secret()
+-        serve(sys.stdin.buffer, sys.stdout.buffer, secret)
+-    except (ContractViolation, EOFError, OSError):
++        arguments = sys.argv[1:]
++        if len(arguments) != 2 or arguments[0] != "--data-root":
++            raise ContractViolation("native data root argument is unavailable")
++        data_root = Path(arguments[1])
++        native = NativeControlPlane(data_root)
++        serve(sys.stdin.buffer, sys.stdout.buffer, secret, native)
++    except (ContractViolation, EOFError, OSError, ValueError):
+         return 64
+     return 0
+ 
+diff --git a/tests/test_native_control.py b/tests/test_native_control.py
+new file mode 100644
+index 0000000..c7fc4d5
+--- /dev/null
++++ b/tests/test_native_control.py
+@@ -0,0 +1,347 @@
++from __future__ import annotations
++
++import json
++import os
++from pathlib import Path
++
++import pytest
++
++from agent_quota.native_control import NativeControlPlane
++
++
++def reference(seed: int) -> str:
++    return f"credential-00000000-0000-4000-8000-{seed:012x}"
++
++
++def test_create_persists_renderer_safe_account_and_permissions(tmp_path: Path) -> None:
++    root = (tmp_path / "private").absolute()
++    control = NativeControlPlane(root)
++    commit = control.commit_credential(
++        purpose="create-credential-reference",
++        credential_reference=reference(1),
++        principal_ref=None,
++        expected_generation=None,
++    )
++    assert control.renderer_accounts() == [
++        {
++            "principal_ref": commit.principal_ref,
++            "display_label": "本机凭据 1",
++            "lifecycle": "active",
++        }
++    ]
++    assert "credential_reference" not in json.dumps(control.renderer_accounts())
++    assert control.credential_references() == [reference(1)]
++    assert os.stat(root).st_mode & 0o777 == 0o700
++    assert os.stat(root / "native-accounts-v1.json").st_mode & 0o777 == 0o600
++    restored = NativeControlPlane(root)
++    assert restored.renderer_accounts() == control.renderer_accounts()
++
++
++def test_replace_generation_drift_and_duplicate_are_rejected(tmp_path: Path) -> None:
++    control = NativeControlPlane((tmp_path / "private").absolute())
++    created = control.commit_credential(
++        purpose="create-credential-reference",
++        credential_reference=reference(1),
++        principal_ref=None,
++        expected_generation=None,
++    )
++    _, generation = control.credential_reference(created.principal_ref)
++    replaced = control.commit_credential(
++        purpose="replace-credential-reference",
++        credential_reference=reference(2),
++        principal_ref=created.principal_ref,
++        expected_generation=generation,
++    )
++    assert replaced.old_reference == reference(1)
++    assert control.cleanup_pending() == [reference(1)]
++    control.acknowledge_cleanup([reference(1)])
++    assert control.cleanup_pending() == []
++    with pytest.raises(ValueError, match="unknown cleanup"):
++        control.acknowledge_cleanup([reference(1)])
++    with pytest.raises(ValueError, match="generation drift"):
++        control.commit_credential(
++            purpose="replace-credential-reference",
++            credential_reference=reference(3),
++            principal_ref=created.principal_ref,
++            expected_generation=generation,
++        )
++    with pytest.raises(ValueError, match="already committed"):
++        control.commit_credential(
++            purpose="create-credential-reference",
++            credential_reference=reference(2),
++            principal_ref=None,
++            expected_generation=None,
++        )
++
++
++def test_destructive_two_phase_cancel_drift_replay_and_commit(tmp_path: Path) -> None:
++    control = NativeControlPlane((tmp_path / "private").absolute())
++    control.commit_credential(
++        purpose="create-credential-reference",
++        credential_reference=reference(1),
++        principal_ref=None,
++        expected_generation=None,
++    )
++    cancelled = control.prepare_destructive(
++        operation_intent="purge",
++        opaque_selection_handle="selection-all-local-data",
++    )
++    assert control.cancel_destructive(cancelled.plan_id)
++    with pytest.raises(ValueError, match="unknown or consumed"):
++        control.commit_destructive(
++            plan_id=cancelled.plan_id,
++            digest=cancelled.digest,
++            generation=cancelled.generation,
++            nonce=cancelled.nonce,
++            user_presence_token="00000000-0000-4000-8000-000000000001",
++        )
++    drifted = control.prepare_destructive(
++        operation_intent="purge",
++        opaque_selection_handle="selection-all-local-data",
++    )
++    control.commit_credential(
++        purpose="create-credential-reference",
++        credential_reference=reference(2),
++        principal_ref=None,
++        expected_generation=None,
++    )
++    with pytest.raises(ValueError, match="drift"):
++        control.commit_destructive(
++            plan_id=drifted.plan_id,
++            digest=drifted.digest,
++            generation=drifted.generation,
++            nonce=drifted.nonce,
++            user_presence_token="00000000-0000-4000-8000-000000000002",
++        )
++    committed = control.prepare_destructive(
++        operation_intent="purge",
++        opaque_selection_handle="selection-all-local-data",
++    )
++    token = "00000000-0000-4000-8000-000000000003"
++    control.commit_destructive(
++        plan_id=committed.plan_id,
++        digest=committed.digest,
++        generation=committed.generation,
++        nonce=committed.nonce,
++        user_presence_token=token,
++    )
++    assert control.renderer_accounts() == []
++    assert control.credential_references() == []
++    assert control.cleanup_pending() == [reference(1), reference(2)]
++    with pytest.raises(ValueError, match="replay|unknown or consumed"):
++        control.commit_destructive(
++            plan_id=committed.plan_id,
++            digest=committed.digest,
++            generation=committed.generation,
++            nonce=committed.nonce,
++            user_presence_token=token,
++        )
++
++
++def test_unknown_state_fields_and_symlink_fail_closed(tmp_path: Path) -> None:
++    root = (tmp_path / "private").absolute()
++    control = NativeControlPlane(root)
++    control.commit_credential(
++        purpose="create-credential-reference",
++        credential_reference=reference(1),
++        principal_ref=None,
++        expected_generation=None,
++    )
++    state = json.loads(control.path.read_text())
++    state["extra"] = True
++    control.path.write_text(json.dumps(state))
++    with pytest.raises(ValueError, match="shape"):
++        NativeControlPlane(root)
++    control.path.unlink()
++    control.path.symlink_to(tmp_path / "outside")
++    with pytest.raises(ValueError, match="regular"):
++        NativeControlPlane(root)
++
++
++def test_invalid_roots_state_bounds_and_credential_inputs_fail_closed(tmp_path: Path) -> None:
++    with pytest.raises(ValueError, match="absolute"):
++        NativeControlPlane(Path("relative"))
++    file_root = (tmp_path / "file-root").absolute()
++    file_root.write_text("not a directory")
++    with pytest.raises((FileExistsError, ValueError)):
++        NativeControlPlane(file_root)
++    root = (tmp_path / "private").absolute()
++    control = NativeControlPlane(root)
++    control.path.write_bytes(b"x" * (64 * 1024 + 1))
++    control.path.chmod(0o600)
++    with pytest.raises(ValueError, match="oversized"):
++        NativeControlPlane(root)
++    control.path.unlink()
++    control.path.write_text(
++        '{"schema":"wrong","generation":0,"accounts":[],"pending_keychain_deletions":[]}'
++    )
++    control.path.chmod(0o600)
++    with pytest.raises(ValueError, match="schema"):
++        NativeControlPlane(root)
++    control.path.unlink()
++    control = NativeControlPlane(root)
++    control.path.write_text(
++        '{"schema":"aq-native-account-state-v1","generation":0,"accounts":[],"pending_keychain_deletions":[]}'
++    )
++    with pytest.raises(ValueError, match="permissions"):
++        NativeControlPlane(root)
++    control.path.unlink()
++    control = NativeControlPlane(root)
++    with pytest.raises(ValueError, match="invalid credential reference"):
++        control.commit_credential(
++            purpose="create-credential-reference",
++            credential_reference="bad",
++            principal_ref=None,
++            expected_generation=None,
++        )
++    with pytest.raises(ValueError, match="invalid credential reference"):
++        control.commit_credential(
++            purpose="create-credential-reference",
++            credential_reference="credential-000000000-000-4000-8000-000000000001",
++            principal_ref=None,
++            expected_generation=None,
++        )
++    with pytest.raises(ValueError, match="context"):
++        control.commit_credential(
++            purpose="create-credential-reference",
++            credential_reference=reference(1),
++            principal_ref="principal-000000000000000000000000",
++            expected_generation=0,
++        )
++    with pytest.raises(ValueError, match="unknown credential purpose"):
++        control.commit_credential(
++            purpose="other",
++            credential_reference=reference(1),
++            principal_ref=None,
++            expected_generation=None,
++        )
++    with pytest.raises(ValueError, match="missing"):
++        control.commit_credential(
++            purpose="replace-credential-reference",
++            credential_reference=reference(1),
++            principal_ref=None,
++            expected_generation=None,
++        )
++    with pytest.raises(ValueError, match="invalid principal"):
++        control.credential_reference("bad")
++
++
++def test_destructive_intents_require_exact_scope_and_apply(tmp_path: Path) -> None:
++    control = NativeControlPlane((tmp_path / "private").absolute())
++    created = control.commit_credential(
++        purpose="create-credential-reference",
++        credential_reference=reference(1),
++        principal_ref=None,
++        expected_generation=None,
++    )
++    with pytest.raises(ValueError, match="unknown destructive"):
++        control.prepare_destructive(
++            operation_intent="unknown",
++            opaque_selection_handle="selection-all-local-data",
++        )
++    with pytest.raises(ValueError, match="scope mismatch"):
++        control.prepare_destructive(
++            operation_intent="purge",
++            opaque_selection_handle=created.principal_ref,
++        )
++    with pytest.raises(ValueError, match="unknown destructive selection"):
++        control.prepare_destructive(
++            operation_intent="delete",
++            opaque_selection_handle="principal-000000000000000000000000",
++        )
++    disabled = control.prepare_destructive(
++        operation_intent="disable",
++        opaque_selection_handle=created.principal_ref,
++    )
++    control.commit_destructive(
++        plan_id=disabled.plan_id,
++        digest=disabled.digest,
++        generation=disabled.generation,
++        nonce=disabled.nonce,
++        user_presence_token="00000000-0000-4000-8000-000000000010",
++    )
++    assert control.renderer_accounts()[0]["lifecycle"] == "disabled"
++    config = control.prepare_destructive(
++        operation_intent="destructive-config-diff",
++        opaque_selection_handle="config-all",
++    )
++    control.commit_destructive(
++        plan_id=config.plan_id,
++        digest=config.digest,
++        generation=config.generation,
++        nonce=config.nonce,
++        user_presence_token="00000000-0000-4000-8000-000000000011",
++    )
++    deleted = control.prepare_destructive(
++        operation_intent="delete",
++        opaque_selection_handle=created.principal_ref,
++    )
++    control.commit_destructive(
++        plan_id=deleted.plan_id,
++        digest=deleted.digest,
++        generation=deleted.generation,
++        nonce=deleted.nonce,
++        user_presence_token="00000000-0000-4000-8000-000000000012",
++    )
++    assert control.renderer_accounts() == []
++
++
++def test_expired_plan_bad_presence_and_generation_overflow(
++    tmp_path: Path,
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    control = NativeControlPlane((tmp_path / "private").absolute())
++    control.commit_credential(
++        purpose="create-credential-reference",
++        credential_reference=reference(1),
++        principal_ref=None,
++        expected_generation=None,
++    )
++    with pytest.raises(ValueError, match="invalid user presence"):
++        plan = control.prepare_destructive(
++            operation_intent="purge",
++            opaque_selection_handle="selection-all-local-data",
++        )
++        control.commit_destructive(
++            plan_id=plan.plan_id,
++            digest=plan.digest,
++            generation=plan.generation,
++            nonce=plan.nonce,
++            user_presence_token="bad",
++        )
++    with pytest.raises(ValueError, match="invalid user presence"):
++        plan = control.prepare_destructive(
++            operation_intent="purge",
++            opaque_selection_handle="selection-all-local-data",
++        )
++        control.commit_destructive(
++            plan_id=plan.plan_id,
++            digest=plan.digest,
++            generation=plan.generation,
++            nonce=plan.nonce,
++            user_presence_token="000000000-000-4000-8000-000000000001",
++        )
++    plan = control.prepare_destructive(
++        operation_intent="purge",
++        opaque_selection_handle="selection-all-local-data",
++    )
++    monkeypatch.setattr(
++        "agent_quota.native_control.time.monotonic_ns",
++        lambda: plan.expires_at_ns,
++    )
++    with pytest.raises(ValueError, match="expired"):
++        control.commit_destructive(
++            plan_id=plan.plan_id,
++            digest=plan.digest,
++            generation=plan.generation,
++            nonce=plan.nonce,
++            user_presence_token="00000000-0000-4000-8000-000000000020",
++        )
++    control._state["generation"] = 2**63 - 1
++    with pytest.raises(OverflowError, match="overflow"):
++        control.commit_credential(
++            purpose="create-credential-reference",
++            credential_reference=reference(2),
++            principal_ref=None,
++            expected_generation=None,
++        )
+diff --git a/tests/test_sidecar.py b/tests/test_sidecar.py
+index e6291f0..85ab7f6 100644
+--- a/tests/test_sidecar.py
++++ b/tests/test_sidecar.py
+@@ -4,11 +4,14 @@ import io
+ import json
+ import os
+ import struct
++import sys
++from pathlib import Path
+ 
+ import pytest
+ 
+ from agent_quota.dto import RendererContract
+ from agent_quota.errors import ContractViolation
++from agent_quota.native_control import NativeControlPlane
+ from agent_quota.sidecar import (
+     MAX_FRAME_BYTES,
+     SidecarSession,
+@@ -166,6 +169,8 @@ def test_serve_processes_one_frame_then_clean_eof() -> None:
+ def test_main_maps_contract_failure_and_clean_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+     monkeypatch.setattr("agent_quota.sidecar.read_session_secret", lambda: b"x" * 32)
+     monkeypatch.setattr("agent_quota.sidecar.serve", lambda *_args: None)
++    monkeypatch.setattr("agent_quota.sidecar.NativeControlPlane", lambda _path: None)
++    monkeypatch.setattr(sys, "argv", ["agent-quota-sidecar", "--data-root", "/tmp/agent-quota"])
+     assert main() == 0
+ 
+     def fail() -> bytes:
+@@ -173,3 +178,150 @@ def test_main_maps_contract_failure_and_clean_exit(monkeypatch: pytest.MonkeyPat
+ 
+     monkeypatch.setattr("agent_quota.sidecar.read_session_secret", fail)
+     assert main() == 64
++
++    monkeypatch.setattr("agent_quota.sidecar.read_session_secret", lambda: b"x" * 32)
++
++    def bad_native_state(_path: Path) -> None:
++        raise ValueError("invalid native state")
++
++    monkeypatch.setattr("agent_quota.sidecar.NativeControlPlane", bad_native_state)
++    assert main() == 64
++
++
++def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Path) -> None:
++    secret = b"i" * 32
++    native = NativeControlPlane((tmp_path / "private").absolute())
++    session = SidecarSession(secret, RendererContract(), native)
++    created = session.dispatch(
++        envelope(
++            secret,
++            request_id=1,
++            command_id="host_internal.credential_commit",
++            payload={
++                "credential_reference": "credential-00000000-0000-4000-8000-000000000001",
++                "expected_generation": None,
++                "principal_ref": None,
++                "purpose": "create-credential-reference",
++            },
++        )
++    )["response"]
++    principal = created["principal_ref"]
++    accounts = session.dispatch(
++        envelope(
++            secret,
++            request_id=2,
++            command_id="accounts_read",
++            payload={"scope_ref": "scope-all"},
++        )
++    )["response"]["accounts"]
++    assert accounts == [
++        {
++            "display_label": "本机凭据 1",
++            "lifecycle": "active",
++            "principal_ref": principal,
++        }
++    ]
++    assert "credential" not in json.dumps(accounts)
++    references = session.dispatch(
++        envelope(
++            secret,
++            request_id=3,
++            command_id="host_internal.credential_references",
++            payload={},
++        )
++    )["response"]
++    assert references == {
++        "references": ["credential-00000000-0000-4000-8000-000000000001"],
++        "status": "ok",
++    }
++    context = session.dispatch(
++        envelope(
++            secret,
++            request_id=4,
++            command_id="host_internal.credential_context",
++            payload={"principal_ref": principal},
++        )
++    )["response"]
++    assert context["credential_reference"].endswith("000000000001")
++    plan = session.dispatch(
++        envelope(
++            secret,
++            request_id=5,
++            command_id="host_internal.destructive_prepare",
++            payload={
++                "operation_intent": "purge",
++                "opaque_selection_handle": "selection-all-local-data",
++            },
++        )
++    )["response"]
++    cancelled = session.dispatch(
++        envelope(
++            secret,
++            request_id=6,
++            command_id="host_internal.destructive_cancel",
++            payload={"plan_id": plan["plan_id"]},
++        )
++    )["response"]
++    assert cancelled == {"status": "cancelled"}
++    plan = session.dispatch(
++        envelope(
++            secret,
++            request_id=7,
++            command_id="host_internal.destructive_prepare",
++            payload={
++                "operation_intent": "purge",
++                "opaque_selection_handle": "selection-all-local-data",
++            },
++        )
++    )["response"]
++    committed = session.dispatch(
++        envelope(
++            secret,
++            request_id=8,
++            command_id="host_internal.destructive_commit",
++            payload={
++                "digest": plan["digest"],
++                "generation": plan["generation"],
++                "nonce": plan["nonce"],
++                "plan_id": plan["plan_id"],
++                "user_presence_token": "00000000-0000-4000-8000-000000000001",
++            },
++        )
++    )["response"]
++    assert committed == {
++        "cleanup_references": ["credential-00000000-0000-4000-8000-000000000001"],
++        "status": "committed",
++    }
++    pending = session.dispatch(
++        envelope(
++            secret,
++            request_id=9,
++            command_id="host_internal.cleanup_pending",
++            payload={},
++        )
++    )["response"]
++    assert pending["references"] == committed["cleanup_references"]
++    acknowledged = session.dispatch(
++        envelope(
++            secret,
++            request_id=10,
++            command_id="host_internal.cleanup_ack",
++            payload={"references": pending["references"]},
++        )
++    )["response"]
++    assert acknowledged == {"status": "acknowledged"}
++    with pytest.raises(ContractViolation):
++        session.dispatch(
++            envelope(
++                secret,
++                request_id=11,
++                command_id="host_internal.destructive_commit",
++                payload={
++                    "digest": plan["digest"],
++                    "generation": plan["generation"],
++                    "nonce": plan["nonce"],
++                    "plan_id": plan["plan_id"],
++                    "user_presence_token": "00000000-0000-4000-8000-000000000001",
++                },
++            )
++        )
+diff --git a/tools/build_native_helper.sh b/tools/build_native_helper.sh
+index 1b0697f..de6c6cd 100755
+--- a/tools/build_native_helper.sh
++++ b/tools/build_native_helper.sh
+@@ -3,7 +3,11 @@ set -eu
+ 
+ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+ output_dir="$repo_root/src-tauri/bin"
++app_dir="$output_dir/AgentQuotaNative.app"
++app_binary="$app_dir/Contents/MacOS/AgentQuotaNative"
++app_plist="$app_dir/Contents/Info.plist"
+ mkdir -p "$output_dir"
++mkdir -p "$app_dir/Contents/MacOS"
+ 
+ xcrun swiftc \
+   -parse-as-library \
+@@ -12,6 +16,15 @@ xcrun swiftc \
+   -framework AppKit \
+   -framework Security \
+   "$repo_root/native/AgentQuotaNative.swift" \
+-  -o "$output_dir/agent-quota-native"
++  -o "$app_binary"
+ 
+-codesign --force --sign - "$output_dir/agent-quota-native"
++/usr/bin/plutil -create xml1 "$app_plist"
++/usr/bin/plutil -insert CFBundleExecutable -string AgentQuotaNative "$app_plist"
++/usr/bin/plutil -insert CFBundleIdentifier -string com.agentquota.desktop.native-helper "$app_plist"
++/usr/bin/plutil -insert CFBundleName -string "Agent Quota Native" "$app_plist"
++/usr/bin/plutil -insert CFBundlePackageType -string APPL "$app_plist"
++/usr/bin/plutil -insert LSUIElement -bool true "$app_plist"
++/usr/bin/codesign --force --deep --sign - "$app_dir"
++
++/bin/cp "$app_binary" "$output_dir/agent-quota-native"
++/usr/bin/codesign --force --sign - "$output_dir/agent-quota-native"

@@ -4,11 +4,14 @@ import io
 import json
 import os
 import struct
+import sys
+from pathlib import Path
 
 import pytest
 
 from agent_quota.dto import RendererContract
 from agent_quota.errors import ContractViolation
+from agent_quota.native_control import NativeControlPlane
 from agent_quota.sidecar import (
     MAX_FRAME_BYTES,
     SidecarSession,
@@ -166,6 +169,8 @@ def test_serve_processes_one_frame_then_clean_eof() -> None:
 def test_main_maps_contract_failure_and_clean_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("agent_quota.sidecar.read_session_secret", lambda: b"x" * 32)
     monkeypatch.setattr("agent_quota.sidecar.serve", lambda *_args: None)
+    monkeypatch.setattr("agent_quota.sidecar.NativeControlPlane", lambda _path: None)
+    monkeypatch.setattr(sys, "argv", ["agent-quota-sidecar", "--data-root", "/tmp/agent-quota"])
     assert main() == 0
 
     def fail() -> bytes:
@@ -173,3 +178,150 @@ def test_main_maps_contract_failure_and_clean_exit(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr("agent_quota.sidecar.read_session_secret", fail)
     assert main() == 64
+
+    monkeypatch.setattr("agent_quota.sidecar.read_session_secret", lambda: b"x" * 32)
+
+    def bad_native_state(_path: Path) -> None:
+        raise ValueError("invalid native state")
+
+    monkeypatch.setattr("agent_quota.sidecar.NativeControlPlane", bad_native_state)
+    assert main() == 64
+
+
+def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Path) -> None:
+    secret = b"i" * 32
+    native = NativeControlPlane((tmp_path / "private").absolute())
+    session = SidecarSession(secret, RendererContract(), native)
+    created = session.dispatch(
+        envelope(
+            secret,
+            request_id=1,
+            command_id="host_internal.credential_commit",
+            payload={
+                "credential_reference": "credential-00000000-0000-4000-8000-000000000001",
+                "expected_generation": None,
+                "principal_ref": None,
+                "purpose": "create-credential-reference",
+            },
+        )
+    )["response"]
+    principal = created["principal_ref"]
+    accounts = session.dispatch(
+        envelope(
+            secret,
+            request_id=2,
+            command_id="accounts_read",
+            payload={"scope_ref": "scope-all"},
+        )
+    )["response"]["accounts"]
+    assert accounts == [
+        {
+            "display_label": "本机凭据 1",
+            "lifecycle": "active",
+            "principal_ref": principal,
+        }
+    ]
+    assert "credential" not in json.dumps(accounts)
+    references = session.dispatch(
+        envelope(
+            secret,
+            request_id=3,
+            command_id="host_internal.credential_references",
+            payload={},
+        )
+    )["response"]
+    assert references == {
+        "references": ["credential-00000000-0000-4000-8000-000000000001"],
+        "status": "ok",
+    }
+    context = session.dispatch(
+        envelope(
+            secret,
+            request_id=4,
+            command_id="host_internal.credential_context",
+            payload={"principal_ref": principal},
+        )
+    )["response"]
+    assert context["credential_reference"].endswith("000000000001")
+    plan = session.dispatch(
+        envelope(
+            secret,
+            request_id=5,
+            command_id="host_internal.destructive_prepare",
+            payload={
+                "operation_intent": "purge",
+                "opaque_selection_handle": "selection-all-local-data",
+            },
+        )
+    )["response"]
+    cancelled = session.dispatch(
+        envelope(
+            secret,
+            request_id=6,
+            command_id="host_internal.destructive_cancel",
+            payload={"plan_id": plan["plan_id"]},
+        )
+    )["response"]
+    assert cancelled == {"status": "cancelled"}
+    plan = session.dispatch(
+        envelope(
+            secret,
+            request_id=7,
+            command_id="host_internal.destructive_prepare",
+            payload={
+                "operation_intent": "purge",
+                "opaque_selection_handle": "selection-all-local-data",
+            },
+        )
+    )["response"]
+    committed = session.dispatch(
+        envelope(
+            secret,
+            request_id=8,
+            command_id="host_internal.destructive_commit",
+            payload={
+                "digest": plan["digest"],
+                "generation": plan["generation"],
+                "nonce": plan["nonce"],
+                "plan_id": plan["plan_id"],
+                "user_presence_token": "00000000-0000-4000-8000-000000000001",
+            },
+        )
+    )["response"]
+    assert committed == {
+        "cleanup_references": ["credential-00000000-0000-4000-8000-000000000001"],
+        "status": "committed",
+    }
+    pending = session.dispatch(
+        envelope(
+            secret,
+            request_id=9,
+            command_id="host_internal.cleanup_pending",
+            payload={},
+        )
+    )["response"]
+    assert pending["references"] == committed["cleanup_references"]
+    acknowledged = session.dispatch(
+        envelope(
+            secret,
+            request_id=10,
+            command_id="host_internal.cleanup_ack",
+            payload={"references": pending["references"]},
+        )
+    )["response"]
+    assert acknowledged == {"status": "acknowledged"}
+    with pytest.raises(ContractViolation):
+        session.dispatch(
+            envelope(
+                secret,
+                request_id=11,
+                command_id="host_internal.destructive_commit",
+                payload={
+                    "digest": plan["digest"],
+                    "generation": plan["generation"],
+                    "nonce": plan["nonce"],
+                    "plan_id": plan["plan_id"],
+                    "user_presence_token": "00000000-0000-4000-8000-000000000001",
+                },
+            )
+        )
