@@ -271,7 +271,7 @@
               "name": "classification",
               "type": "string",
               "required": true,
-              "max_utf8_bytes": 32,
+              "max_utf8_bytes": 36,
               "allowed_values": [
                 "destructive-trusted-surface-required",
                 "nondestructive-applied",
@@ -1084,7 +1084,7 @@
       "session_rule": "every-launch-restart-and-u64-overflow-session-gets-new-budget-no-carry-or-reuse"
     },
     "renderer_navigation": "bundled-app-origin-only-external-navigation-and-new-window-forbidden",
-    "renderer_csp": "default-src-self-script-src-self-style-src-self-img-src-self-data-connect-src-none-object-src-none-base-uri-none-frame-ancestors-none",
+    "renderer_csp": "default-src-self-script-src-self-style-src-self-img-src-self-data-connect-src-ipc-http-ipc-localhost-only-object-src-none-base-uri-none-frame-ancestors-none-no-real-loopback-listener",
     "renderer_forbidden": [
       "credential-values",
       "destructive-confirmation-plan-digest-nonce-and-user-presence-token",
@@ -2179,14 +2179,14 @@
             "expected_before": "no-unowned-retention",
             "expected_after": "R13 probe retention 777 days.",
             "target_repo_path": "docs/design-proposal.md",
-            "expected_before_state_sha256": "2dad712ff75cf74fa0c4161a8748bcb21bb2a1443ec4dfde7ad483ec7919b40e",
-            "expected_after_state_sha256": "f6b819e7f61d7358c13ebd0a3f2265ee626c55bb8c4c98a9cd64c5967d28bbee"
+            "expected_before_state_sha256": "7cda3e2e5bc03e92d12e55785a00fbea6c5432f256d22491dc2250d0af421370",
+            "expected_after_state_sha256": "ff29568247ff60829856eeddf78dd5d4e896eb42544b8e4b6972ffed3ef947a1"
           },
           "expected_failure_class": "validator-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "144d03c0be243031f67e2b4d863afa415f6952f6b2ff96fb52d418e617dadbec"
         },
-        "mutation_sha256": "b69001e2ba4065467c24574c759502ef72b60a8b33ee0f0fe5baefeaab67bfbd"
+        "mutation_sha256": "7798c1ee6364f9de1d5e5d2f0075ab4c220f56653ee9d45f12b30c6d29bf26a8"
       },
       {
         "sequence": 16,
@@ -2207,14 +2207,14 @@
             "expected_before": "no-ordinary-persistence-signal",
             "expected_after": "R13 probe writes credential material into the database.",
             "target_repo_path": "docs/design-proposal.md",
-            "expected_before_state_sha256": "2dad712ff75cf74fa0c4161a8748bcb21bb2a1443ec4dfde7ad483ec7919b40e",
-            "expected_after_state_sha256": "8256ddaf4961179ae5bb29e76118916e8a242ce322036b700069c58b35414698"
+            "expected_before_state_sha256": "7cda3e2e5bc03e92d12e55785a00fbea6c5432f256d22491dc2250d0af421370",
+            "expected_after_state_sha256": "4ec2da7858f2f7df911c6d3db0b1a50a4b61f285450f49343dc4abf092dddc7c"
           },
           "expected_failure_class": "validator-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "2067a96650c7db3304d0f8f2344d7736c444c40b4913321d2e72a220c6565511"
         },
-        "mutation_sha256": "f5187cb5f24b8890cddce2c7c46aed27702710a2f3bcf3ab3067bd06b7d6c7c3"
+        "mutation_sha256": "ef05ebe8cc3bb3efaa26b2bf15090a8f0d86bd6f3c58d5b6fd2e0188d0507a38"
       },
       {
         "sequence": 17,
@@ -2291,14 +2291,14 @@
             "expected_before": "no-unowned-retention",
             "expected_after": "R13 probe retention 777 days.",
             "target_repo_path": "docs/security-model.md",
-            "expected_before_state_sha256": "236fd4af173ea137aa54920e6e70a66f57407afd9dbd05d0695f1800b5454fc3",
-            "expected_after_state_sha256": "d90df522b62763706873d3fefe0c4b8d043192cc10f9d6f44c65635ac35985d2"
+            "expected_before_state_sha256": "296676eca04cf12e47dc39c7fb9b9685bd7447cb06a3838dae15ab8379e556a5",
+            "expected_after_state_sha256": "c185cc153d556569206bf13a8e905fea8bc0908046faad46e8a2d7f0303a8ed5"
           },
           "expected_failure_class": "validator-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "ce9fd7956d23b3c4bb51f0a39375eb16dc2cd0c3e415ede2e3bf5a035fe44b14"
         },
-        "mutation_sha256": "c1b8a977385f09251a2c826821c526bcc2d8f8ce724a03149ce99f3a82c745e1"
+        "mutation_sha256": "7c6f7dfc6a3d63fa95f46a03ad966ef79048faf7bbcd2d59050ad99c58c05510"
       },
       {
         "sequence": 20,
@@ -2319,14 +2319,14 @@
             "expected_before": "no-ordinary-persistence-signal",
             "expected_after": "R13 probe writes credential material into the database.",
             "target_repo_path": "docs/security-model.md",
-            "expected_before_state_sha256": "236fd4af173ea137aa54920e6e70a66f57407afd9dbd05d0695f1800b5454fc3",
-            "expected_after_state_sha256": "b5a150feee6e841a560f5eeb86c54473dbb6575e1c0971baf19a28653421dadb"
+            "expected_before_state_sha256": "296676eca04cf12e47dc39c7fb9b9685bd7447cb06a3838dae15ab8379e556a5",
+            "expected_after_state_sha256": "cdafb9ad1601c14def824e116781b8b7eb55578c130006b234803da484f8e85f"
           },
           "expected_failure_class": "validator-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "2d3b1355d7cc16b80a7ee8c9e0c01c8047db7ede5eebfd840277a8db057eda17"
         },
-        "mutation_sha256": "1d277b00d471e7c96dca580d5c7f8254069773bfe2b46ccc669dba4db8fb4a0a"
+        "mutation_sha256": "17220d1bb71db1cd7991d206304e2a133769efbf47a25c9c9e99f7be93632574"
       },
       {
         "sequence": 21,
@@ -2551,8 +2551,8 @@
               "mutation_case_id": "validation-input-changed"
             },
             "target_repo_path": "README.md",
-            "expected_before_state_sha256": "27eb68fa14cdddb8b34cdf98c95c157b3a4da5bf8837f58319d17e8b3d638ab7",
-            "expected_after_state_sha256": "7c836fbd2fb080fc2a73f59ce0cc5d605ca88e6fbe69735f06de95f39555dafc",
+            "expected_before_state_sha256": "3fb14b54c64676ab5d23e5c371ff2db22207e0db0375dba9e335467bb538e338",
+            "expected_after_state_sha256": "cec69fb0c213f68b5e9c4c99e9d4a4aca1de1cf8204d8dcf087fd35089037c20",
             "evidence_descriptor": "validation-input-changed|validator pause before final verify|\"stable README bytes\"->\"concurrent README replacement\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2576,7 +2576,7 @@
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "1075a1f968fcfe1289aec2ea877ced7bedce0f598e8c166fbd8cbbebb0f59606"
         },
-        "mutation_sha256": "12c17226f347123306f5b5545e053c5287ef0d0a157ff14c7b4d3212682a7f3a"
+        "mutation_sha256": "24e3246cd31c59aebffc2e401f94ddabcfe2c6f318c4b250d98b0231aafbceb8"
       },
       {
         "sequence": 29,
@@ -2597,14 +2597,14 @@
             "expected_before": "no-local-file-token-claim",
             "expected_after": "The implementation MUST store API tokens in a local file.",
             "target_repo_path": "docs/design-proposal.md",
-            "expected_before_state_sha256": "2dad712ff75cf74fa0c4161a8748bcb21bb2a1443ec4dfde7ad483ec7919b40e",
-            "expected_after_state_sha256": "b6fe704585c59125544a3971498660c3df0e3b66caa2c8d5f8eb832fb10238ef"
+            "expected_before_state_sha256": "7cda3e2e5bc03e92d12e55785a00fbea6c5432f256d22491dc2250d0af421370",
+            "expected_after_state_sha256": "be0f642a2135e93801210b77daf53749de91c48f32846cf9c3e0743e6a31406c"
           },
           "expected_failure_class": "validator-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "2a2fa6c33e815da8014f58f6ad6383452f66c811593d519aa73c80ae97d2c13d"
         },
-        "mutation_sha256": "04bc812bc541ac8df959b6e596b1bb026fe8a83951af3c052e4a6ed4fe26e76b"
+        "mutation_sha256": "7e0fe8bf1da5c9783a2b785083865fe252ac796406989a8c58284f9199c6d200"
       },
       {
         "sequence": 30,
@@ -2734,14 +2734,14 @@
             "expected_before": "regular-file",
             "expected_after": "symlink-to-saved-copy",
             "target_repo_path": "docs/contracts/run-release-gate-v1.py",
-            "expected_before_state_sha256": "04530a51dccda25186f0d275d6879c58ca2de99838f85e717ce937861c595cbd",
+            "expected_before_state_sha256": "94014642035a83286c04fa90d62f6204f0177b2e5bd1c250ead3f08d0946a1a0",
             "expected_after_state_sha256": "d112864ad2e5010e54f858ad53aafa31acd54b20fe9dd6ab0239913fb1065c73"
           },
           "expected_failure_class": "release-gate-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "e9d690065de87c639ee2575281f744ccecc92b73fc5571295bd558b2573527ad"
         },
-        "mutation_sha256": "eb6bb086b9a4f64572b1ec298d013ce2b813377b22d3d755d6f0db10ce4b3751"
+        "mutation_sha256": "464eecde11671b415a24c0b7732aab4af0c53f0d2a1e8b0deb98ee1fd0ca1968"
       },
       {
         "sequence": 34,
@@ -2769,8 +2769,8 @@
               "mutation_case_id": "release-gate-root-substitution"
             },
             "target_repo_path": "docs/contracts/run-release-gate-v1.py",
-            "expected_before_state_sha256": "9e16956c2aa0d020f821c4af7e7c9b2a2e5089af258d6409d5a0110078812f16",
-            "expected_after_state_sha256": "a11f69b81b93c6114dddf568aa039570062f3ee5952fb992287f45d7b1081dbc",
+            "expected_before_state_sha256": "7d847e20b0e9e136b41c8a4cc506997ddd1138a645e7271f10b81f9ed4c7fdf0",
+            "expected_after_state_sha256": "4de0df26553f1a2d3f2b7c41c389bb38d41631b90a37e09612cc3074429b50a6",
             "evidence_descriptor": "release-gate-root-substitution|gate fixed-root executable identity|\"gate from selected root\"->\"gate executable from different root\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2794,7 +2794,7 @@
           "expected_repo_effect": "unchanged",
           "executor_closure_sha256": "e9d690065de87c639ee2575281f744ccecc92b73fc5571295bd558b2573527ad"
         },
-        "mutation_sha256": "3d4fe3529841555b0a3fd5756206ab3093f9633db6599cc2622aa79718313e68"
+        "mutation_sha256": "571200e39b7fa70af575c3add780c243bd4942900a95ad08a87ed42bd749aa95"
       },
       {
         "sequence": 35,
@@ -2815,14 +2815,14 @@
             "expected_before": "regular-file",
             "expected_after": "symlink-to-saved-copy",
             "target_repo_path": "docs/contracts/validate-contracts-v1.py",
-            "expected_before_state_sha256": "d7694266e0b92bd84bf87f2de2e31c8ce4a42f8ff77785e8d66170df383019ec",
+            "expected_before_state_sha256": "c9eecfe0bf7b4080abf6eb02170bda9cffdd62b2dda2c83b562edb9359e3c94c",
             "expected_after_state_sha256": "6395f42e68f0975c93a9b26d1f7ef92dfab7564a13eb73dadc2512c8620389dc"
           },
           "expected_failure_class": "release-gate-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "e9d690065de87c639ee2575281f744ccecc92b73fc5571295bd558b2573527ad"
         },
-        "mutation_sha256": "c50329ea095129e96a9fa9fc38b1b5c6e64face17cc2809aab800974deb5005e"
+        "mutation_sha256": "9d35e533dec7c3d2eb3f6759771caa54a07e4478017102e4554352a6cd25c54a"
       },
       {
         "sequence": 36,
@@ -2850,8 +2850,8 @@
               "mutation_case_id": "release-gate-concurrent-replacement"
             },
             "target_repo_path": "README.md",
-            "expected_before_state_sha256": "c14939cfb0ae430b1fc3ebba8c9762b04443c87f489b45ec8803cf1bf0a7306a",
-            "expected_after_state_sha256": "2f39e78a2022ba09cd8cd01a44b2515c57c237590c619547ebdfabf5a002b012",
+            "expected_before_state_sha256": "7e4816562add9bfa94257ed8105589b733f1c3a4e1a87d24e7bfd00622547d6b",
+            "expected_after_state_sha256": "c4dfb19b93474dd2a4a73072759cf2e3296afb9524e6d53fb89d5a7b3e40706e",
             "evidence_descriptor": "release-gate-concurrent-replacement|gate pause before final verify|\"stable README bytes\"->\"concurrent README replacement\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2875,7 +2875,7 @@
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "518dda5d085170eff45ec2a155cc869ebf3059ddcb9b338726b26a0a4aba5dc1"
         },
-        "mutation_sha256": "80d551b953cf63cfe381724f2ee36395af622e12814639211da065b7751c610b"
+        "mutation_sha256": "6e01ff96ffbdde02b7c9b387693b44a320280a4b0341299128c1fb3bad0d3149"
       },
       {
         "sequence": 37,
@@ -2903,8 +2903,8 @@
               "mutation_case_id": "npm-implementation-tree-drift"
             },
             "target_repo_path": "docs/contracts/package.json",
-            "expected_before_state_sha256": "8eb8cd91995693a3e4e7ec61ab2e0fabb8c9b127d6451527f4bec53a7899ce6c",
-            "expected_after_state_sha256": "e9f6afa36b89ecc677a7353516c13ac4d795d48ba15f0657a0b1dda3f9394db2",
+            "expected_before_state_sha256": "5822dac762a763bc902a88c5b0137acf7df2d7c34303ac6bcfb47572234b3d35",
+            "expected_after_state_sha256": "c9c373cc7f16e54c71009650b114f84fed4ad3f8cda1cd25d97f410526471c26",
             "evidence_descriptor": "npm-implementation-tree-drift|resolved npm implementation tree|\"pinned-tree-digest\"->\"copy with lib/cli.js mutation\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2928,7 +2928,7 @@
           "expected_repo_effect": "unchanged",
           "executor_closure_sha256": "e9d690065de87c639ee2575281f744ccecc92b73fc5571295bd558b2573527ad"
         },
-        "mutation_sha256": "4e36ce884a56349a3cb5971fcdc4b3943b946982978af14986acd31b15dc74c4"
+        "mutation_sha256": "90c9f16b74a90e37276195e71e4655bac8e8f3f04d16eb2968162da1d2747ead"
       },
       {
         "sequence": 38,

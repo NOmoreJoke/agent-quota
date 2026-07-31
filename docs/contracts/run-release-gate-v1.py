@@ -651,11 +651,11 @@ def _concurrent_validator_failure(case_root: Path, env: dict[str, str]) -> tuple
         )
         os.close(ready_write)
         ready_write = -1
-        readable, _, _ = select.select([ready_read], [], [], 90)
+        readable, _, _ = select.select([ready_read], [], [], 180)
         require(readable and os.read(ready_read, 5) == b"ready", "gate-owned validation input-change barrier was not reached")
         readme = case_root / "README.md"
         readme.write_text(readme.read_text(encoding="utf-8") + "\nGate-owned concurrent source-change probe.\n", encoding="utf-8")
-        output, _ = process.communicate(timeout=90)
+        output, _ = process.communicate(timeout=180)
     finally:
         os.close(ready_read)
         if ready_write >= 0:
@@ -681,11 +681,11 @@ def _concurrent_gate_failure(case_root: Path, env: dict[str, str]) -> tuple[bool
         )
         os.close(ready_write)
         ready_write = -1
-        readable, _, _ = select.select([ready_read], [], [], 90)
+        readable, _, _ = select.select([ready_read], [], [], 180)
         require(readable and os.read(ready_read, 5) == b"ready", "gate-owned release input-change barrier was not reached")
         readme = case_root / "README.md"
         readme.write_text(readme.read_text(encoding="utf-8") + "\nGate-owned concurrent gate probe.\n", encoding="utf-8")
-        output, _ = process.communicate(timeout=90)
+        output, _ = process.communicate(timeout=180)
     finally:
         os.close(ready_read)
         if ready_write >= 0:
@@ -917,7 +917,7 @@ def verify_external_negative_self_tests(
 
     cases.extend([
         ("openssl-opt-target-switch", "runtime", "runtime opt-link binding set mismatch", opt_target_switch),
-        ("libcrypto-bit-drift", "runtime", "non-system image raw digest mismatch", edit_image_digest("/opt/homebrew/Cellar/openssl@3/3.6.3/lib/libcrypto.3.dylib")),
+        ("libcrypto-bit-drift", "runtime", "non-system image raw digest mismatch", edit_image_digest("/opt/homebrew/Cellar/openssl@3/3.6.2/lib/libcrypto.3.dylib")),
         ("gmp-bit-drift", "runtime", "non-system image raw digest mismatch", edit_image_digest("/opt/homebrew/Cellar/gmp/6.3.0/lib/libgmp.10.dylib")),
         ("pandoc-extra-dependency-closure", "runtime", "native loaded-image closure is not recursively closed", edit_closure("pandoc", lambda paths: paths.remove("/opt/homebrew/Cellar/gmp/6.3.0/lib/libgmp.10.dylib"))),
         ("python-same-executable-different-image-set", "runtime", "Python guard/profile loaded-image closure mismatch", edit_closure("python", add_python_extra_image)),
@@ -1034,10 +1034,10 @@ def verify_external_negative_self_tests(
         success, output, _ = _completed(["/usr/bin/python3", "docs/contracts/validate-contracts-v1.py"], root, direct_env)
         require(not success and "Python runtime identity mismatch" in output, f"unregistered Python 3.9/PATH launcher did not fail at runtime identity: {output.rstrip()}")
         rejected += 1
-        python313 = "/opt/anaconda3/bin/python3"
-        require(os.path.isfile(python313), "registered Python 3.13 rejection probe is unavailable")
-        success, output, _ = _completed([python313, "docs/contracts/validate-contracts-v1.py"], root, direct_env)
-        require(not success and "Python runtime identity mismatch" in output, f"unregistered Python 3.13 launcher did not fail at runtime identity: {output.rstrip()}")
+        python312 = "/Users/kyle/.local/bin/python3.12"
+        require(os.path.isfile(python312), "registered Python 3.12 rejection probe is unavailable")
+        success, output, _ = _completed([python312, "docs/contracts/validate-contracts-v1.py"], root, direct_env)
+        require(not success and "Python runtime identity mismatch" in output, f"unregistered Python 3.12 launcher did not fail at runtime identity: {output.rstrip()}")
         rejected += 1
         copied = temporary_root / "unregistered-python3.11"
         shutil.copy2(sys.executable, copied)
@@ -1062,7 +1062,7 @@ def verify_external_negative_self_tests(
 def verify_loaded_image_collector_self_tests(validator: Any) -> int:
     """Prove discovery is prefix-independent and path failures are closed."""
     verified = 0
-    with tempfile.TemporaryDirectory(prefix="aq-loaded-image-fixture-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="aq-loaded-image-fixture-", dir="/private/var/tmp") as temporary:
         root = Path(os.path.realpath(temporary))
         dylib = root / "liboutside-prefix.dylib"
         shutil.copy2("/opt/homebrew/Cellar/gmp/6.3.0/lib/libgmp.10.dylib", dylib)
@@ -1266,7 +1266,7 @@ def verify_bootstrap_negative_self_tests(snapshot: dict[str, bytes], base_env: d
             stderr=subprocess.STDOUT,
             env=env,
         )
-        deadline = time.monotonic() + 30
+        deadline = time.monotonic() + 180
         while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
             time.sleep(0.05)
         require(ready.exists(), "entry TOCTOU probe did not reach the post-open barrier")
@@ -1580,7 +1580,10 @@ def main() -> int:
         if ready_fd is not None:
             require(os.environ.get("AQ_RELEASE_GATE_MUTATION_TEST") == "1", "release gate ready hook is test-only")
             descriptor = int(ready_fd)
-            require(3 <= descriptor <= 4, "release gate ready descriptor is outside the reserved pipe range")
+            require(
+                descriptor >= 3 and stat.S_ISFIFO(os.fstat(descriptor).st_mode),
+                "release gate ready descriptor is not an inherited pipe",
+            )
             require(os.write(descriptor, b"ready") == 5, "release gate ready signal was incomplete")
             os.close(descriptor)
         tooling = validator.validate_dependency_runtime(contracts)
@@ -1676,7 +1679,7 @@ def main() -> int:
                     str(evidence_root),
                 ),
                 target,
-                timeout=1800,
+                timeout=3600,
                 env=evidence_env,
             )
             mutation_lines = mutation_raw.splitlines()

@@ -1210,6 +1210,15 @@ def validate_sidecar_budget_contract_document(contract: dict[str, Any]) -> None:
 def validate_core_closure(contracts: ContractSet) -> None:
     core = contracts.artifacts["docs/contracts/core-safety-contract-v1.json"].document
     desktop = core["desktop_product_contract"]
+    require(
+        desktop["renderer_csp"]
+        == "default-src-self-script-src-self-style-src-self-img-src-self-data-connect-src-ipc-http-ipc-localhost-only-object-src-none-base-uri-none-frame-ancestors-none-no-real-loopback-listener",
+        "renderer CSP must allow only Tauri custom-protocol IPC and forbid real network fallbacks",
+    )
+    require(
+        desktop["loopback_http"] == "forbidden-in-mvp" and desktop["network_listener"] == "none",
+        "Tauri IPC compatibility origins must not create a loopback or network listener",
+    )
     validate_renderer_command_contract_document(desktop["renderer_command_contract"])
     validate_sidecar_budget_contract_document(desktop["sidecar_budget_contract"])
     roots = core["codex_schema_bundle"]["descriptor_roots"]
@@ -3303,7 +3312,10 @@ def main() -> int:
         if ready_fd is not None:
             require(os.environ.get("AQ_VALIDATION_MUTATION_TEST") == "1", "validation ready hook is test-only")
             descriptor = int(ready_fd)
-            require(3 <= descriptor <= 4, "validation ready descriptor is outside the reserved pipe range")
+            require(
+                descriptor >= 3 and stat.S_ISFIFO(os.fstat(descriptor).st_mode),
+                "validation ready descriptor is not an inherited pipe",
+            )
             require(os.write(descriptor, b"ready") == 5, "validation ready signal was incomplete")
             os.close(descriptor)
         run_all(contracts, quiet=args.quiet)

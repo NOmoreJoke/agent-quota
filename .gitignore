@@ -6,12 +6,24 @@
 __pycache__/
 *.py[cod]
 .venv/
+.coverage
+.hypothesis/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+build/
 
 node_modules/
 dist/
 coverage/
+*.tsbuildinfo
+src-tauri/target/
+src-tauri/bin/agent-quota-native
+src-tauri/gen/schemas/
+playwright-report/
+test-results/
+output/playwright/
 
 *.db
 *.sqlite
 *.sqlite3
-

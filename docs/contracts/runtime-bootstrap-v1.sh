@@ -210,7 +210,7 @@ printf '%s\n' 'launch_authority=local-audit-evidence-only-not-fixed-launch-proof
 home_value=${HOME:-/tmp}
 exec /usr/bin/env -i \
   PATH=/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin \
-  HOME="$home_value" LANG=C LC_ALL=C \
+  HOME="$home_value" TMPDIR=/private/tmp LANG=C LC_ALL=C \
   PYTHONHASHSEED=0 PYTHONDONTWRITEBYTECODE=1 PYTHONUTF8=1 \
   ${AQ_VALIDATION_MUTATION_TEST:+AQ_VALIDATION_MUTATION_TEST=$AQ_VALIDATION_MUTATION_TEST} \
   ${AQ_VALIDATION_TEST_PAUSE_BEFORE_FINAL_VERIFY_MS:+AQ_VALIDATION_TEST_PAUSE_BEFORE_FINAL_VERIFY_MS=$AQ_VALIDATION_TEST_PAUSE_BEFORE_FINAL_VERIFY_MS} \

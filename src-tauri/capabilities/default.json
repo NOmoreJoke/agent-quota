@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Minimal renderer capability; application commands are registered explicitly.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

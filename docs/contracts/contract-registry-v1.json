@@ -101,8 +101,8 @@
       "artifact_id": "core-safety-contract-v1",
       "artifact_path": "docs/contracts/core-safety-contract-v1.json",
       "artifact_schema_uri": "https://agent-quota.local/contracts/schemas/core-safety-contract-v1.schema.json",
-      "artifact_raw_sha256": "ae309e8624373c708c77d7f6192b61342a05617a8c2d643ab4fd1a10598f84f9",
-      "artifact_canonical_sha256": "3433efb9772bdd8de8e7191724fcadd041df5278c997889b1e0a6d6274bcb3d4",
+      "artifact_raw_sha256": "c396460a6352452174d67a1033c2f8e6e0bfa5f2a681121a988a304bfffc041c",
+      "artifact_canonical_sha256": "1c971a466575a90ec47451f8fc3974fec4393675ae0f42789f084e79b16e6b3d",
       "schema_path": "docs/contracts/schemas/core-safety-contract-v1.schema.json",
       "schema_raw_sha256": "13b339ed55c47a0d5ad52590f24dfef467115abf4ddc4013a9d36a498560b89a",
       "schema_canonical_sha256": "355b3fbac1329a719eda3c6520ffc6ebd14252024fac48e47ef0884df1c36f4d"
