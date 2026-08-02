@@ -7,10 +7,12 @@ app_dir="$output_dir/AgentQuotaNative.app"
 app_binary="$app_dir/Contents/MacOS/AgentQuotaNative"
 app_plist="$app_dir/Contents/Info.plist"
 mkdir -p "$output_dir"
+/bin/rm -rf "$app_dir"
 mkdir -p "$app_dir/Contents/MacOS"
 
 xcrun swiftc \
   -parse-as-library \
+  -strict-concurrency=complete \
   -warnings-as-errors \
   -O \
   -framework AppKit \
@@ -25,3 +27,15 @@ xcrun swiftc \
 /usr/bin/plutil -insert CFBundlePackageType -string APPL "$app_plist"
 /usr/bin/plutil -insert LSUIElement -bool true "$app_plist"
 /usr/bin/codesign --force --deep --sign - "$app_dir"
+bundle_inventory=$(CDPATH= cd -- "$app_dir" && /usr/bin/find . -mindepth 1 -print | LC_ALL=C /usr/bin/sort)
+expected_inventory='./Contents
+./Contents/Info.plist
+./Contents/MacOS
+./Contents/MacOS/AgentQuotaNative
+./Contents/_CodeSignature
+./Contents/_CodeSignature/CodeResources'
+[ "$bundle_inventory" = "$expected_inventory" ] || {
+  echo "native helper bundle closure mismatch" >&2
+  exit 1
+}
+"$app_binary" --self-test-provider-minimization

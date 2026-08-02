@@ -1,0 +1,21 @@
+{
+  "schema": "aq-provider-recording-v1",
+  "provider_id": "glm-cn",
+  "source_kind": "live-sanitized",
+  "live_verified": true,
+  "recorded_at": "2026-08-01T04:39:10Z",
+  "evidence_url": "https://docs.z.ai/devpack/extension/usage-query-plugin",
+  "sanitization": "All account identifiers and usage values were replaced; only the observed success envelope and limits topology were retained.",
+  "response_sha256": "d9b2fbe0680b90b06427346a9747f4545f4bc54f9d8dd09fbbe7d05a56e856db",
+  "response": {
+    "code": 200,
+    "success": true,
+    "data": {
+      "limits": [
+        {"type": "TOKENS_LIMIT", "percentage": 7},
+        {"type": "TIME_LIMIT", "percentage": 13}
+      ]
+    }
+  },
+  "expected_projection": ["5小时已用 7%", "MCP月度已用 13%"]
+}

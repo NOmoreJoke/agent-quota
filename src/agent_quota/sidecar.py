@@ -31,10 +31,10 @@ INTERNAL_COMMANDS: Final = {
     "host_internal.cleanup_pending",
     "host_internal.credential_context",
     "host_internal.credential_commit",
-    "host_internal.credential_references",
     "host_internal.destructive_cancel",
     "host_internal.destructive_commit",
     "host_internal.destructive_prepare",
+    "host_internal.provider_response_commit",
 }
 
 
@@ -183,11 +183,15 @@ def _safe_dispatch(
         }
     if command_id == "quota_overview":
         return {
-            "projection": {
-                "capability_rows": [],
-                "freshness": "stale",
-                "scope_ref": payload["scope_ref"],
-            },
+            "projection": (
+                {
+                    "capability_rows": [],
+                    "freshness": "stale",
+                    "scope_ref": payload["scope_ref"],
+                }
+                if native is None
+                else native.quota_projection(str(payload["scope_ref"]))
+            ),
             "status": "ok",
         }
     if command_id == "refresh_scope":
@@ -242,10 +246,7 @@ def _bounded_string_list(value: object) -> list[str]:
 
 
 def _validate_internal_request(command_id: str, payload: dict[str, object]) -> None:
-    if command_id in {
-        "host_internal.cleanup_pending",
-        "host_internal.credential_references",
-    }:
+    if command_id == "host_internal.cleanup_pending":
         _exact(payload, set())
     elif command_id == "host_internal.cleanup_ack":
         _exact(payload, {"references"})
@@ -260,11 +261,13 @@ def _validate_internal_request(command_id: str, payload: dict[str, object]) -> N
                 "credential_reference",
                 "expected_generation",
                 "principal_ref",
+                "provider_id",
                 "purpose",
             },
         )
         _bounded_string(payload["credential_reference"])
         _bounded_string(payload["purpose"], 32)
+        _bounded_string(payload["provider_id"], 32)
         if payload["principal_ref"] is not None:
             _bounded_string(payload["principal_ref"])
         if payload["expected_generation"] is not None:
@@ -284,15 +287,30 @@ def _validate_internal_request(command_id: str, payload: dict[str, object]) -> N
         for field in ("digest", "nonce", "plan_id", "user_presence_token"):
             _bounded_string(payload[field], 128)
         _bounded_integer(payload["generation"])
+    elif command_id == "host_internal.provider_response_commit":
+        _exact(
+            payload,
+            {
+                "body_base64",
+                "expected_generation",
+                "http_status",
+                "principal_ref",
+                "provider_id",
+            },
+        )
+        _bounded_string(payload["body_base64"], 512 * 1024)
+        _bounded_integer(payload["expected_generation"])
+        status = _bounded_integer(payload["http_status"])
+        if not 100 <= status <= 599:
+            raise ContractViolation("invalid provider HTTP status")
+        _bounded_string(payload["principal_ref"])
+        _bounded_string(payload["provider_id"], 32)
     else:
         raise ContractViolation("unknown internal command")
 
 
 def _validate_internal_response(command_id: str, payload: dict[str, object]) -> None:
-    if command_id in {
-        "host_internal.cleanup_pending",
-        "host_internal.credential_references",
-    }:
+    if command_id == "host_internal.cleanup_pending":
         _exact(payload, {"references", "status"})
         if payload["references"] != []:
             _bounded_string_list(payload["references"])
@@ -301,9 +319,10 @@ def _validate_internal_response(command_id: str, payload: dict[str, object]) -> 
         _exact(payload, {"status"})
         _bounded_string(payload["status"], 32)
     elif command_id == "host_internal.credential_context":
-        _exact(payload, {"credential_reference", "generation", "status"})
+        _exact(payload, {"credential_reference", "generation", "provider_id", "status"})
         _bounded_string(payload["credential_reference"])
         _bounded_integer(payload["generation"])
+        _bounded_string(payload["provider_id"], 32)
     elif command_id == "host_internal.credential_commit":
         _exact(payload, {"old_reference", "principal_ref", "status"})
         _bounded_string(payload["principal_ref"])
@@ -342,6 +361,13 @@ def _validate_internal_response(command_id: str, payload: dict[str, object]) -> 
         if payload["cleanup_references"] != []:
             _bounded_string_list(payload["cleanup_references"])
         _bounded_string(payload["status"], 32)
+    elif command_id == "host_internal.provider_response_commit":
+        _exact(payload, {"retryable", "safe_error_code", "status"})
+        if not isinstance(payload["retryable"], bool):
+            raise ContractViolation("invalid provider retryability")
+        if payload["safe_error_code"] is not None:
+            _bounded_string(payload["safe_error_code"], 64)
+        _bounded_string(payload["status"], 32)
     else:
         raise ContractViolation("unknown internal command")
 
@@ -354,16 +380,17 @@ def _internal_dispatch(
     try:
         if command_id == "host_internal.cleanup_pending":
             return {"references": native.cleanup_pending(), "status": "ok"}
-        if command_id == "host_internal.credential_references":
-            return {"references": native.credential_references(), "status": "ok"}
         if command_id == "host_internal.cleanup_ack":
             native.acknowledge_cleanup(cast(list[str], payload["references"]))
             return {"status": "acknowledged"}
         if command_id == "host_internal.credential_context":
-            reference, generation = native.credential_reference(str(payload["principal_ref"]))
+            reference, generation, provider_id = native.credential_context(
+                str(payload["principal_ref"])
+            )
             return {
                 "credential_reference": reference,
                 "generation": generation,
+                "provider_id": provider_id,
                 "status": "ok",
             }
         if command_id == "host_internal.credential_commit":
@@ -378,6 +405,7 @@ def _internal_dispatch(
                     if payload["expected_generation"] is None
                     else cast(int, payload["expected_generation"])
                 ),
+                provider_id=str(payload["provider_id"]),
             )
             return {
                 "old_reference": commit.old_reference,
@@ -404,6 +432,19 @@ def _internal_dispatch(
             return {
                 "cleanup_references": list(cleanup_references),
                 "status": "committed",
+            }
+        if command_id == "host_internal.provider_response_commit":
+            safe_error_code, retryable = native.commit_provider_response(
+                principal_ref=str(payload["principal_ref"]),
+                expected_generation=cast(int, payload["expected_generation"]),
+                provider_id=str(payload["provider_id"]),
+                http_status=cast(int, payload["http_status"]),
+                body_base64=str(payload["body_base64"]),
+            )
+            return {
+                "retryable": retryable,
+                "safe_error_code": safe_error_code,
+                "status": "committed" if safe_error_code is None else "rejected",
             }
     except (OSError, OverflowError, ValueError) as error:
         raise ContractViolation("internal operation rejected") from error

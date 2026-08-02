@@ -11,17 +11,42 @@ if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
   exit 1
 fi
 
-if [ -n "${AQ_RUST_BIN:-}" ]; then
-  PATH="$AQ_RUST_BIN:$PATH"
-  export PATH
-fi
+case "${AQ_RUST_BIN:-}" in
+  /*) ;;
+  *) echo "AQ_RUST_BIN must be an absolute toolchain bin directory" >&2; exit 1 ;;
+esac
 
-for tool in uv pnpm xcrun cargo; do
+if /usr/bin/env | /usr/bin/grep -Eq '^(RUSTFLAGS|RUSTDOCFLAGS|RUSTC_BOOTSTRAP|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|CARGO_HOME|CARGO_ENCODED_RUSTFLAGS|CARGO_INCREMENTAL|CARGO_BUILD_|CARGO_PROFILE_|CARGO_TARGET_)='; then
+  echo "unsafe Cargo or rustc environment override" >&2
+  exit 1
+fi
+real_home=$(/usr/bin/python3 -I -S -c 'import os, pwd; print(pwd.getpwuid(os.geteuid()).pw_dir)')
+[ "${HOME:-}" = "$real_home" ] || {
+  echo "HOME must match the OS account database during package builds" >&2
+  exit 1
+}
+for cargo_config in \
+  "$real_home/.cargo/config" "$real_home/.cargo/config.toml" \
+  "$repo_root/.cargo/config" "$repo_root/.cargo/config.toml"; do
+  [ ! -e "$cargo_config" ] || {
+    echo "Cargo config override is not allowed: $cargo_config" >&2
+    exit 1
+  }
+done
+
+for tool in uv pnpm node xcrun; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "missing build tool: $tool" >&2
     exit 1
   fi
 done
+PNPM=$(command -v pnpm)
+NODE=$(command -v node)
+
+"$repo_root/tools/verify_rust_toolchain.sh"
+RUSTC="$AQ_RUST_BIN/rustc"
+CARGO="$AQ_RUST_BIN/cargo"
+export RUSTC CARGO
 
 /bin/rm -rf "$generated" "$pyi_root" "$artifact_dir"
 /bin/mkdir -p "$generated" "$pyi_root/work" "$pyi_root/spec" "$artifact_dir"
@@ -58,9 +83,19 @@ resource_manifest_sha256=$(
   /usr/bin/shasum -a 256 "$generated/resource-manifest.json" | /usr/bin/awk '{print $1}'
 )
 AQ_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256" \
-  pnpm tauri build --bundles app
+  "$repo_root/tools/verify_rust_toolchain.sh" >/dev/null
+rust_command_shim="$pyi_root/rust-command-shim"
+/bin/mkdir -m 0700 "$rust_command_shim"
+/bin/ln -s "$CARGO" "$rust_command_shim/cargo"
+/bin/ln -s "$RUSTC" "$rust_command_shim/rustc"
+/bin/ln -s "$PNPM" "$rust_command_shim/pnpm"
+node_bin_dir=$(/usr/bin/dirname -- "$NODE")
+AQ_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256" \
+  PATH="$rust_command_shim:$node_bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+  "$PNPM" tauri build --runner "$CARGO" --target aarch64-apple-darwin \
+    --features production --bundles app
 
-app="$repo_root/src-tauri/target/release/bundle/macos/Agent Quota.app"
+app="$repo_root/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Agent Quota.app"
 if [ ! -d "$app" ]; then
   echo "Tauri application output is incomplete" >&2
   exit 1

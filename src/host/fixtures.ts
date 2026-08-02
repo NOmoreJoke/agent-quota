@@ -85,6 +85,13 @@ export async function fixtureInvoke(commandId: CommandId, payload: Record<string
           status: "error",
         };
       }
+      if (mode === "partial") {
+        return {
+          refresh_state: { phase: "failed" },
+          safe_error: { code: "provider-unavailable", retryable: true },
+          status: "error",
+        };
+      }
       return {
         refresh_state: { phase: mode === "refreshing" ? "running" : "completed" },
         status: mode === "refreshing" ? "running" : "ok",

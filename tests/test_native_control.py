@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,10 @@ from agent_quota.native_control import NativeControlPlane
 
 def reference(seed: int) -> str:
     return f"credential-00000000-0000-4000-8000-{seed:012x}"
+
+
+def provider_body(document: object) -> str:
+    return base64.b64encode(json.dumps(document).encode()).decode()
 
 
 def test_create_persists_renderer_safe_account_and_permissions(tmp_path: Path) -> None:
@@ -25,12 +30,11 @@ def test_create_persists_renderer_safe_account_and_permissions(tmp_path: Path) -
     assert control.renderer_accounts() == [
         {
             "principal_ref": commit.principal_ref,
-            "display_label": "本机凭据 1",
+            "display_label": "DeepSeek",
             "lifecycle": "active",
         }
     ]
     assert "credential_reference" not in json.dumps(control.renderer_accounts())
-    assert control.credential_references() == [reference(1)]
     assert os.stat(root).st_mode & 0o777 == 0o700
     assert os.stat(root / "native-accounts-v1.json").st_mode & 0o777 == 0o600
     restored = NativeControlPlane(root)
@@ -72,6 +76,62 @@ def test_replace_generation_drift_and_duplicate_are_rejected(tmp_path: Path) -> 
             principal_ref=None,
             expected_generation=None,
         )
+
+
+def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="deepseek",
+    )
+    _, generation, provider = control.credential_context(created.principal_ref)
+    error, retryable = control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}],
+            }
+        ),
+    )
+    assert (error, retryable) == (None, False)
+    assert "CNY 9.5" in control.quota_projection("scope-all")["capability_rows"][0]["value_display"]
+    restored = NativeControlPlane(root)
+    assert restored.quota_projection("scope-all") == control.quota_projection("scope-all")
+
+    restored.commit_credential(
+        purpose="replace-credential-reference",
+        credential_reference=reference(2),
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id="deepseek",
+    )
+    assert restored.quota_projection("scope-all")["capability_rows"] == []
+    with pytest.raises(ValueError, match="generation drift"):
+        restored.commit_provider_response(
+            principal_ref=created.principal_ref,
+            expected_generation=generation,
+            provider_id="deepseek",
+            http_status=200,
+            body_base64=provider_body({}),
+        )
+    _, rotated_generation, _ = restored.credential_context(created.principal_ref)
+    error, _ = restored.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=rotated_generation,
+        provider_id="deepseek",
+        http_status=401,
+        body_base64="ignored",
+    )
+    assert error == "reauth-required"
+    assert restored.renderer_accounts()[0]["lifecycle"] == "needs-reauth"
 
 
 def test_destructive_two_phase_cancel_drift_replay_and_commit(tmp_path: Path) -> None:
@@ -126,7 +186,6 @@ def test_destructive_two_phase_cancel_drift_replay_and_commit(tmp_path: Path) ->
         user_presence_token=token,
     )
     assert control.renderer_accounts() == []
-    assert control.credential_references() == []
     assert control.cleanup_pending() == [reference(1), reference(2)]
     with pytest.raises(ValueError, match="replay|unknown or consumed"):
         control.commit_destructive(

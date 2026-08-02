@@ -30,8 +30,8 @@ uv run mypy src
 uv run pytest --cov=agent_quota --cov-branch
 pnpm lint && pnpm typecheck && pnpm test && pnpm boundary && pnpm build && pnpm e2e
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --features development-overrides -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml --features development-overrides
 ```
 
 门禁绑定**具体二进制哈希**（见 `docs/contracts/package.json` 的 `aqValidationRuntime`），他机不可替代；当前 checkout 的任何本地通过只算审计证据，不等于生产发布授权。

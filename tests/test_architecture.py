@@ -27,3 +27,98 @@ def test_production_package_has_no_network_or_http_server_imports() -> None:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imports.add(node.module)
     assert not imports.intersection(forbidden)
+
+
+def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> None:
+    root = Path(__file__).resolve().parents[1]
+    swift = (root / "native/AgentQuotaNative.swift").read_text()
+    for host in (
+        "api.deepseek.com",
+        "api.moonshot.cn",
+        "api.moonshot.ai",
+        "api.kimi.com",
+        "www.minimaxi.com",
+        "www.minimax.io",
+        "open.bigmodel.cn",
+        "api.z.ai",
+    ):
+        assert swift.count(f'host: "{host}"') == 1
+    for constraint in (
+        'components.scheme = "https"',
+        "url.host == host",
+        "url.path == path",
+        "url.port == nil",
+        "url.user == nil",
+        "url.password == nil",
+        "url.query == nil",
+        "url.fragment == nil",
+        "request.httpMethod = method",
+    ):
+        assert constraint in swift
+    assert "connectionProxyDictionary = [:]" in swift
+    assert "urlCredentialStorage = nil" in swift
+    assert 'request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")' in swift
+    assert "completionHandler(nil)" in swift
+    assert "URLSessionDataDelegate" in swift
+    assert "didReceive data: Data" in swift
+    assert "dataTask.cancel()" in swift
+    assert "expected > Int64(limit)" in swift
+    assert "data.count > limit - body.count" in swift
+    assert "private let lock = NSLock()" in swift
+    assert "func snapshot()" in swift
+    assert "let snapshot = delegate.snapshot()" in swift
+    assert "dataTask(with: request) {" not in swift
+    assert "keychainRead(account: reference)" in swift
+    assert 'method: "GET"' in swift
+    assert 'host: "auth.kimi.com"' not in swift
+    assert 'private let kimiCodeOAuthHost = "auth.kimi.com"' in swift
+    assert 'path: "/coding/v1/usages"' in swift
+    assert 'path: "/api/oauth/device_authorization"' in swift
+    assert 'path: "/api/oauth/token"' in swift
+    assert "expiresIn <= 86_400" not in swift
+    assert 'positiveInt64(document["expires_in"]) ?? 300' in swift
+    assert "TimeInterval(authorizationLifetime)" in swift
+    assert "private func minimizedProviderDocument" in swift
+    for provider in ("deepseek", "kimi-cn", "kimi-code", "minimax-cn", "glm-cn"):
+        assert f'provider == "{provider}"' in swift
+    assert 'selected(balance, ["type", "amount", "amountLeft"])' in swift
+    assert "private func isSafeCredential" in swift
+    assert '!isSafeCredential("injected\\r\\nHeader: value")' in swift
+    assert 'case "keychain-prune"' not in swift
+    assert "pruneReferences" not in swift
+    assert "if status == errSecItemNotFound" in swift
+    assert "provider: id, httpStatus: 401" in swift
+    assert 'document["user"]' not in swift
+    assert 'document["authentication"]' not in swift
+    assert "ProcessInfo.processInfo.environment" not in swift
+    assert "UserDefaults" not in swift
+    assert "didResignActiveNotification" not in swift
+    assert "alert.runModal() == .alertFirstButtonReturn" in swift
+    assert "#selector(NSText.paste(_:))" in swift
+    assert 'keyEquivalent: "v"' in swift
+    assert "pasteItem.keyEquivalentModifierMask = [.command]" in swift
+    assert swift.index("application.finishLaunching()") < swift.index("let pasteItem")
+    assert 'NSMenuItem(title: "Edit"' in swift
+    assert "final class PasteSecureTextField" in swift
+    assert 'event.charactersIgnoringModifiers?.lowercased() == "v"' in swift
+    assert "editor.paste(nil)" in swift
+    assert "secure.menu = secureMenu" in swift
+    assert "NSText.copy" not in swift
+    rust_host = (root / "src-tauri" / "src" / "lib.rs").read_text()
+    lease = rust_host.index("InstanceLease::acquire(&data_root)")
+    builder = rust_host.index("tauri::Builder::default()")
+    assert "app.path().app_data_dir()" not in rust_host
+    assert "fixed_app_data_root()" in rust_host
+    assert "Err(InstanceLeaseError::AlreadyRunning) => return" in rust_host
+    assert lease < builder
+    assert lease < rust_host.index("runtime_resources(app)")
+    assert lease < rust_host.index("SidecarSupervisor::spawn")
+    assert lease < rust_host.index("NativeHost::new")
+    assert "prune_references" not in rust_host
+    assert "host_internal.credential_references" not in rust_host
+    helper = (root / "tools/build_native_helper.sh").read_text()
+    assert "-strict-concurrency=complete" in helper
+    assert '"$app_binary" --self-test-provider-minimization' in helper
+    renderer_contract = (root / "src/agent_quota/resources/renderer_contract_v1.json").read_text()
+    assert "body_base64" not in renderer_contract
+    assert "http_status" not in renderer_contract

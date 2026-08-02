@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import io
 import json
 import os
@@ -201,6 +202,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
                 "credential_reference": "credential-00000000-0000-4000-8000-000000000001",
                 "expected_generation": None,
                 "principal_ref": None,
+                "provider_id": "deepseek",
                 "purpose": "create-credential-reference",
             },
         )
@@ -216,37 +218,26 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     )["response"]["accounts"]
     assert accounts == [
         {
-            "display_label": "本机凭据 1",
+            "display_label": "DeepSeek",
             "lifecycle": "active",
             "principal_ref": principal,
         }
     ]
     assert "credential" not in json.dumps(accounts)
-    references = session.dispatch(
-        envelope(
-            secret,
-            request_id=3,
-            command_id="host_internal.credential_references",
-            payload={},
-        )
-    )["response"]
-    assert references == {
-        "references": ["credential-00000000-0000-4000-8000-000000000001"],
-        "status": "ok",
-    }
     context = session.dispatch(
         envelope(
             secret,
-            request_id=4,
+            request_id=3,
             command_id="host_internal.credential_context",
             payload={"principal_ref": principal},
         )
     )["response"]
     assert context["credential_reference"].endswith("000000000001")
+    assert context["provider_id"] == "deepseek"
     plan = session.dispatch(
         envelope(
             secret,
-            request_id=5,
+            request_id=4,
             command_id="host_internal.destructive_prepare",
             payload={
                 "operation_intent": "purge",
@@ -257,7 +248,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     cancelled = session.dispatch(
         envelope(
             secret,
-            request_id=6,
+            request_id=5,
             command_id="host_internal.destructive_cancel",
             payload={"plan_id": plan["plan_id"]},
         )
@@ -266,7 +257,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     plan = session.dispatch(
         envelope(
             secret,
-            request_id=7,
+            request_id=6,
             command_id="host_internal.destructive_prepare",
             payload={
                 "operation_intent": "purge",
@@ -277,7 +268,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     committed = session.dispatch(
         envelope(
             secret,
-            request_id=8,
+            request_id=7,
             command_id="host_internal.destructive_commit",
             payload={
                 "digest": plan["digest"],
@@ -295,7 +286,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     pending = session.dispatch(
         envelope(
             secret,
-            request_id=9,
+            request_id=8,
             command_id="host_internal.cleanup_pending",
             payload={},
         )
@@ -304,7 +295,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     acknowledged = session.dispatch(
         envelope(
             secret,
-            request_id=10,
+            request_id=9,
             command_id="host_internal.cleanup_ack",
             payload={"references": pending["references"]},
         )
@@ -314,7 +305,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
         session.dispatch(
             envelope(
                 secret,
-                request_id=11,
+                request_id=10,
                 command_id="host_internal.destructive_commit",
                 payload={
                     "digest": plan["digest"],
@@ -325,3 +316,67 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
                 },
             )
         )
+
+
+def test_internal_provider_response_is_fenced_persisted_and_renderer_safe(tmp_path: Path) -> None:
+    secret = b"p" * 32
+    native = NativeControlPlane((tmp_path / "private-provider").absolute())
+    session = SidecarSession(secret, RendererContract(), native)
+    created = session.dispatch(
+        envelope(
+            secret,
+            request_id=1,
+            command_id="host_internal.credential_commit",
+            payload={
+                "credential_reference": "credential-00000000-0000-4000-8000-000000000009",
+                "expected_generation": None,
+                "principal_ref": None,
+                "provider_id": "deepseek",
+                "purpose": "create-credential-reference",
+            },
+        )
+    )["response"]
+    principal = created["principal_ref"]
+    context = session.dispatch(
+        envelope(
+            secret,
+            request_id=2,
+            command_id="host_internal.credential_context",
+            payload={"principal_ref": principal},
+        )
+    )["response"]
+    body = base64.b64encode(
+        json.dumps(
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "USD", "total_balance": "7"}],
+            }
+        ).encode()
+    ).decode()
+    committed = session.dispatch(
+        envelope(
+            secret,
+            request_id=3,
+            command_id="host_internal.provider_response_commit",
+            payload={
+                "body_base64": body,
+                "expected_generation": context["generation"],
+                "http_status": 200,
+                "principal_ref": principal,
+                "provider_id": context["provider_id"],
+            },
+        )
+    )["response"]
+    assert committed == {"retryable": False, "safe_error_code": None, "status": "committed"}
+    overview = session.dispatch(
+        envelope(
+            secret,
+            request_id=4,
+            command_id="quota_overview",
+            payload={"scope_ref": "scope-all"},
+        )
+    )["response"]
+    serialized = json.dumps(overview)
+    assert "USD 7" in serialized
+    assert "credential-" not in serialized
+    assert body not in serialized

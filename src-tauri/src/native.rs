@@ -10,10 +10,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const MAX_REQUEST_BYTES: usize = 4096;
-const MAX_RESPONSE_BYTES: u64 = 4096;
+const MAX_RESPONSE_BYTES: u64 = 384 * 1024;
 const CREDENTIAL_TIMEOUT: Duration = Duration::from_secs(120);
 const DESTRUCTIVE_TIMEOUT: Duration = Duration::from_secs(60);
 const CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
+const PROVIDER_TIMEOUT: Duration = Duration::from_secs(25);
 const DIALOG_COOLDOWN: Duration = Duration::from_millis(750);
 const TERM_GRACE: Duration = Duration::from_millis(200);
 
@@ -38,6 +39,9 @@ pub struct NativeResponse {
     pub opaque_reference: Option<String>,
     pub error_code: Option<String>,
     pub user_presence_token: Option<String>,
+    pub provider: Option<String>,
+    pub http_status: Option<u16>,
+    pub body_base64: Option<String>,
 }
 
 #[derive(Debug)]
@@ -49,6 +53,7 @@ struct DialogState {
 pub struct NativeHost {
     executable: Option<PathBuf>,
     gate: Mutex<DialogState>,
+    provider_gate: Mutex<()>,
 }
 
 impl NativeHost {
@@ -59,6 +64,7 @@ impl NativeHost {
                 active: false,
                 next_allowed: Instant::now(),
             }),
+            provider_gate: Mutex::new(()),
         }
     }
 
@@ -70,6 +76,27 @@ impl NativeHost {
         self.run_gated(request, DESTRUCTIVE_TIMEOUT)
     }
 
+    pub fn provider_fetch(
+        &self,
+        reference: &str,
+        provider: &str,
+    ) -> Result<NativeResponse, NativeError> {
+        // Provider helpers are separate processes. Serializing their full fetch path prevents
+        // two expired Kimi OAuth bundles from rotating the same refresh token concurrently.
+        let _provider_guard = self
+            .provider_gate
+            .lock()
+            .map_err(|_| NativeError::Process)?;
+        self.run(
+            serde_json::json!({
+                "action": "provider-fetch",
+                "opaqueReference": reference,
+                "provider": provider
+            }),
+            PROVIDER_TIMEOUT,
+        )
+    }
+
     pub fn delete_reference(&self, reference: &str) -> Result<(), NativeError> {
         let response = self.run(
             serde_json::json!({
@@ -79,21 +106,6 @@ impl NativeHost {
             CLEANUP_TIMEOUT,
         )?;
         if matches!(response.status.as_str(), "deleted" | "not-found") {
-            Ok(())
-        } else {
-            Err(NativeError::Process)
-        }
-    }
-
-    pub fn prune_references(&self, retained_references: &[&str]) -> Result<(), NativeError> {
-        let response = self.run(
-            serde_json::json!({
-                "action": "keychain-prune",
-                "retainedReferences": retained_references
-            }),
-            CLEANUP_TIMEOUT,
-        )?;
-        if response.status == "pruned" {
             Ok(())
         } else {
             Err(NativeError::Process)
@@ -174,7 +186,7 @@ impl NativeHost {
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "development-overrides")]
 pub fn helper_path(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
     if let Some(path) = std::env::var_os("AQ_NATIVE_HELPER_EXECUTABLE") {
         return Some(PathBuf::from(path));
@@ -330,20 +342,47 @@ mod tests {
     }
 
     #[test]
-    fn helper_supervisor_accepts_closed_prune_response() {
+    fn provider_fetches_are_single_flight_across_helper_processes() {
+        use std::sync::{Arc, Barrier};
+
         let directory = tempfile::tempdir().unwrap();
         let executable = directory.path().join("fixture-helper");
+        let active = directory.path().join("active");
+        let overlap = directory.path().join("overlap");
         fs::write(
             &executable,
-            "#!/bin/sh\nread request\nprintf '%s\\n' '{\"status\":\"pruned\"}'\n",
+            format!(
+                "#!/bin/sh\nread request\nif ! /bin/mkdir '{}'; then /usr/bin/touch '{}'; fi\n/bin/sleep 1\n/bin/rmdir '{}' 2>/dev/null || true\nprintf '%s\\n' '{{\"status\":\"provider-response\",\"provider\":\"deepseek\",\"httpStatus\":200,\"bodyBase64\":\"e30=\"}}'\n",
+                active.display(),
+                overlap.display(),
+                active.display()
+            ),
         )
         .unwrap();
         let mut permissions = fs::metadata(&executable).unwrap().permissions();
         permissions.set_mode(0o700);
         fs::set_permissions(&executable, permissions).unwrap();
-        let host = NativeHost::new(Some(executable));
-        host.prune_references(&["credential-00000000-0000-4000-8000-000000000001"])
-            .unwrap();
+
+        let host = Arc::new(NativeHost::new(Some(executable)));
+        let barrier = Arc::new(Barrier::new(3));
+        let mut threads = Vec::new();
+        for _ in 0..2 {
+            let host = Arc::clone(&host);
+            let barrier = Arc::clone(&barrier);
+            threads.push(thread::spawn(move || {
+                barrier.wait();
+                host.provider_fetch(
+                    "credential-00000000-0000-4000-8000-000000000001",
+                    "deepseek",
+                )
+                .unwrap();
+            }));
+        }
+        barrier.wait();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        assert!(!overlap.exists());
     }
 
     #[test]

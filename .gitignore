@@ -6,6 +6,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.toolchains/
 .coverage
 .hypothesis/
 .mypy_cache/
@@ -13,7 +14,7 @@ __pycache__/
 .ruff_cache/
 build/
 
-node_modules/
+node_modules
 dist/
 coverage/
 *.tsbuildinfo

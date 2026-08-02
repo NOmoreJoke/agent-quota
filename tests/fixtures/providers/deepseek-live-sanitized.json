@@ -1,0 +1,22 @@
+{
+  "schema": "aq-provider-recording-v1",
+  "provider_id": "deepseek",
+  "source_kind": "live-sanitized",
+  "live_verified": true,
+  "recorded_at": "2026-08-01T04:39:10Z",
+  "evidence_url": "https://api-docs.deepseek.com/api/get-user-balance/",
+  "sanitization": "All account identifiers and monetary values were replaced; only the observed JSON field topology was retained.",
+  "response_sha256": "9d87fa51cd37fab9e68fe1a01b2f236e03066a3d8f7289f1cbe1c36c3a705c79",
+  "response": {
+    "is_available": true,
+    "balance_infos": [
+      {
+        "currency": "CNY",
+        "total_balance": "12.34",
+        "granted_balance": "2.34",
+        "topped_up_balance": "10.00"
+      }
+    ]
+  },
+  "expected_projection": ["CNY 12.34 可用"]
+}

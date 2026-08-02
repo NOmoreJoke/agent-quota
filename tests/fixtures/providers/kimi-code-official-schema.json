@@ -1,0 +1,35 @@
+{
+  "schema": "aq-provider-recording-v1",
+  "provider_id": "kimi-code",
+  "source_kind": "official-schema",
+  "live_verified": false,
+  "recorded_at": null,
+  "evidence_url": "https://github.com/MoonshotAI/kimi-code/blob/main/packages/oauth/src/managed-usage.ts",
+  "sanitization": "Synthetic contract fixture derived from the official Kimi Code managed usage parser; no live account response was used.",
+  "response_sha256": "358083e2682501e9d4f4cf4602c4045ed62b2a8e64e5916e4ace7097cfb7b8d2",
+  "response": {
+    "usage": {
+      "used": "400",
+      "limit": "1000",
+      "resetTime": "2026-08-03T05:20:51Z"
+    },
+    "limits": [
+      {
+        "window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"},
+        "detail": {"used": "25", "limit": "100", "resetTime": "2026-08-01T10:00:00Z"}
+      }
+    ],
+    "boosterWallet": {
+      "balance": {
+        "type": "BOOSTER",
+        "amount": "20000000000",
+        "amountLeft": "12500000000"
+      }
+    }
+  },
+  "expected_projection": [
+    "周剩余 60%",
+    "5小时剩余 75%",
+    "Extra Usage USD 125 / 200"
+  ]
+}

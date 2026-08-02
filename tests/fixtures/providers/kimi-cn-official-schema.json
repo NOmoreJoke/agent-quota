@@ -1,0 +1,20 @@
+{
+  "schema": "aq-provider-recording-v1",
+  "provider_id": "kimi-cn",
+  "source_kind": "official-schema",
+  "live_verified": false,
+  "recorded_at": null,
+  "evidence_url": "https://platform.kimi.com/docs/api/balance",
+  "sanitization": "Synthetic contract fixture derived from the official schema; no live account response was used.",
+  "response_sha256": "1dd116386da64b006e8024bc70a05c7252a026433009ce545cc52aeea97e4ca0",
+  "response": {
+    "code": 0,
+    "status": true,
+    "data": {
+      "available_balance": 12.5,
+      "cash_balance": 10,
+      "voucher_balance": 2.5
+    }
+  },
+  "expected_projection": ["CNY 12.5 可用余额", "CNY 10 现金余额", "CNY 2.5 代金券余额"]
+}

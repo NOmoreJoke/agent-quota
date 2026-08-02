@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Final, cast
 
 from agent_quota.filesystem import atomic_write_private, open_directory_nofollow, read_regular_at
+from agent_quota.providers import PROVIDER_IDS, manifest, parse_provider_response
 
 STATE_SCHEMA: Final = "aq-native-account-state-v1"
 MAX_ACCOUNTS: Final = 64
@@ -141,16 +142,25 @@ class NativeControlPlane:
         for account in accounts:
             if not isinstance(account, dict) or set(account) != {
                 "credential_reference",
+                "credential_type",
                 "display_label",
                 "generation",
+                "last_error_code",
+                "last_refresh_epoch_ms",
                 "lifecycle",
                 "principal_ref",
+                "provider_id",
+                "quota_projection",
             }:
                 raise ValueError("native account shape mismatch")
             principal = account["principal_ref"]
             reference = account["credential_reference"]
             label = account["display_label"]
             account_generation = account["generation"]
+            provider_id = account["provider_id"]
+            projection = account["quota_projection"]
+            last_refresh = account["last_refresh_epoch_ms"]
+            last_error = account["last_error_code"]
             if (
                 not isinstance(principal, str)
                 or PRINCIPAL_PATTERN.fullmatch(principal) is None
@@ -164,8 +174,43 @@ class NativeControlPlane:
                 or isinstance(account_generation, bool)
                 or not isinstance(account_generation, int)
                 or not 1 <= account_generation <= generation
+                or not isinstance(provider_id, str)
+                or provider_id not in PROVIDER_IDS
+                or account["credential_type"] != manifest(provider_id).credential_type
+                or not isinstance(projection, list)
+                or len(projection) > 256
+                or isinstance(last_refresh, bool)
+                or not isinstance(last_refresh, int)
+                or not 0 <= last_refresh <= 2**63 - 1
+                or (
+                    last_error is not None
+                    and (
+                        not isinstance(last_error, str)
+                        or last_error
+                        not in {
+                            "contract-error",
+                            "provider-unavailable",
+                            "reauth-required",
+                            "timeout",
+                        }
+                    )
+                )
             ):
                 raise ValueError("native account value mismatch")
+            for row in projection:
+                if (
+                    not isinstance(row, dict)
+                    or set(row) != {"capability_ref", "display_kind", "health", "value_display"}
+                    or not isinstance(row["display_kind"], str)
+                    or row["display_kind"] not in {"balance", "counter", "status", "window"}
+                    or not isinstance(row["health"], str)
+                    or row["health"] not in {"error", "incompatible", "ok", "unsupported"}
+                    or any(
+                        not isinstance(row[field], str) or not 1 <= len(row[field].encode()) <= 128
+                        for field in ("capability_ref", "value_display")
+                    )
+                ):
+                    raise ValueError("native quota projection mismatch")
             seen_principals.add(principal)
             seen_references.add(reference)
         if any(
@@ -223,6 +268,29 @@ class NativeControlPlane:
                 return reference, generation
         raise ValueError("unknown principal")
 
+    def credential_context(self, principal_ref: str) -> tuple[str, int, str]:
+        reference, generation = self.credential_reference(principal_ref)
+        for account in self.accounts:
+            if account["principal_ref"] == principal_ref:
+                provider_id = account["provider_id"]
+                assert isinstance(provider_id, str)
+                return reference, generation, provider_id
+        raise ValueError("unknown principal")
+
+    def quota_projection(self, scope_ref: str) -> dict[str, object]:
+        rows: list[dict[str, str]] = []
+        refreshed: list[int] = []
+        for account in self.accounts:
+            if scope_ref not in {"scope-all", account["principal_ref"]}:
+                continue
+            rows.extend(cast(list[dict[str, str]], account["quota_projection"]))
+            refreshed.append(cast(int, account["last_refresh_epoch_ms"]))
+        return {
+            "capability_rows": rows,
+            "freshness": "fresh" if rows and any(refreshed) else "stale",
+            "scope_ref": scope_ref,
+        }
+
     def commit_credential(
         self,
         *,
@@ -230,8 +298,10 @@ class NativeControlPlane:
         credential_reference: str,
         principal_ref: str | None,
         expected_generation: int | None,
+        provider_id: str = "deepseek",
     ) -> CredentialCommit:
         self._validate_reference(credential_reference)
+        provider = manifest(provider_id)
         if any(
             account["credential_reference"] == credential_reference for account in self.accounts
         ):
@@ -249,9 +319,14 @@ class NativeControlPlane:
                 {
                     "principal_ref": principal,
                     "credential_reference": credential_reference,
-                    "display_label": f"本机凭据 {len(self.accounts) + 1}",
+                    "credential_type": provider.credential_type,
+                    "display_label": provider.display_name,
                     "lifecycle": "active",
                     "generation": next_generation,
+                    "last_error_code": None,
+                    "last_refresh_epoch_ms": 0,
+                    "provider_id": provider.provider_id,
+                    "quota_projection": [],
                 }
             )
             self._state["generation"] = next_generation
@@ -267,11 +342,16 @@ class NativeControlPlane:
                 continue
             if account["generation"] != expected_generation:
                 raise ValueError("credential generation drift")
+            if account["provider_id"] != provider_id:
+                raise ValueError("credential provider drift")
             old_reference = account["credential_reference"]
             next_generation = self._next_generation()
             account["credential_reference"] = credential_reference
             account["generation"] = next_generation
             account["lifecycle"] = "active"
+            account["last_error_code"] = None
+            account["last_refresh_epoch_ms"] = 0
+            account["quota_projection"] = []
             self._queue_keychain_deletion(old_reference)
             self._state["generation"] = next_generation
             self._persist()
@@ -279,11 +359,38 @@ class NativeControlPlane:
             return CredentialCommit(principal_ref, old_reference)
         raise ValueError("unknown principal")
 
+    def commit_provider_response(
+        self,
+        *,
+        principal_ref: str,
+        expected_generation: int,
+        provider_id: str,
+        http_status: int,
+        body_base64: str,
+    ) -> tuple[str | None, bool]:
+        self._validate_principal(principal_ref)
+        if isinstance(http_status, bool) or not 100 <= http_status <= 599:
+            raise ValueError("invalid provider HTTP status")
+        for account in self.accounts:
+            if account["principal_ref"] != principal_ref:
+                continue
+            if account["generation"] != expected_generation:
+                raise ValueError("provider response generation drift")
+            if account["provider_id"] != provider_id:
+                raise ValueError("provider response identity drift")
+            result = parse_provider_response(provider_id, http_status, body_base64)
+            account["quota_projection"] = [dict(row) for row in result.rows]
+            account["last_refresh_epoch_ms"] = int(time.time() * 1000)
+            account["last_error_code"] = result.safe_error_code
+            account["lifecycle"] = (
+                "needs-reauth" if result.safe_error_code == "reauth-required" else "active"
+            )
+            self._persist()
+            return result.safe_error_code, result.retryable
+        raise ValueError("unknown principal")
+
     def cleanup_pending(self) -> list[str]:
         return list(self.pending_keychain_deletions)
-
-    def credential_references(self) -> list[str]:
-        return [cast(str, account["credential_reference"]) for account in self.accounts]
 
     def acknowledge_cleanup(self, references: list[str]) -> None:
         if not references or len(references) > MAX_ACCOUNTS * 2:

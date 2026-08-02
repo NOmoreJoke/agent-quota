@@ -6,6 +6,11 @@ authors = ["Agent Quota"]
 edition = "2024"
 rust-version = "1.85"
 
+[features]
+default = []
+production = []
+development-overrides = []
+
 [lib]
 name = "agent_quota_desktop_lib"
 crate-type = ["lib", "cdylib", "staticlib"]

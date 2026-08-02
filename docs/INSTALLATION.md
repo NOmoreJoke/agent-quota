@@ -13,19 +13,33 @@
 ## 构建
 
 前置：Apple Silicon macOS、Xcode Command Line Tools、Python 3.11、uv、
-Node/pnpm、Rust/cargo。
+Node/pnpm、`rust-toolchain.toml` 固定的 Rust 1.97.1 + clippy/rustfmt。
 
 ```bash
 uv sync --all-groups --locked
 pnpm install --frozen-lockfile
-./tools/build_macos_package.sh
+AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin ./tools/verify_rust_toolchain.sh
+AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin ./tools/build_macos_package.sh
 ```
 
-若 `cargo` 不在 `PATH`：
+固定工具链必须安装到非临时、当前用户不可被其他用户写入的持久目录并显式传入；
+构建不读取 `PATH` 中的 Rust，`/private/var/tmp` 会被门禁拒绝：
 
 ```bash
-AQ_RUST_BIN=/absolute/path/to/rust/bin ./tools/build_macos_package.sh
+AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin ./tools/build_macos_package.sh
 ```
+
+门禁逐项核对 Rust 官方 standalone archive SHA-256、完整安装树 SHA-256、rustc
+release/commit/host、cargo release、clippy/rustfmt；工具及其
+目录链必须由 root/当前 euid 持有且不可 group/world 写，拒绝 symlink、非普通/非可
+执行文件、硬链接、临时工具链和验证后 inode 漂移。构建使用已验证的绝对
+`RUSTC`/`CARGO` 路径；Tauri 显式使用该 Cargo runner、固定 target 与 `production`
+feature，并在 build 前重新验证。包构建拒绝 Rust/Cargo wrapper、profile、flags、
+target 与用户/repository Cargo config 覆写；`production` 与
+`development-overrides` feature 互斥，production + debug assertions 编译失败。
+解析器固定为 root 持有、不可 group/world 写的 `/usr/bin/python3`、`awk`、`grep`、
+`dirname`；Python 使用 isolated/no-site 模式，拒绝 `AQ_RUST_BIN`、`PATH`、
+`PYTHONPATH` 或用户 site 中的替身。
 
 输出：
 
@@ -42,6 +56,14 @@ AQ_RUST_BIN=/absolute/path/to/rust/bin ./tools/build_macos_package.sh
 2. 打开 DMG。
 3. 将 `Agent Quota.app` 拖入 `/Applications`。
 4. 启动应用。
+
+生产数据目录由 `getpwuid_r(geteuid())` 得到的 macOS 账户 home 固定派生，不信任
+`HOME`；同一 macOS 用户只允许一个 host 实例。第二实例会在 sidecar、Keychain
+显式 pending cleanup 和 Provider helper 启动前因独占 lease 失败而退出；不要并行直接执行
+第二份 app binary。
+
+启动流程绝不按 Keychain service 补集清理凭据。状态文件缺失、部分恢复或普通重装
+均不得触发批量 Keychain 删除；仅显式 destructive journal 中记录的引用可被删除。
 
 若 macOS 提示来源未识别，不得关闭 Gatekeeper 或清除全局安全属性；仅在确认
 本机生成产物的 SHA-256 后，通过 macOS 提供的单应用人工确认流程处理。

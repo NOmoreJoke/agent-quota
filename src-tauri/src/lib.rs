@@ -1,27 +1,36 @@
 mod contract;
+mod instance;
 mod native;
 pub mod protocol;
-#[cfg(any(not(debug_assertions), test))]
+#[cfg(any(feature = "production", test))]
 mod resource;
 pub mod supervisor;
 
+#[cfg(all(feature = "production", feature = "development-overrides"))]
+compile_error!("production and development-overrides are mutually exclusive");
+#[cfg(not(any(feature = "production", feature = "development-overrides")))]
+compile_error!("select exactly one Agent Quota runtime feature");
+#[cfg(all(feature = "production", debug_assertions, not(test)))]
+compile_error!("production build must not enable debug assertions");
+
 use contract::{safe_error, validate_request, validate_response};
-#[cfg(debug_assertions)]
+use instance::{InstanceLease, InstanceLeaseError, fixed_app_data_root};
+#[cfg(feature = "development-overrides")]
 use native::helper_path;
 use native::{NativeError, NativeHost};
-#[cfg(not(debug_assertions))]
+#[cfg(feature = "production")]
 use resource::ValidatedResources;
 use serde_json::{Value, json};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use supervisor::{SidecarSupervisor, SupervisorError};
 use tauri::{AppHandle, Manager, State};
 
 type CommandResult = Result<Value, String>;
 const DEFAULT_BUDGET_NS: u64 = 2_000_000_000;
-const REFRESH_BUDGET_NS: u64 = 9_000_000_000;
 
 struct HostState {
+    _instance_lease: InstanceLease,
     sidecar: Mutex<Option<SidecarSupervisor>>,
     native: NativeHost,
 }
@@ -174,6 +183,57 @@ fn cleanup_references(state: &State<'_, HostState>, references: &Value) {
     }
 }
 
+fn bounded_provider_error(code: Option<&str>) -> &'static str {
+    match code {
+        Some("reauth-required") => "reauth-required",
+        Some("contract-error") => "contract-error",
+        Some("timeout") => "timeout",
+        _ => "provider-unavailable",
+    }
+}
+
+fn refresh_principal(state: &State<'_, HostState>, principal: &str) -> Result<(), &'static str> {
+    let context = call_internal(
+        state,
+        "host_internal.credential_context",
+        json!({"principal_ref": principal}),
+    )
+    .map_err(|_| "provider-unavailable")?;
+    let reference = context["credential_reference"]
+        .as_str()
+        .ok_or("contract-error")?;
+    let provider = context["provider_id"].as_str().ok_or("contract-error")?;
+    let response = state
+        .native
+        .provider_fetch(reference, provider)
+        .map_err(|error| native_error_code(&error))?;
+    if response.status != "provider-response" {
+        return Err(bounded_provider_error(response.error_code.as_deref()));
+    }
+    if response.provider.as_deref() != Some(provider) {
+        return Err("contract-error");
+    }
+    let committed = call_internal(
+        state,
+        "host_internal.provider_response_commit",
+        json!({
+            "body_base64": response.body_base64.ok_or("contract-error")?,
+            "expected_generation": context["generation"],
+            "http_status": response.http_status.ok_or("contract-error")?,
+            "principal_ref": principal,
+            "provider_id": provider
+        }),
+    )
+    .map_err(|_| "provider-unavailable")?;
+    if committed["status"] == "committed" {
+        Ok(())
+    } else {
+        Err(bounded_provider_error(
+            committed["safe_error_code"].as_str(),
+        ))
+    }
+}
+
 #[tauri::command]
 fn bootstrap_state(state: State<'_, HostState>, request: Value) -> CommandResult {
     call_sidecar(&state, "bootstrap_state", request, DEFAULT_BUDGET_NS)
@@ -191,7 +251,32 @@ fn quota_overview(state: State<'_, HostState>, request: Value) -> CommandResult 
 
 #[tauri::command]
 fn refresh_scope(state: State<'_, HostState>, request: Value) -> CommandResult {
-    call_sidecar(&state, "refresh_scope", request, REFRESH_BUDGET_NS)
+    validate_request("refresh_scope", &request).map_err(|_| "request rejected".to_owned())?;
+    let scope = request["scope_ref"].as_str().unwrap_or_default();
+    let accounts = call_sidecar(
+        &state,
+        "accounts_read",
+        json!({"scope_ref": "scope-all"}),
+        DEFAULT_BUDGET_NS,
+    )?;
+    let principals: Vec<&str> = accounts["accounts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|account| account["principal_ref"].as_str())
+        .filter(|principal| scope == "scope-all" || *principal == scope)
+        .collect();
+    let mut first_error = None;
+    for principal in principals {
+        if let Err(code) = refresh_principal(&state, principal) {
+            first_error.get_or_insert(code);
+        }
+    }
+    let response = match first_error {
+        Some(code) => unavailable("refresh_scope", &request, code),
+        None => json!({"refresh_state": {"phase": "completed"}, "status": "ok"}),
+    };
+    validated("refresh_scope", response)
 }
 
 #[tauri::command]
@@ -223,7 +308,8 @@ fn credential_dialog_open(
             json!({"opaque_reference_status": "cancelled", "status": "cancelled"})
         }
         Ok(response) if response.status == "reference-created" => {
-            let Some(reference) = response.opaque_reference else {
+            let (Some(reference), Some(provider)) = (response.opaque_reference, response.provider)
+            else {
                 restore_main_window(&app);
                 return validated(
                     "credential_dialog_open",
@@ -237,11 +323,23 @@ fn credential_dialog_open(
                     "credential_reference": reference,
                     "expected_generation": null,
                     "principal_ref": null,
+                    "provider_id": provider,
                     "purpose": "create-credential-reference"
                 }),
             ) {
                 Ok(result) if result["status"] == "committed" => {
-                    json!({"opaque_reference_status": "reference-created", "status": "ok"})
+                    let principal = result["principal_ref"].as_str().unwrap_or_default();
+                    match refresh_principal(&state, principal) {
+                        Ok(()) => json!({
+                            "opaque_reference_status": "reference-created",
+                            "status": "ok"
+                        }),
+                        Err(code) => json!({
+                            "opaque_reference_status": "reference-created",
+                            "safe_error": safe_error(code, code == "provider-unavailable"),
+                            "status": "error"
+                        }),
+                    }
                 }
                 Err(SupervisorError::OutcomeUnknown) => {
                     unavailable("credential_dialog_open", &request, "outcome-unknown")
@@ -398,7 +496,8 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
     };
     let native_response = state.native.credential(json!({
         "action": "credential",
-        "dialogPurpose": "replace-credential-reference"
+        "dialogPurpose": "replace-credential-reference",
+        "provider": context["provider_id"]
     }));
     restore_main_window(&app);
     let response = match native_response {
@@ -420,6 +519,7 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
                     "credential_reference": reference,
                     "expected_generation": context["generation"],
                     "principal_ref": principal,
+                    "provider_id": context["provider_id"],
                     "purpose": "replace-credential-reference"
                 }),
             ) {
@@ -433,7 +533,14 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
                             );
                         }
                     }
-                    json!({"reauth_state": "succeeded", "status": "ok"})
+                    match refresh_principal(&state, principal) {
+                        Ok(()) => json!({"reauth_state": "succeeded", "status": "ok"}),
+                        Err(code) => json!({
+                            "reauth_state": "failed",
+                            "safe_error": safe_error(code, code == "provider-unavailable"),
+                            "status": "error"
+                        }),
+                    }
                 }
                 Err(SupervisorError::OutcomeUnknown) => {
                     unavailable("reauthenticate", &request, "outcome-unknown")
@@ -460,25 +567,27 @@ fn scheduler_state(state: State<'_, HostState>, request: Value) -> CommandResult
     call_sidecar(&state, "scheduler_state", request, DEFAULT_BUDGET_NS)
 }
 
-fn sidecar_spec(app: &tauri::App, executable: Option<PathBuf>) -> Option<(PathBuf, Vec<String>)> {
-    #[cfg(debug_assertions)]
-    let data_root = std::env::var_os("AQ_DATA_ROOT")
-        .map(PathBuf::from)
-        .or_else(|| app.path().app_data_dir().ok())?;
-    #[cfg(not(debug_assertions))]
-    let data_root = app.path().app_data_dir().ok()?;
+fn app_data_root() -> Result<PathBuf, InstanceLeaseError> {
+    #[cfg(feature = "development-overrides")]
+    if let Some(data_root) = std::env::var_os("AQ_DATA_ROOT") {
+        return Ok(PathBuf::from(data_root));
+    }
+    fixed_app_data_root()
+}
+
+fn sidecar_spec(executable: Option<PathBuf>, data_root: &Path) -> Option<(PathBuf, Vec<String>)> {
     let arguments = vec![
         "--data-root".to_owned(),
         data_root.to_string_lossy().into_owned(),
     ];
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "development-overrides")]
     if let Some(path) = std::env::var_os("AQ_SIDECAR_EXECUTABLE") {
         return Some((PathBuf::from(path), arguments));
     }
     executable.map(|path| (path, arguments))
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "development-overrides")]
 fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
     let resource_dir = app.path().resource_dir().ok();
     let sidecar = resource_dir
@@ -487,7 +596,7 @@ fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
     (sidecar, helper_path(resource_dir))
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(feature = "production")]
 fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
     const MANIFEST_SHA256: &str = env!("AQ_RESOURCE_MANIFEST_SHA256");
     let validated: Option<ValidatedResources> = app
@@ -503,10 +612,27 @@ fn runtime_resources(app: &tauri::App) -> (Option<PathBuf>, Option<PathBuf>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let data_root = match app_data_root() {
+        Ok(data_root) => data_root,
+        Err(error) => {
+            eprintln!("Agent Quota data boundary unavailable: {error}");
+            return;
+        }
+    };
+    // Resolve the installation-wide boundary before creating Tauri's event loop. Returning
+    // here keeps a normal second launch from becoming a non-unwinding setup-hook panic.
+    let instance_lease = match InstanceLease::acquire(&data_root) {
+        Ok(instance_lease) => instance_lease,
+        Err(InstanceLeaseError::AlreadyRunning) => return,
+        Err(error) => {
+            eprintln!("Agent Quota instance boundary unavailable: {error}");
+            return;
+        }
+    };
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(move |app| {
             let (sidecar_executable, native_executable) = runtime_resources(app);
-            let mut sidecar = sidecar_spec(app, sidecar_executable)
+            let mut sidecar = sidecar_spec(sidecar_executable, &data_root)
                 .and_then(|(path, arguments)| SidecarSupervisor::spawn(&path, &arguments).ok());
             let native = NativeHost::new(native_executable);
             if let Some(active) = sidecar.as_mut()
@@ -530,18 +656,8 @@ pub fn run() {
                     );
                 }
             }
-            if let Some(active) = sidecar.as_mut()
-                && let Ok(retained) = active.call_internal(
-                    "host_internal.credential_references",
-                    json!({}),
-                    DEFAULT_BUDGET_NS,
-                )
-                && let Some(references) = retained["references"].as_array()
-            {
-                let retained: Vec<&str> = references.iter().filter_map(Value::as_str).collect();
-                let _ = native.prune_references(&retained);
-            }
             app.manage(HostState {
+                _instance_lease: instance_lease,
                 sidecar: Mutex::new(sidecar),
                 native,
             });

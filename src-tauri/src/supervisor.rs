@@ -388,6 +388,7 @@ mod tests {
                             "credential-00000000-0000-4000-8000-000000000001",
                         "expected_generation": null,
                         "principal_ref": null,
+                        "provider_id": "deepseek",
                         "purpose": "create-credential-reference"
                     }),
                     2_000_000_000,
