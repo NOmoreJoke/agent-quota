@@ -118,7 +118,36 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert "host_internal.credential_references" not in rust_host
     helper = (root / "tools/build_native_helper.sh").read_text()
     assert "-strict-concurrency=complete" in helper
+    assert "-target arm64-apple-macosx13.0" in helper
     assert '"$app_binary" --self-test-provider-minimization' in helper
     renderer_contract = (root / "src/agent_quota/resources/renderer_contract_v1.json").read_text()
     assert "body_base64" not in renderer_contract
     assert "http_status" not in renderer_contract
+
+
+def test_macos_package_script_has_ordered_resource_gates() -> None:
+    root = Path(__file__).parents[1]
+    script = (root / "tools/build_macos_package.sh").read_text()
+    assert 'MACOSX_DEPLOYMENT_TARGET_REQUIRED="13.0"' in script
+    assert "SWIFT_MACOSX_DEPLOYMENT_TARGET must be exactly" in script
+    assert '"$repo_root/tools/audit_package_size.py"' in script
+    assert script.index("audit_macos_bundle.py") < script.index("hdiutil create")
+    assert script.index("audit_package_size.py") < script.index("hdiutil create")
+    assert "20971520" in script
+
+
+def test_production_renderer_has_no_timer_or_loopback_patterns() -> None:
+    root = Path(__file__).parents[1] / "src"
+    forbidden = ("setInterval(", "setTimeout(", "http://127.0.0.1", "http://localhost")
+    production = [
+        path
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".ts", ".tsx", ".js"}
+        and not path.name.endswith(".test.ts")
+        and not path.name.endswith(".test.tsx")
+        and path.name != "fixtures.ts"
+    ]
+    for path in production:
+        text = path.read_text(encoding="utf-8", errors="strict")
+        assert not any(pattern in text for pattern in forbidden), path

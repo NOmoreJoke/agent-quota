@@ -61,6 +61,8 @@ describe("App", () => {
       "Kimi Code",
       "Kimi",
     ]);
+    expect(host.querySelectorAll("[data-provider-id]")).toHaveLength(78);
+    expect(host.querySelector<HTMLButtonElement>('[aria-label="Cursor 不可添加"]')?.disabled).toBe(true);
 
     const queue = [...host.querySelectorAll("button")].find((node) =>
       node.textContent?.includes("刷新队列"),

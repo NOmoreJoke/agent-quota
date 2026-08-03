@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invokeHost, transportMode } from "../host/transport";
+import { providerCatalog } from "./providerCatalog";
 
 type View = "overview" | "accounts" | "queue" | "status" | "settings";
 type OverviewMode = "window" | "wallet";
@@ -127,6 +128,8 @@ export function App() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [providerQuery, setProviderQuery] = useState("");
+  const [providerMode, setProviderMode] = useState<"all" | OverviewMode>("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -225,6 +228,17 @@ export function App() {
     provider,
     rows: filteredCapabilities.filter((row) => providerName(row.capability_ref) === provider),
   })).filter((group) => group.rows.length > 0), [filteredCapabilities]);
+
+  const filteredProviders = useMemo(() => {
+    const normalized = providerQuery.trim().toLowerCase();
+    return providerCatalog.rows.filter((provider) => {
+      const matchesQuery = !normalized ||
+        `${provider.screenshot_label} ${provider.canonical_id}`.toLowerCase().includes(normalized);
+      const matchesMode = providerMode === "all" ||
+        provider[providerMode].status !== "unsupported";
+      return matchesQuery && matchesMode;
+    });
+  }, [providerMode, providerQuery]);
 
   const pageTitle = view === "overview" ? "额度总览" : nav.find((item) => item.id === view)?.label;
 
@@ -331,6 +345,37 @@ export function App() {
             {accounts.length === 0 && (
               <EmptyState onAdd={() => void nativeCredential()} />
             )}
+            <section className="catalog-section" aria-labelledby="provider-catalog-title">
+              <div className="catalog-heading">
+                <div>
+                  <h2 id="provider-catalog-title" className="section-title">Provider Preset</h2>
+                  <p>78 项目录覆盖 · 仅固定官方合同可启用 · 目录覆盖不等于实时查询支持</p>
+                </div>
+                <label className="search catalog-search"><Icon name="search"/><input value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} placeholder="搜索 Provider" aria-label="搜索 Provider Preset"/></label>
+              </div>
+              <div className="segmented catalog-filter" role="group" aria-label="Provider 能力筛选">
+                <button type="button" className={providerMode === "all" ? "active" : ""} onClick={() => setProviderMode("all")}>全部</button>
+                <button type="button" className={providerMode === "window" ? "active" : ""} onClick={() => setProviderMode("window")}>Window View</button>
+                <button type="button" className={providerMode === "wallet" ? "active" : ""} onClick={() => setProviderMode("wallet")}>Wallet View</button>
+              </div>
+              <div className="preset-grid" data-testid="provider-preset-grid">
+                {filteredProviders.map((provider) => {
+                  const enabled = provider.adapter_ids.length > 0;
+                  return (
+                    <article className="preset-card" key={provider.row_id} data-provider-id={provider.row_id}>
+                      <div className="preset-title"><span>{provider.screenshot_label.slice(0, 1)}</span><strong>{provider.screenshot_label}</strong></div>
+                      <div className="preset-capabilities">
+                        <small className={`capability capability-${provider.window.status}`}>Window · {provider.window.status}</small>
+                        <small className={`capability capability-${provider.wallet.status}`}>Wallet · {provider.wallet.status}</small>
+                      </div>
+                      <p>{provider.blocker || "固定官方只读查询已接入"}</p>
+                      <button type="button" className="secondary compact" disabled={!enabled} aria-label={`${provider.screenshot_label} ${enabled ? "添加" : "不可添加"}`} onClick={() => void nativeCredential()}>{enabled ? "添加" : provider.support_tier}</button>
+                    </article>
+                  );
+                })}
+              </div>
+              {filteredProviders.length === 0 && <div className="inline-empty">没有匹配的 Provider</div>}
+            </section>
           </section>
         ) : view === "queue" ? (
           <section>

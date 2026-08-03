@@ -11,6 +11,23 @@
 
 Agent Quota Desktop 是一个本地优先的独立桌面额度聚合产品。macOS 桌面 GUI 是 MVP 主入口；用户可配置自己拥有的认证身份、订阅、工作区、组织或钱包，并查看各主体真实存在的窗口、余额、计数、freshness、health 与安全错误。CLI 只承担维护、诊断、无障碍和自动化辅助；Hermes、飞书与 SchedulerHost 是可选集成，远期 Web 不是 Desktop GUI 的同义词，也不是 MVP 依赖。
 
+## Provider 支持
+
+- Provider Preset 目录覆盖 78 项：截图原始 73 项，以及 Claude Code、WorkBuddy、
+  QoderWork/QwenWork、Trae、Cursor。完整机器清单见
+  [`provider_catalog_v1.json`](src/agent_quota/resources/provider_catalog_v1.json)。
+- 已接入固定官方只读查询：DeepSeek Wallet、Kimi 中国/国际 Wallet、Kimi Code
+  Window/Extra Usage、MiniMax 中国/国际 Token Plan、GLM 中国/国际 Coding Plan。
+- Codex、Claude Code、Cursor、Trae、WorkBuddy、QoderWork/QwenWork 等保留为
+  Experimental；无公开稳定机器额度合同或未进入固定 host allowlist 时不可添加。
+- `Catalog-only` 只代表可发现，不代表可以查询；`Custom Configuration` 明确不支持
+  任意 base URL。静态 RPM/价格页/控制台 UI/第三方宣称不计作可查询额度。
+- Window View 只显示 Coding Plan/订阅窗口；Wallet View 只显示 API 余额、credit 或
+  Extra Usage，不跨类型、Provider 或币种求和。
+
+使用方式见 [`USER_GUIDE.md`](docs/USER_GUIDE.md)，能力矩阵与验证层级见
+[`PROVIDER_CATALOG.md`](docs/PROVIDER_CATALOG.md)。
+
 ## 当前内容
 
 - [完整设计方案](docs/design-proposal.md)
@@ -50,8 +67,8 @@ Agent Quota Desktop 是一个本地优先的独立桌面额度聚合产品。mac
 
 ## 当前边界
 
-- 未安装任何应用依赖；仓库只为文档合同验证登记 exact-pinned AJV 依赖与 lock，本地 `node_modules/` 不入库
-- 未创建 Desktop host、renderer、sidecar、服务端或 Web 前端代码；当前全部内容仍是静态设计/机器合同
+- 应用依赖 exact pin；本地 `node_modules/`、构建产物和运行状态不入库
+- 已实现 Desktop host、renderer、Python sidecar 与 macOS native helper；不含服务端或 Web 后端
 - 未接入任何真实 API Key、登录凭据或飞书应用
 - 已完成初始 Git commit 并推送至远程 GitHub 仓库（NOmoreJoke/agent-quota）；建立 `main`/`dev`/`feature/*` 三层分支，并对 `main` 启用分支保护（要求 PR、禁止直推与强推）
 

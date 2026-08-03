@@ -5,10 +5,11 @@
 `Agent-Quota-0.1.0-arm64-local-unsigned.dmg` 是
 `local unsigned development package`：
 
-- Apple Silicon `arm64`。
+- Apple Silicon `arm64`，最低 macOS 13.0；不按芯片代际或 Pro/Max/Ultra 型号特判。
 - 内含固定 CPython 3.11.15 sidecar 与 macOS native helper。
 - ad-hoc 签名；未使用 Developer ID，未公证。
 - 不代表 Intel/universal、干净 VM、真实 Provider 或生产环境验证。
+- 全芯片目标兼容不等于全部机型实机验证。
 
 ## 构建
 

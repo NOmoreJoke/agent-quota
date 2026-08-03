@@ -52,3 +52,35 @@ test("failure, empty, offline and responsive states remain operable", async ({ p
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Provider 行为" })).toBeVisible();
 });
+
+test("provider preset catalog is complete, searchable, filtered and responsive", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "账户与 Provider" }).click();
+
+  const catalog = page.locator("[data-provider-id]");
+  await expect(catalog).toHaveCount(78);
+
+  const search = page.getByRole("textbox", { name: "搜索 Provider Preset" });
+  await search.fill("Cursor");
+  await expect(catalog).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Cursor 不可添加" })).toBeDisabled();
+  await search.fill("");
+
+  const filter = page.getByRole("group", { name: "Provider 能力筛选" });
+  await filter.getByRole("button", { name: "Window View" }).click();
+  expect(await catalog.count()).toBeGreaterThan(0);
+  expect(await catalog.locator(".preset-capabilities small:first-child").allTextContents())
+    .not.toContain("Window · unsupported");
+
+  await filter.getByRole("button", { name: "Wallet View" }).click();
+  expect(await catalog.count()).toBeGreaterThan(0);
+  expect(await catalog.locator(".preset-capabilities small:nth-child(2)").allTextContents())
+    .not.toContain("Wallet · unsupported");
+
+  for (const width of [1024, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => [...document.querySelectorAll(".preset-card")]
+      .every((card) => card.scrollWidth <= card.clientWidth))).toBe(true);
+  }
+});

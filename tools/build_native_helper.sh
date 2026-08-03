@@ -11,6 +11,7 @@ mkdir -p "$output_dir"
 mkdir -p "$app_dir/Contents/MacOS"
 
 xcrun swiftc \
+  -target arm64-apple-macosx13.0 \
   -parse-as-library \
   -strict-concurrency=complete \
   -warnings-as-errors \

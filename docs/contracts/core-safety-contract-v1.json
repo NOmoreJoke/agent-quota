@@ -2551,8 +2551,8 @@
               "mutation_case_id": "validation-input-changed"
             },
             "target_repo_path": "README.md",
-            "expected_before_state_sha256": "3fb14b54c64676ab5d23e5c371ff2db22207e0db0375dba9e335467bb538e338",
-            "expected_after_state_sha256": "cec69fb0c213f68b5e9c4c99e9d4a4aca1de1cf8204d8dcf087fd35089037c20",
+            "expected_before_state_sha256": "682aeeb7aeba1cb803f2abd6b7d3ce512bd50b22bb5700571cdf26dacf2d1485",
+            "expected_after_state_sha256": "8c72b7557ee5b76762dadb29c0acc80e5a723dffb08d41b41a2be537d4c2e40d",
             "evidence_descriptor": "validation-input-changed|validator pause before final verify|\"stable README bytes\"->\"concurrent README replacement\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2576,7 +2576,7 @@
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "1075a1f968fcfe1289aec2ea877ced7bedce0f598e8c166fbd8cbbebb0f59606"
         },
-        "mutation_sha256": "24e3246cd31c59aebffc2e401f94ddabcfe2c6f318c4b250d98b0231aafbceb8"
+        "mutation_sha256": "1327401802d71df9dfebd90242d0c6ed16a83a42fdeee998e6969538ce106d41"
       },
       {
         "sequence": 29,
@@ -2850,8 +2850,8 @@
               "mutation_case_id": "release-gate-concurrent-replacement"
             },
             "target_repo_path": "README.md",
-            "expected_before_state_sha256": "7e4816562add9bfa94257ed8105589b733f1c3a4e1a87d24e7bfd00622547d6b",
-            "expected_after_state_sha256": "c4dfb19b93474dd2a4a73072759cf2e3296afb9524e6d53fb89d5a7b3e40706e",
+            "expected_before_state_sha256": "95f6bdb717999d8a2ab9399c13ba6c81bd047d42a8ce7db52a0d28d6496d379e",
+            "expected_after_state_sha256": "eda832180d52fd386bb463b64f4294f4fdba778d8ebd8cb9f16ab3db1032caa3",
             "evidence_descriptor": "release-gate-concurrent-replacement|gate pause before final verify|\"stable README bytes\"->\"concurrent README replacement\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2875,7 +2875,7 @@
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "518dda5d085170eff45ec2a155cc869ebf3059ddcb9b338726b26a0a4aba5dc1"
         },
-        "mutation_sha256": "6e01ff96ffbdde02b7c9b387693b44a320280a4b0341299128c1fb3bad0d3149"
+        "mutation_sha256": "c57d771c05be460f5bde529f2f2122994c71d3e1bc44a7aa6761f22a50d385d9"
       },
       {
         "sequence": 37,
@@ -3285,14 +3285,14 @@
             "expected_before": "docs/audits/gui-product-decision-resolution.md",
             "expected_after": "docs/audits/wrong-product-decision.md",
             "target_repo_path": "README.md",
-            "expected_before_state_sha256": "6a455886cd75eeb404ae81475a2bc246ea2d2072031c9f5bb0f380a95f0d1af1",
+            "expected_before_state_sha256": "0b4ab81705eda1afbbacf0d98886bd79eccb8cf3f99891be00459719f9c95571",
             "expected_after_state_sha256": "d333fef1684192fdcd49196f6aa43d62132ac2d8ef505a23a57cca076d6f0ead"
           },
           "expected_failure_class": "validator-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "7736224c48d89981fe143ad133d46dfefb2d59684f4950b965d8e773fa54e752"
         },
-        "mutation_sha256": "e71fff5b3dc9c00084a6afe5928c0cce58a85632b3effdb4480a5e2792aaaefb"
+        "mutation_sha256": "b56725d8dac34c53ddc8e868089ac28c616769160881b79b58f19e52ffed32d5"
       },
       {
         "sequence": 48,

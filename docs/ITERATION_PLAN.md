@@ -130,3 +130,20 @@
 - 本地可启动并覆盖原型全部功能。
 - macOS 安装包可在目标 Mac 安装运行。
 - 未完成真实签名/notarization/干净 VM 时，只能标注 `local unsigned development package`。
+
+## Iteration 5 — Provider catalog / Apple Silicon 资源门禁
+
+状态：`PASS`（2026-08-03；全量门禁通过；本地未签名/未公证）
+
+交付物：
+
+- 78 项 Provider Preset 目录与 Window/Wallet 能力状态。
+- 现有 8 个固定官方 adapter 映射；其余 fail closed。
+- README、PRD、使用手册、Provider catalog 与性能边界。
+- macOS 13.0 deployment target、app 40 MiB、DMG 20 MiB 构建门禁。
+
+自动化：
+
+- catalog 78 行/唯一 ID/adapter closure；搜索、筛选、禁用状态。
+- fixture/contract parser；不得把 mock 计作 live。
+- Python、renderer、Rust、合同、package 全门禁。

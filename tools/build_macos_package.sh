@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+MACOSX_DEPLOYMENT_TARGET_REQUIRED="13.0"
+if [ "${MACOSX_DEPLOYMENT_TARGET:-$MACOSX_DEPLOYMENT_TARGET_REQUIRED}" != "$MACOSX_DEPLOYMENT_TARGET_REQUIRED" ]; then
+  echo "MACOSX_DEPLOYMENT_TARGET must be exactly $MACOSX_DEPLOYMENT_TARGET_REQUIRED" >&2
+  exit 1
+fi
+if [ "${SWIFT_MACOSX_DEPLOYMENT_TARGET:-$MACOSX_DEPLOYMENT_TARGET_REQUIRED}" != "$MACOSX_DEPLOYMENT_TARGET_REQUIRED" ]; then
+  echo "SWIFT_MACOSX_DEPLOYMENT_TARGET must be exactly $MACOSX_DEPLOYMENT_TARGET_REQUIRED" >&2
+  exit 1
+fi
+export MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET_REQUIRED"
+export SWIFT_MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET_REQUIRED"
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 generated="$repo_root/src-tauri/generated-resources"
 pyi_root="$repo_root/build/pyinstaller"
@@ -104,6 +116,12 @@ fi
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
 
 /usr/bin/ditto "$app" "$artifact_dir/Agent Quota.app"
+uv run python tools/audit_macos_bundle.py \
+  --app "$artifact_dir/Agent Quota.app" \
+  --output "$artifact_dir/bundle-audit.json"
+uv run python "$repo_root/tools/audit_package_size.py" \
+  --root "$artifact_dir/Agent Quota.app" \
+  --max-mib 40
 /usr/bin/hdiutil create \
   -volname "Agent Quota" \
   -srcfolder "$app" \
@@ -112,9 +130,12 @@ fi
   "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
 /usr/bin/hdiutil verify "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
 
-uv run python tools/audit_macos_bundle.py \
-  --app "$artifact_dir/Agent Quota.app" \
-  --output "$artifact_dir/bundle-audit.json"
+dmg_bytes=$(/usr/bin/stat -f%z "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg")
+if [ "$dmg_bytes" -gt 20971520 ]; then
+  echo "DMG exceeds 20MiB budget: $dmg_bytes bytes" >&2
+  exit 1
+fi
+
 uv run python tools/generate_bundle_manifest.py \
   --root "$artifact_dir/Agent Quota.app" \
   --output "$artifact_dir/bundle-manifest.txt"

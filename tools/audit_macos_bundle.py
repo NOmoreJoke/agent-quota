@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import plistlib
+import re
 import stat
 import subprocess
 from pathlib import Path, PurePosixPath
@@ -22,6 +23,7 @@ REQUIRED_RESOURCES = (
     "native-helper/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative",
     "sidecar/agent-quota-sidecar",
 )
+MAXIMUM_DEPLOYMENT_TARGET = (13, 0, 0)
 
 
 def output(*command: str) -> str:
@@ -124,6 +126,17 @@ def dylibs(path: Path) -> list[str]:
     return [line.strip().split(" (", 1)[0] for line in lines if line.strip()]
 
 
+def deployment_targets(path: Path) -> list[str]:
+    details = output("/usr/bin/xcrun", "vtool", "-show-build", str(path))
+    return re.findall(r"^\s+minos (\d+(?:\.\d+){1,2})$", details, re.MULTILINE)
+
+
+def deployment_target_supported(value: str) -> bool:
+    parts = tuple(int(part) for part in value.split("."))
+    normalized = (*parts, 0, 0)[:3]
+    return normalized <= MAXIMUM_DEPLOYMENT_TARGET
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", type=Path, required=True)
@@ -162,20 +175,27 @@ def main() -> int:
     binaries: list[dict[str, object]] = []
     for path in mach_o_files(app):
         architecture = output("/usr/bin/lipo", "-archs", str(path)).strip().split()
+        targets = deployment_targets(path)
         dependencies = dylibs(path)
         unexpected = [
             dependency
             for dependency in dependencies
             if not dependency.startswith(ALLOWED_DYLIB_PREFIXES)
         ]
-        if "arm64" not in architecture:
-            errors.append(f"missing arm64 slice: {path.relative_to(app)}")
+        if architecture != ["arm64"]:
+            errors.append(f"architecture must be arm64 only: {path.relative_to(app)}")
+        if len(targets) != 1 or not deployment_target_supported(targets[0]):
+            errors.append(
+                f"unsupported deployment target: {path.relative_to(app)}: "
+                f"{', '.join(targets) or 'missing'}"
+            )
         if unexpected:
             errors.append(f"unexpected dylib: {path.relative_to(app)}: {', '.join(unexpected)}")
         binaries.append(
             {
                 "path": path.relative_to(app).as_posix(),
                 "architecture": architecture,
+                "deployment_target": targets[0] if len(targets) == 1 else None,
                 "dependencies": dependencies,
             }
         )

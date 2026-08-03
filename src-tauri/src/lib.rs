@@ -10,7 +10,7 @@ pub mod supervisor;
 compile_error!("production and development-overrides are mutually exclusive");
 #[cfg(not(any(feature = "production", feature = "development-overrides")))]
 compile_error!("select exactly one Agent Quota runtime feature");
-#[cfg(all(feature = "production", debug_assertions, not(test)))]
+#[cfg(all(feature = "production", debug_assertions, not(any(test, doc))))]
 compile_error!("production build must not enable debug assertions");
 
 use contract::{safe_error, validate_request, validate_response};

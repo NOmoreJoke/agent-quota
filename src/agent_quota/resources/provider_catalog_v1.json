@@ -1,0 +1,1744 @@
+{
+  "schema_version": "1.1",
+  "generated_at": "2026-08-02",
+  "rows": [
+    {
+      "row_id": "provider-001",
+      "screenshot_label": "Custom Configuration",
+      "canonical_id": "custom-configuration",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "Manifest validation only"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Unsupported",
+      "blocker": "Configuration input is not a trusted provider contract; arbitrary base URL must fail closed",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-002",
+      "screenshot_label": "APINebula",
+      "canonical_id": "apinebula",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-003",
+      "screenshot_label": "Shengsuanyun",
+      "canonical_id": "shengsuanyun",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-004",
+      "screenshot_label": "TeamoRouter",
+      "canonical_id": "teamorouter",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-005",
+      "screenshot_label": "SiliconFlow en",
+      "canonical_id": "siliconflow-en",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "experimental",
+        "endpoint": "official service quota/rate limit documentation",
+        "evidence": "Not sufficient for generic quota adapter"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Official service limits exist but not a generic Agent Quota machine contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-006",
+      "screenshot_label": "SSSAiCode",
+      "canonical_id": "sssaicode",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-007",
+      "screenshot_label": "DMXAPI",
+      "canonical_id": "dmxapi",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "experimental",
+        "endpoint": "official account/balance API surface",
+        "evidence": "Official documentation available"
+      },
+      "support_tier": "Experimental",
+      "blocker": "第三方账户接口未纳入固定 host allowlist；不可调用",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-008",
+      "screenshot_label": "AWS Bedrock #1",
+      "canonical_id": "aws-bedrock-#1",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-009",
+      "screenshot_label": "AWS Bedrock #2",
+      "canonical_id": "aws-bedrock-#2",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-010",
+      "screenshot_label": "CherryIN",
+      "canonical_id": "cherryin",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-011",
+      "screenshot_label": "KAT-Coder",
+      "canonical_id": "kat-coder",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-012",
+      "screenshot_label": "Nvidia",
+      "canonical_id": "nvidia",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-013",
+      "screenshot_label": "StepFun en",
+      "canonical_id": "stepfun-en",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-014",
+      "screenshot_label": "Zhipu GLM en",
+      "canonical_id": "zhipu-glm-en",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "supported",
+        "endpoint": "https://api.z.ai/api/monitor/usage/quota/limit",
+        "evidence": "https://docs.z.ai/devpack/extension/usage-query-plugin"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "Coding Plan window is not wallet credit"
+      },
+      "support_tier": "Supported",
+      "blocker": "仅 Window View",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [
+        "glm-global"
+      ],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-015",
+      "screenshot_label": "Claude Official",
+      "canonical_id": "claude-official",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-016",
+      "screenshot_label": "AICodeMirror",
+      "canonical_id": "aicodemirror",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-017",
+      "screenshot_label": "AIGoCode",
+      "canonical_id": "aigocode",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-018",
+      "screenshot_label": "ClaudeCN",
+      "canonical_id": "claudecn",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-019",
+      "screenshot_label": "NekoCode",
+      "canonical_id": "nekocode",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-020",
+      "screenshot_label": "Micu",
+      "canonical_id": "micu",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-021",
+      "screenshot_label": "Qiniu",
+      "canonical_id": "qiniu",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-022",
+      "screenshot_label": "Codex",
+      "canonical_id": "codex",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Product usage limits documented, but no public third-party machine-readable quota contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-023",
+      "screenshot_label": "Longcat",
+      "canonical_id": "longcat",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-024",
+      "screenshot_label": "OpenCode Go",
+      "canonical_id": "opencode-go",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-025",
+      "screenshot_label": "TheRouter",
+      "canonical_id": "therouter",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-026",
+      "screenshot_label": "Kimi",
+      "canonical_id": "kimi",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "supported",
+        "endpoint": "fixed official regional endpoints",
+        "evidence": "https://platform.kimi.com/docs/api/balance"
+      },
+      "support_tier": "Supported",
+      "blocker": "仅 Wallet View",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [
+        "kimi-cn",
+        "kimi-global"
+      ],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-027",
+      "screenshot_label": "PatewayAI",
+      "canonical_id": "patewayai",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-028",
+      "screenshot_label": "SubRouter",
+      "canonical_id": "subrouter",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-029",
+      "screenshot_label": "火山Agentplan",
+      "canonical_id": "火山agentplan",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-030",
+      "screenshot_label": "AtlasCloud",
+      "canonical_id": "atlascloud",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-031",
+      "screenshot_label": "RightCode",
+      "canonical_id": "rightcode",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-032",
+      "screenshot_label": "SudoCode.chat",
+      "canonical_id": "sudocode.chat",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-033",
+      "screenshot_label": "Baidu Qianfan Coding Plan",
+      "canonical_id": "baidu-qianfan-coding-plan",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "experimental",
+        "endpoint": "official service quota/rate limit documentation",
+        "evidence": "Not sufficient for generic quota adapter"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Official service limits exist but not a generic Agent Quota machine contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-034",
+      "screenshot_label": "DeepSeek",
+      "canonical_id": "deepseek",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "supported",
+        "endpoint": "https://api.deepseek.com/user/balance",
+        "evidence": "https://api-docs.deepseek.com/api/get-user-balance/"
+      },
+      "support_tier": "Supported",
+      "blocker": "Window View 无官方合同",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [
+        "deepseek"
+      ],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-035",
+      "screenshot_label": "MiniMax",
+      "canonical_id": "minimax",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "supported",
+        "endpoint": "https://www.minimaxi.com/v1/token_plan/remains",
+        "evidence": "https://platform.minimaxi.com/docs/token-plan/faq"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "Token Plan window is not wallet credit"
+      },
+      "support_tier": "Supported",
+      "blocker": "仅 Window View",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [
+        "minimax-cn"
+      ],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-036",
+      "screenshot_label": "OpenRouter",
+      "canonical_id": "openrouter",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-037",
+      "screenshot_label": "xAI (Grok)",
+      "canonical_id": "xai-(grok)",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-038",
+      "screenshot_label": "Kimi For Coding",
+      "canonical_id": "kimi-for-coding",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "supported",
+        "endpoint": "https://api.kimi.com/coding/v1/usages",
+        "evidence": "https://github.com/MoonshotAI/kimi-code/blob/main/packages/oauth/src/managed-usage.ts"
+      },
+      "wallet": {
+        "status": "supported",
+        "endpoint": "same official usage response",
+        "evidence": "https://github.com/MoonshotAI/kimi-code/blob/main/packages/oauth/src/managed-usage.ts"
+      },
+      "support_tier": "Supported",
+      "blocker": "",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [
+        "kimi-code"
+      ],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-039",
+      "screenshot_label": "FennoAI",
+      "canonical_id": "fennoai",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-040",
+      "screenshot_label": "APIKEY.FUN",
+      "canonical_id": "apikey.fun",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-041",
+      "screenshot_label": "BytePlus",
+      "canonical_id": "byteplus",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "experimental",
+        "endpoint": "official service quota/rate limit documentation",
+        "evidence": "Not sufficient for generic quota adapter"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Official service limits exist but not a generic Agent Quota machine contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-042",
+      "screenshot_label": "Compshare",
+      "canonical_id": "compshare",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-043",
+      "screenshot_label": "ETok.ai",
+      "canonical_id": "etok.ai",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-044",
+      "screenshot_label": "SudoCode.us",
+      "canonical_id": "sudocode.us",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-045",
+      "screenshot_label": "Bailian",
+      "canonical_id": "bailian",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "experimental",
+        "endpoint": "official service quota/rate limit documentation",
+        "evidence": "Not sufficient for generic quota adapter"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Official service limits exist but not a generic Agent Quota machine contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-046",
+      "screenshot_label": "E-FlowCode",
+      "canonical_id": "e-flowcode",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-047",
+      "screenshot_label": "MiniMax en",
+      "canonical_id": "minimax-en",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "supported",
+        "endpoint": "https://www.minimax.io/v1/token_plan/remains",
+        "evidence": "https://platform.minimax.io/docs/token-plan/faq"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "Token Plan window is not wallet credit"
+      },
+      "support_tier": "Supported",
+      "blocker": "仅 Window View",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [
+        "minimax-global"
+      ],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-048",
+      "screenshot_label": "PIPELLM",
+      "canonical_id": "pipellm",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-049",
+      "screenshot_label": "Xiaomi MiMo",
+      "canonical_id": "xiaomi-mimo",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-050",
+      "screenshot_label": "PackyCode",
+      "canonical_id": "packycode",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-051",
+      "screenshot_label": "RunAPI",
+      "canonical_id": "runapi",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-052",
+      "screenshot_label": "ClaudeAPI",
+      "canonical_id": "claudeapi",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-053",
+      "screenshot_label": "DouBaoSeed",
+      "canonical_id": "doubaoseed",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-054",
+      "screenshot_label": "Compshare Coding",
+      "canonical_id": "compshare-coding",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-055",
+      "screenshot_label": "Cubence",
+      "canonical_id": "cubence",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-056",
+      "screenshot_label": "AiHubMix",
+      "canonical_id": "aihubmix",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "experimental",
+        "endpoint": "official account/balance API surface",
+        "evidence": "Official documentation available"
+      },
+      "support_tier": "Experimental",
+      "blocker": "第三方账户接口未纳入固定 host allowlist；不可调用",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-057",
+      "screenshot_label": "Bailian For Coding",
+      "canonical_id": "bailian-for-coding",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-058",
+      "screenshot_label": "Gemini Native",
+      "canonical_id": "gemini-native",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-059",
+      "screenshot_label": "ModelScope",
+      "canonical_id": "modelscope",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-060",
+      "screenshot_label": "RelaxyCode",
+      "canonical_id": "relaxycode",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-061",
+      "screenshot_label": "Xiaomi MiMo Token",
+      "canonical_id": "xiaomi-mimo-token",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-062",
+      "screenshot_label": "ZetaAPI",
+      "canonical_id": "zetaapi",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-063",
+      "screenshot_label": "Unity2.ai",
+      "canonical_id": "unity2.ai",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-064",
+      "screenshot_label": "Code0",
+      "canonical_id": "code0",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-065",
+      "screenshot_label": "SiliconFlow",
+      "canonical_id": "siliconflow",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "experimental",
+        "endpoint": "official service quota/rate limit documentation",
+        "evidence": "Not sufficient for generic quota adapter"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Official service limits exist but not a generic Agent Quota machine contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-066",
+      "screenshot_label": "CCSub",
+      "canonical_id": "ccsub",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-067",
+      "screenshot_label": "CrazyRouter",
+      "canonical_id": "crazyrouter",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-068",
+      "screenshot_label": "Amux",
+      "canonical_id": "amux",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-069",
+      "screenshot_label": "BaiLing",
+      "canonical_id": "bailing",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-070",
+      "screenshot_label": "GitHub Copilot",
+      "canonical_id": "github-copilot",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Product usage limits documented, but no public third-party machine-readable quota contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-071",
+      "screenshot_label": "Novita AI",
+      "canonical_id": "novita-ai",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-072",
+      "screenshot_label": "StepFun",
+      "canonical_id": "stepfun",
+      "entity_status": "ambiguous",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Catalog-only",
+      "blocker": "No public stable machine-readable quota contract verified",
+      "confidence": "C",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-073",
+      "screenshot_label": "Zhipu GLM",
+      "canonical_id": "zhipu-glm",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "supported",
+        "endpoint": "https://open.bigmodel.cn/api/monitor/usage/quota/limit",
+        "evidence": "https://docs.z.ai/devpack/extension/usage-query-plugin"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "Coding Plan window is not wallet credit"
+      },
+      "support_tier": "Supported",
+      "blocker": "仅 Window View",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [
+        "glm-cn"
+      ],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-074",
+      "screenshot_label": "Claude Code",
+      "canonical_id": "claude-code",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Product usage limits documented, but no public third-party machine-readable quota contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-075",
+      "screenshot_label": "WorkBuddy",
+      "canonical_id": "workbuddy",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Product usage limits documented, but no public third-party machine-readable quota contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-076",
+      "screenshot_label": "QoderWork/QwenWork",
+      "canonical_id": "qoderwork-qwenwork",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Product usage limits documented, but no public third-party machine-readable quota contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-077",
+      "screenshot_label": "Trae",
+      "canonical_id": "trae",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Product usage limits documented, but no public third-party machine-readable quota contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    },
+    {
+      "row_id": "provider-078",
+      "screenshot_label": "Cursor",
+      "canonical_id": "cursor",
+      "entity_status": "confirmed",
+      "window": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public quota/window API contract"
+      },
+      "wallet": {
+        "status": "unsupported",
+        "endpoint": "",
+        "evidence": "No stable public wallet contract"
+      },
+      "support_tier": "Experimental",
+      "blocker": "Product usage limits documented, but no public third-party machine-readable quota contract",
+      "confidence": "A",
+      "checked_at": "2026-08-02",
+      "adapter_ids": [],
+      "catalog_note": "目录覆盖不等于可查询"
+    }
+  ],
+  "stats": {
+    "rows": 78,
+    "unique_row_id": 78,
+    "supported_rows": 7,
+    "experimental_rows": 14
+  },
+  "source": "ChatGPT Pro research reviewed against commit 3e2e187"
+}
