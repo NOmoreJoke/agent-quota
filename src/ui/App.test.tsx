@@ -50,6 +50,7 @@ describe("App", () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(host.textContent).toContain("窗口使用率 · 降序");
+    expect(host.querySelectorAll(".nav-item")).toHaveLength(5);
 
     const accounts = [...host.querySelectorAll("button")].find((node) =>
       node.textContent?.includes("账户与 Provider"),
@@ -68,13 +69,15 @@ describe("App", () => {
       node.textContent?.includes("刷新队列"),
     );
     await act(async () => queue?.click());
-    expect(host.textContent).toContain("Provider / Subject");
+    expect(host.textContent).toContain("Global Refresh");
+    expect(host.textContent).toContain("等待手动刷新");
 
     const status = [...host.querySelectorAll("button")].find((node) =>
       node.textContent?.includes("状态"),
     );
     await act(async () => status?.click());
     expect(host.textContent).toContain("Renderer");
+    expect(host.textContent).toContain("fixture scheduler_state: healthy");
 
     const settings = [...host.querySelectorAll("button")].find((node) =>
       node.textContent?.includes("设置"),

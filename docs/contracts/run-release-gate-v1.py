@@ -1062,7 +1062,7 @@ def verify_external_negative_self_tests(
 def verify_loaded_image_collector_self_tests(validator: Any) -> int:
     """Prove discovery is prefix-independent and path failures are closed."""
     verified = 0
-    with tempfile.TemporaryDirectory(prefix="aq-loaded-image-fixture-", dir="/private/var/tmp") as temporary:
+    with tempfile.TemporaryDirectory(prefix="aq-loaded-image-fixture-", dir="/Users/Shared") as temporary:
         root = Path(os.path.realpath(temporary))
         dylib = root / "liboutside-prefix.dylib"
         shutil.copy2("/opt/homebrew/Cellar/gmp/6.3.0/lib/libgmp.10.dylib", dylib)

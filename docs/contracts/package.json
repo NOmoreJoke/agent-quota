@@ -26,7 +26,7 @@
     "launch_evidence_semantics": "local-opened-fd-integrity-evidence-never-authentication-or-fixed-launch-proof",
     "launch_entry_raw_sha256": {
       "docs/contracts/canonicalize-registry-v1.py": "c7d5d85b5df933fd2fa57872e1ecfe0cdc550be5690bbe33aa656e1aecfd31aa",
-    "docs/contracts/run-release-gate-v1.py": "f1d75aebdf9d950aee6cc8dc550a7ce1a9eaba982a95b285ff510c42989b47db",
+    "docs/contracts/run-release-gate-v1.py": "82327732f5e3ab6a66fe36a00f3f9fe333657f2d569df643167a52f781644487",
       "docs/contracts/run-validation-mutations-v1.py": "ff303a509821f6ca55797abcb1c850b81aab5155a66a1bca12b32210cac01bb6",
     "docs/contracts/validate-contracts-v1.py": "d9d61aedbfee7448314d7f204e5eca68de3c62d7108b0ca835e4f76bbb0ca50b"
     },

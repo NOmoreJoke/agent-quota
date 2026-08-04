@@ -33,9 +33,6 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   color: var(--ink);
   background: var(--bg);
 }
-.app-sidebar-right { grid-template-columns: minmax(0, 1fr) 240px; }
-.app-sidebar-right .sidebar { grid-column: 2; grid-row: 1; border-right: 0; border-left: 1px solid var(--line); }
-.app-sidebar-right main { grid-column: 1; grid-row: 1; }
 
 .skip-link { position: fixed; left: 12px; top: -60px; z-index: 20; padding: 10px 14px; color: white; background: #111; }
 .skip-link:focus { top: 12px; }
@@ -140,6 +137,10 @@ main { min-width: 0; padding: 24px 32px 56px; }
 .table-head { min-height: 42px; color: var(--secondary); background: var(--subtle); font-weight: 600; }
 .table-row code { color: var(--secondary); font-family: "JetBrains Mono", monospace; }
 .table-row > span:last-child { color: var(--muted); }
+.refresh-state { padding: 24px; }
+.refresh-state h2 { margin: 0; font-size: 16px; }
+.refresh-state .status { margin-top: 18px; }
+.refresh-state > p:last-child { margin: 10px 0 0; color: var(--secondary); font-size: 12px; }
 
 .health-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .health-card { min-height: 128px; padding: 20px; display: flex; flex-direction: column; }
@@ -174,7 +175,6 @@ main { min-width: 0; padding: 24px 32px 56px; }
 
 @media (max-width: 900px) {
   .app { grid-template-columns: 200px minmax(0, 1fr); }
-  .app-sidebar-right { grid-template-columns: minmax(0, 1fr) 200px; }
   .sidebar { padding-inline: 12px; }
   main { padding-inline: 24px; }
   .topbar { flex-direction: column; }
@@ -186,7 +186,6 @@ main { min-width: 0; padding: 24px 32px 56px; }
 
 @media (max-width: 680px) {
   .app { display: block; }
-  .app-sidebar-right .sidebar { border-left: 0; }
   .sidebar { position: static; width: auto; height: auto; padding: 12px; border: 0; border-bottom: 1px solid var(--line); }
   .brand { padding: 4px 6px 12px; font-size: 18px; }
   nav { grid-template-columns: repeat(5, 1fr); gap: 4px; }

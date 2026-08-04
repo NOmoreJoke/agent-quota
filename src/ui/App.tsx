@@ -13,6 +13,11 @@ type Capability = {
   value_display: string;
 };
 type Scheduler = { health: string; installed: boolean };
+type RefreshState = {
+  phase: "idle" | "running" | "completed";
+  outcome: "none" | "success" | "warning" | "error";
+  text: string;
+};
 
 const nav: { id: View; label: string; icon: string }[] = [
   { id: "overview", label: "概览", icon: "grid" },
@@ -88,6 +93,7 @@ function StatusPill({ value }: { value: string }) {
     running: "刷新中",
     done: "完成",
     queued: "等待中",
+    idle: "等待中",
   };
   return <span className={`status status-${value}`}><i />{label[value] ?? value}</span>;
 }
@@ -127,6 +133,11 @@ export function App() {
   const [scheduler, setScheduler] = useState<Scheduler>({ health: "absent", installed: false });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshState, setRefreshState] = useState<RefreshState>({
+    phase: "idle",
+    outcome: "none",
+    text: "等待手动刷新",
+  });
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [providerQuery, setProviderQuery] = useState("");
   const [providerMode, setProviderMode] = useState<"all" | OverviewMode>("all");
@@ -163,22 +174,28 @@ export function App() {
 
   const refresh = async () => {
     setRefreshing(true);
+    setRefreshState({ phase: "running", outcome: "none", text: "正在请求 host" });
     setNotice({ tone: "info", text: "正在刷新 Provider 额度…" });
     try {
       const result = await invokeHost("refresh_scope", { scope_ref: "scope-all" });
       const safeError = result.safe_error as { code?: string } | undefined;
       if (safeError?.code === "outcome-unknown") {
+        setRefreshState({ phase: "completed", outcome: "warning", text: "刷新结果未知；请先检查账户状态" });
         setNotice({ tone: "warning", text: "刷新结果未知。为避免重复操作，请先检查账户状态，再手动重试。" });
       } else if (safeError?.code) {
         await load();
+        setRefreshState({ phase: "completed", outcome: "warning", text: `部分刷新未完成（${safeError.code}）` });
         setNotice({ tone: "warning", text: `部分刷新未完成（${safeError.code}）；已保留成功结果与最近缓存。` });
       } else if ((result.refresh_state as { phase: string }).phase === "running") {
+        setRefreshState({ phase: "running", outcome: "none", text: "host 仍在后台刷新" });
         setNotice({ tone: "info", text: "刷新仍在后台运行，可在刷新队列查看状态。" });
       } else {
         await load();
+        setRefreshState({ phase: "completed", outcome: "success", text: "额度已刷新" });
         setNotice({ tone: "success", text: "额度已刷新。" });
       }
     } catch (error) {
+      setRefreshState({ phase: "completed", outcome: "error", text: `刷新失败：${readableError(error)}` });
       setNotice({ tone: "danger", text: `刷新失败：${readableError(error)}` });
     } finally {
       setRefreshing(false);
@@ -244,8 +261,8 @@ export function App() {
 
   return (
     <div
-      className={`app ${view === "accounts" || view === "settings" ? "app-sidebar-right" : ""}`}
-      data-sidebar-position={view === "accounts" || view === "settings" ? "right" : "left"}
+      className="app"
+      data-sidebar-position="left"
       data-transport={transportMode}
     >
       <a className="skip-link" href="#main">跳至主要内容</a>
@@ -267,7 +284,7 @@ export function App() {
             <h1>{pageTitle}</h1>
             {view === "overview" && <p>{accounts.length} Provider · {capabilities.length} Subject · {freshness === "fresh" ? "数据已更新" : "缓存数据"}</p>}
             {view === "accounts" && <p>管理 Provider 接入、凭据绑定、Subject 发现</p>}
-            {view === "queue" && <p>手动触发的 Provider 刷新与缓存查询</p>}
+            {view === "queue" && <p>全局手动刷新状态与安全结果投影</p>}
           </div>
           <div className="top-actions">
             {view === "overview" && <label className="search"><Icon name="search"/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 Provider / Subject" aria-label="搜索 Provider / Subject"/></label>}
@@ -380,16 +397,18 @@ export function App() {
         ) : view === "queue" ? (
           <section>
             <ContractNote/>
-            <div className="table-card" role="table" aria-label="刷新队列">
-              <div className="table-row table-head" role="row"><span>Provider / Subject</span><span>Scope</span><span>状态</span><span>剩余预算</span><span>触发</span></div>
-              {accounts.map((account, index) => <div className="table-row" role="row" key={account.principal_ref}><strong>{account.display_label}</strong><code>read_only</code><StatusPill value={refreshing && index === 0 ? "running" : "done"}/><span>{refreshing && index === 0 ? "查询中" : "—"}</span><span>{refreshing ? "现在" : "本机缓存"}</span></div>)}
+            <div className="panel refresh-state" aria-label="全局刷新状态">
+              <h2>Global Refresh</h2>
+              <p className="panel-copy">仅展示 host DTO 可证明的刷新状态，不生成 Provider 队列假象。</p>
+              <StatusPill value={refreshState.phase === "running" ? "running" : refreshState.phase === "idle" ? "idle" : refreshState.outcome === "success" ? "done" : "error"}/>
+              <p>{refreshState.text}</p>
             </div>
           </section>
         ) : view === "status" ? (
           <section>
-            {!scheduler.installed && <div className="banner warning">SchedulerHost 未安装或未健康。仅按需刷新可用；无 Renderer 定时器。</div>}
+            <div className={`banner ${scheduler.installed && scheduler.health === "healthy" ? "success" : "warning"}`}>SchedulerHost：{scheduler.health === "healthy" && scheduler.installed ? "健康" : scheduler.health === "unhealthy" ? "异常" : "未安装"}。{scheduler.installed && scheduler.health === "healthy" ? "可使用调度能力。" : "仅按需刷新可用；无 Renderer 定时器。"}</div>
             <div className="health-grid">
-              <article className="health-card"><span>Scheduler</span><strong className={scheduler.installed ? "ok-text" : "muted-text"}>{scheduler.installed ? "运行中" : "未启用"}</strong><small>{scheduler.health}</small></article>
+              <article className="health-card"><span>Scheduler</span><strong className={scheduler.installed && scheduler.health === "healthy" ? "ok-text" : "muted-text"}>{scheduler.health === "healthy" && scheduler.installed ? "健康" : scheduler.health === "unhealthy" ? "异常" : "未安装"}</strong><small>{transportMode === "fixture" ? "fixture scheduler_state" : "host scheduler_state"}: {scheduler.health}</small></article>
               <article className="health-card"><span>Sidecar</span><strong className={offline ? "danger-text" : "ok-text"}>{offline ? "离线" : "运行中"}</strong><small>{offline ? "最近缓存" : "本机进程"}</small></article>
               <article className="health-card"><span>Renderer</span><strong className="ok-text">沙箱</strong><small>CSP locked</small></article>
             </div>

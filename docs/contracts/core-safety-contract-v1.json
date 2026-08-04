@@ -2734,14 +2734,14 @@
             "expected_before": "regular-file",
             "expected_after": "symlink-to-saved-copy",
             "target_repo_path": "docs/contracts/run-release-gate-v1.py",
-            "expected_before_state_sha256": "94014642035a83286c04fa90d62f6204f0177b2e5bd1c250ead3f08d0946a1a0",
+            "expected_before_state_sha256": "503a327e3ba10e02f79fdd5048d5aede29960852087c4b763e53c7ca6d83e654",
             "expected_after_state_sha256": "d112864ad2e5010e54f858ad53aafa31acd54b20fe9dd6ab0239913fb1065c73"
           },
           "expected_failure_class": "release-gate-rejection",
           "expected_repo_effect": "changed",
           "executor_closure_sha256": "e9d690065de87c639ee2575281f744ccecc92b73fc5571295bd558b2573527ad"
         },
-        "mutation_sha256": "464eecde11671b415a24c0b7732aab4af0c53f0d2a1e8b0deb98ee1fd0ca1968"
+        "mutation_sha256": "9d7119e36b7a571e8ab365e691461907ec34aba5625853f13c18b61a59d60cf2"
       },
       {
         "sequence": 34,
@@ -2769,8 +2769,8 @@
               "mutation_case_id": "release-gate-root-substitution"
             },
             "target_repo_path": "docs/contracts/run-release-gate-v1.py",
-            "expected_before_state_sha256": "7d847e20b0e9e136b41c8a4cc506997ddd1138a645e7271f10b81f9ed4c7fdf0",
-            "expected_after_state_sha256": "4de0df26553f1a2d3f2b7c41c389bb38d41631b90a37e09612cc3074429b50a6",
+            "expected_before_state_sha256": "e95fc73ef4ab917db42f34dfbdfa02d1d0b96d3e3e14b9db1489ec0df6da72d4",
+            "expected_after_state_sha256": "ab14724a6b8215c9071c0332748a7d525afa1c6371b46cb29705715f254be423",
             "evidence_descriptor": "release-gate-root-substitution|gate fixed-root executable identity|\"gate from selected root\"->\"gate executable from different root\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2794,7 +2794,7 @@
           "expected_repo_effect": "unchanged",
           "executor_closure_sha256": "e9d690065de87c639ee2575281f744ccecc92b73fc5571295bd558b2573527ad"
         },
-        "mutation_sha256": "571200e39b7fa70af575c3add780c243bd4942900a95ad08a87ed42bd749aa95"
+        "mutation_sha256": "ce1987d41a6d55f380d2069050bdc52670c4c743d9229f443a1033553d370a74"
       },
       {
         "sequence": 35,
@@ -2903,8 +2903,8 @@
               "mutation_case_id": "npm-implementation-tree-drift"
             },
             "target_repo_path": "docs/contracts/package.json",
-            "expected_before_state_sha256": "5822dac762a763bc902a88c5b0137acf7df2d7c34303ac6bcfb47572234b3d35",
-            "expected_after_state_sha256": "c9c373cc7f16e54c71009650b114f84fed4ad3f8cda1cd25d97f410526471c26",
+            "expected_before_state_sha256": "419c5f58a3edbafe3038d19fd7e7d9e029a01a17564d8f3d8951903057abab12",
+            "expected_after_state_sha256": "19d1ef4ee613549bcbd4898a89805658e5e6e47c3b0a1608a7509679cad490a5",
             "evidence_descriptor": "npm-implementation-tree-drift|resolved npm implementation tree|\"pinned-tree-digest\"->\"copy with lib/cli.js mutation\"",
             "state_serializer": "aq-gate-owned-runtime-state-v1",
             "observation_command": [
@@ -2928,7 +2928,7 @@
           "expected_repo_effect": "unchanged",
           "executor_closure_sha256": "e9d690065de87c639ee2575281f744ccecc92b73fc5571295bd558b2573527ad"
         },
-        "mutation_sha256": "90c9f16b74a90e37276195e71e4655bac8e8f3f04d16eb2968162da1d2747ead"
+        "mutation_sha256": "4928e3eebcb339b7ce290dc3066b052b068b2cfb49dea0116f4bd2b5a01f6105"
       },
       {
         "sequence": 38,

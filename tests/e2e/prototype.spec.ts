@@ -1,4 +1,19 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+const navigation = ["概览", "账户与 Provider", "刷新队列", "状态", "设置"];
+
+async function expectDesktopSidebar(page: Page) {
+  const sidebar = page.locator(".sidebar");
+  const main = page.locator("#main");
+  await expect(sidebar).toBeVisible();
+  const sidebarBox = await sidebar.boundingBox();
+  const mainBox = await main.boundingBox();
+  expect(sidebarBox).not.toBeNull();
+  expect(mainBox).not.toBeNull();
+  expect(sidebarBox?.x).toBe(0);
+  expect(sidebarBox?.width).toBe(240);
+  expect(mainBox!.x).toBeGreaterThanOrEqual(sidebarBox!.x + sidebarBox!.width);
+}
 
 test("prototype covers primary navigation and host-owned actions", async ({ page }) => {
   await page.goto("/");
@@ -7,14 +22,14 @@ test("prototype covers primary navigation and host-owned actions", async ({ page
   await expect(page.locator("[data-transport=fixture]")).toBeVisible();
 
   await page.getByRole("button", { name: "账户与 Provider" }).click();
-  await expect(page.locator("[data-sidebar-position=right]")).toBeVisible();
+  await expect(page.locator("[data-sidebar-position=left]")).toBeVisible();
   await expect(page.getByRole("heading", { name: "已启用 Provider" })).toBeVisible();
   await page.getByRole("button", { name: "添加 Provider" }).click();
   await expect(page.getByRole("status")).toContainText("临时测试账户已添加");
   await expect(page.getByRole("heading", { name: "Fixture · 临时测试账户" })).toBeVisible();
 
   await page.getByRole("button", { name: "设置" }).click();
-  await expect(page.locator("[data-sidebar-position=right]")).toBeVisible();
+  await expect(page.locator("[data-sidebar-position=left]")).toBeVisible();
   await page.getByRole("button", { name: "导出脱敏诊断" }).click();
   await expect(page.getByRole("status")).toContainText("脱敏诊断已导出");
   await page.getByRole("button", { name: "清理本机数据" }).click();
@@ -82,5 +97,35 @@ test("provider preset catalog is complete, searchable, filtered and responsive",
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     expect(await page.evaluate(() => [...document.querySelectorAll(".preset-card")]
       .every((card) => card.scrollWidth <= card.clientWidth))).toBe(true);
+  }
+});
+
+test("latest prototype keeps five operable navigation items and a left sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await expect(page.locator(".nav-item")).toHaveCount(5);
+  await expectDesktopSidebar(page);
+
+  for (const name of navigation) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await expect(page.locator('[aria-current="page"]')).toHaveCount(1);
+    await expectDesktopSidebar(page);
+  }
+
+  await page.getByRole("button", { name: "账户与 Provider", exact: true }).click();
+  await expectDesktopSidebar(page);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await expectDesktopSidebar(page);
+  await page.getByRole("button", { name: "刷新队列", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Global Refresh" })).toBeVisible();
+  await expect(page.getByText("等待手动刷新", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "状态", exact: true }).click();
+  await expect(page.getByText("fixture scheduler_state: healthy", { exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  for (const name of navigation) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await expect(page.locator('[aria-current="page"]')).toHaveCount(1);
   }
 });
