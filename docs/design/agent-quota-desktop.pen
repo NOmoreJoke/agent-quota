@@ -2308,6 +2308,14 @@
       "fill": "$bg",
       "children": [
         {
+          "id": "X2Dhm",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarAccounts"
+        },
+        {
           "type": "frame",
           "id": "M8Zsb",
           "name": "main",
@@ -3419,14 +3427,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "X2Dhm",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarAccounts"
         }
       ]
     },
@@ -3441,6 +3441,14 @@
       "height": 800,
       "fill": "$bg",
       "children": [
+        {
+          "id": "AF3KW",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarSettings"
+        },
         {
           "type": "frame",
           "id": "PZlsM",
@@ -4185,14 +4193,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "AF3KW",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarSettings"
         }
       ]
     },
@@ -7635,6 +7635,14 @@
       "fill": "$bg",
       "children": [
         {
+          "id": "Otj0W",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarAccounts"
+        },
+        {
           "type": "frame",
           "id": "d84AF",
           "name": "main",
@@ -7788,14 +7796,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "Otj0W",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarAccounts"
         }
       ]
     },
@@ -7810,6 +7810,14 @@
       "height": 800,
       "fill": "$bg",
       "children": [
+        {
+          "id": "am4VA",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarAccounts"
+        },
         {
           "type": "frame",
           "id": "e7oK1o",
@@ -7970,14 +7978,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "am4VA",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarAccounts"
         }
       ]
     },
@@ -8689,14 +8689,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "oatNQ",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarAccounts"
         }
       ]
     },
@@ -8711,6 +8703,14 @@
       "height": 840,
       "fill": "$bg",
       "children": [
+        {
+          "id": "Z4du7q",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarAccounts"
+        },
         {
           "type": "frame",
           "id": "cm8Kr",
@@ -9403,14 +9403,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "Z4du7q",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarAccounts"
         }
       ]
     },
@@ -9425,6 +9417,14 @@
       "height": 840,
       "fill": "$bg",
       "children": [
+        {
+          "id": "r1Y5fG",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarAccounts"
+        },
         {
           "type": "frame",
           "id": "t2s98",
@@ -10117,14 +10117,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "r1Y5fG",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarAccounts"
         }
       ]
     },
@@ -16145,6 +16137,14 @@
       "fill": "$bg",
       "children": [
         {
+          "id": "Q7GN5D",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarSettings"
+        },
+        {
           "type": "frame",
           "id": "AWSms",
           "name": "main",
@@ -16476,14 +16476,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "Q7GN5D",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarSettings"
         }
       ]
     },
@@ -16498,6 +16490,14 @@
       "height": 800,
       "fill": "$bg",
       "children": [
+        {
+          "id": "T6oih",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarSettings"
+        },
         {
           "type": "frame",
           "id": "pda36",
@@ -16717,14 +16717,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "T6oih",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarSettings"
         }
       ]
     },
@@ -20358,6 +20350,14 @@
       "fill": "$bg",
       "children": [
         {
+          "id": "prlWB",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "width": 240,
+          "height": "fill_container",
+          "name": "sidebarSettings"
+        },
+        {
           "type": "frame",
           "id": "T6uGO",
           "name": "main",
@@ -20440,14 +20440,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "prlWB",
-          "type": "ref",
-          "ref": "F8mcXR",
-          "width": 240,
-          "height": "fill_container",
-          "name": "sidebarSettings"
         }
       ]
     },
@@ -28932,6 +28924,12 @@
       "fill": "$bg",
       "children": [
         {
+          "id": "Sb373",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "height": "fill_container"
+        },
+        {
           "type": "frame",
           "id": "hr0ZG",
           "name": "main",
@@ -29164,6 +29162,12 @@
       "height": 800,
       "fill": "$bg",
       "children": [
+        {
+          "id": "Sb374",
+          "type": "ref",
+          "ref": "F8mcXR",
+          "height": "fill_container"
+        },
         {
           "type": "frame",
           "id": "ruf3B",
