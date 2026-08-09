@@ -136,6 +136,8 @@ def test_macos_package_script_has_ordered_resource_gates() -> None:
     assert script.index("verify_clean_install_sidecar.py") < script.index("hdiutil create")
     assert script.index("audit_package_size.py") < script.index("hdiutil create")
     assert "20971520" in script
+    assert script.count("verify_source_lock") == 4
+    assert "rev-parse HEAD" in script
     assert "status --porcelain" in script
     assert "generate_build_provenance.py" in script
     assert '"build-provenance.json"' in script

@@ -18,11 +18,15 @@ generated="$repo_root/src-tauri/generated-resources"
 pyi_root="$repo_root/build/pyinstaller"
 artifact_dir="$repo_root/artifacts/iteration-4"
 
-if [ -n "$(git -C "$repo_root" status --porcelain)" ]; then
-  echo "package build requires a clean Git worktree" >&2
-  exit 1
-fi
 source_commit=$(git -C "$repo_root" rev-parse HEAD)
+verify_source_lock() {
+  if [ "$(git -C "$repo_root" rev-parse HEAD)" != "$source_commit" ] || \
+     [ -n "$(git -C "$repo_root" status --porcelain)" ]; then
+    echo "package build source lock changed or became dirty" >&2
+    exit 1
+  fi
+}
+verify_source_lock
 
 if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
   echo "package build requires Apple Silicon macOS" >&2
@@ -150,6 +154,7 @@ uv run python tools/generate_bundle_manifest.py \
   --output "$artifact_dir/bundle-manifest.txt"
 uv run python tools/generate_package_sbom.py \
   --output "$artifact_dir/sbom.cdx.json"
+verify_source_lock
 uv run python tools/generate_build_provenance.py \
   --app "$artifact_dir/Agent Quota.app" \
   --commit "$source_commit" \
@@ -166,5 +171,6 @@ uv run python tools/generate_build_provenance.py \
     "clean-install-audit.json" \
     "sbom.cdx.json" > artifact-sha256.txt
 )
+verify_source_lock
 
 echo "$artifact_dir"
