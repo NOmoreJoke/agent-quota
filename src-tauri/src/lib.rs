@@ -13,6 +13,7 @@ compile_error!("select exactly one Agent Quota runtime feature");
 #[cfg(all(feature = "production", debug_assertions, not(any(test, doc))))]
 compile_error!("production build must not enable debug assertions");
 
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use contract::{safe_error, validate_request, validate_response};
 use instance::{InstanceLease, InstanceLeaseError, fixed_app_data_root};
 #[cfg(feature = "development-overrides")]
@@ -629,7 +630,78 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
 
 #[tauri::command]
 fn export_redacted(state: State<'_, HostState>, request: Value) -> CommandResult {
-    call_sidecar(&state, "export_redacted", request, DEFAULT_BUDGET_NS)
+    validate_request("export_redacted", &request).map_err(|_| "request rejected".to_owned())?;
+    let accounts = call_sidecar(
+        &state,
+        "accounts_read",
+        json!({"scope_ref": request["scope_ref"]}),
+        DEFAULT_BUDGET_NS,
+    )?;
+    let quota = call_sidecar(
+        &state,
+        "quota_overview",
+        json!({"scope_ref": request["scope_ref"]}),
+        DEFAULT_BUDGET_NS,
+    )?;
+    let scheduler = call_sidecar(&state, "scheduler_state", json!({}), DEFAULT_BUDGET_NS)?;
+    let response = if [&accounts, &quota, &scheduler]
+        .iter()
+        .any(|value| value["status"].as_str() != Some("ok"))
+    {
+        unavailable("export_redacted", &request, "provider-unavailable")
+    } else {
+        let diagnostics = redacted_diagnostics(&accounts, &quota, &scheduler);
+        let content = serde_json::to_vec_pretty(&diagnostics).map_err(|_| "export failed")?;
+        match state.native.export_redacted(json!({
+            "action": "export-redacted",
+            "exportContentBase64": BASE64.encode(content),
+            "exportFilename": "agent-quota-diagnostics.json"
+        })) {
+            Ok(native) if native.status == "exported" => {
+                json!({"export_status": "completed", "status": "ok"})
+            }
+            Ok(native) if native.status == "cancelled" => {
+                json!({"export_status": "cancelled", "status": "ok"})
+            }
+            Ok(_) => unavailable("export_redacted", &request, "provider-unavailable"),
+            Err(error) => unavailable("export_redacted", &request, native_error_code(&error)),
+        }
+    };
+    validated("export_redacted", response)
+}
+
+fn redacted_diagnostics(accounts: &Value, quota: &Value, scheduler: &Value) -> Value {
+    let summaries = accounts["accounts"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let lifecycle_count = |lifecycle: &str| {
+        summaries
+            .iter()
+            .filter(|account| account["lifecycle"].as_str() == Some(lifecycle))
+            .count()
+    };
+    json!({
+        "account_count": summaries.len(),
+        "lifecycle_counts": {
+            "active": lifecycle_count("active"),
+            "disabled": lifecycle_count("disabled"),
+            "needs_reauth": lifecycle_count("needs-reauth")
+        },
+        "quota": {
+            "freshness": quota["projection"]["freshness"],
+            "row_count": quota["projection"]["capability_rows"]
+                .as_array()
+                .map(Vec::len)
+                .unwrap_or(0)
+        },
+        "scheduler": scheduler["scheduler_state"],
+        "schema": "agent-quota-redacted-diagnostics-v1",
+        "security": {
+            "credential_backend": "macOS Keychain",
+            "renderer_secret_material": false
+        }
+    })
 }
 
 #[tauri::command]
@@ -835,5 +907,24 @@ mod tests {
             refresh_accounts_error(&json!({"accounts": [], "status": "ok"})),
             None
         );
+    }
+
+    #[test]
+    fn diagnostics_export_contains_counts_without_identifiers() {
+        let document = redacted_diagnostics(
+            &json!({"accounts": [
+                {"principal_ref": "secret-ref", "display_label": "private", "lifecycle": "active"},
+                {"principal_ref": "other", "display_label": "private", "lifecycle": "needs-reauth"}
+            ], "status": "ok"}),
+            &json!({"projection": {"capability_rows": [{"capability_ref": "secret-cap"}], "freshness": "stale"}, "status": "ok"}),
+            &json!({"scheduler_state": {"health": "absent", "installed": false}, "status": "ok"}),
+        );
+        let encoded = serde_json::to_string(&document).unwrap();
+        assert_eq!(document["account_count"], 2);
+        assert_eq!(document["quota"]["row_count"], 1);
+        assert_eq!(document["lifecycle_counts"]["needs_reauth"], 1);
+        assert!(!encoded.contains("secret-ref"));
+        assert!(!encoded.contains("secret-cap"));
+        assert!(!encoded.contains("private"));
     }
 }

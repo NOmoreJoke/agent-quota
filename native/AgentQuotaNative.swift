@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Security
+import UniformTypeIdentifiers
 
 private let service = "com.agentquota.desktop.credentials.v1"
 private let maxRequestBytes = 4096
@@ -81,6 +82,8 @@ private struct NativeRequest {
     let nonce: String?
     let opaqueReference: String?
     let provider: String?
+    let exportContentBase64: String?
+    let exportFilename: String?
 
     init(data: Data) throws {
         guard
@@ -106,6 +109,8 @@ private struct NativeRequest {
             ]
         case "keychain-delete":
             required = ["action", "opaqueReference"]
+        case "export-redacted":
+            required = ["action", "exportContentBase64", "exportFilename"]
         default:
             throw NativeFailure.invalidRequest
         }
@@ -129,9 +134,21 @@ private struct NativeRequest {
         nonce = value["nonce"] as? String
         opaqueReference = value["opaqueReference"] as? String
         provider = value["provider"] as? String
+        exportContentBase64 = value["exportContentBase64"] as? String
+        exportFilename = value["exportFilename"] as? String
         for item in [
             dialogPurpose, operationIntent, planSummary, planDigest, nonce, opaqueReference, provider,
         ].compactMap({ $0 }) where item.isEmpty || item.utf8.count > 256 {
+            throw NativeFailure.invalidRequest
+        }
+        if let exportContentBase64,
+           exportContentBase64.isEmpty || exportContentBase64.utf8.count > 3_072
+        {
+            throw NativeFailure.invalidRequest
+        }
+        if let exportFilename,
+           exportFilename != "agent-quota-diagnostics.json"
+        {
             throw NativeFailure.invalidRequest
         }
     }
@@ -139,6 +156,7 @@ private struct NativeRequest {
     private static let allowedKeys: Set<String> = [
         "action", "dialogPurpose", "generation", "nonce", "opaqueReference",
         "operationIntent", "planDigest", "planSummary", "provider",
+        "exportContentBase64", "exportFilename",
     ]
 }
 
@@ -1083,6 +1101,48 @@ private func deleteReference(_ reference: String) -> NativeResponse {
     )
 }
 
+@MainActor
+private func exportRedacted(contentBase64: String, filename: String) -> NativeResponse {
+    guard
+        filename == "agent-quota-diagnostics.json",
+        let content = Data(base64Encoded: contentBase64),
+        content.count <= 2_048,
+        let document = try? JSONSerialization.jsonObject(with: content) as? [String: Any],
+        Set(document.keys) == [
+            "account_count", "lifecycle_counts", "quota", "scheduler", "schema", "security",
+        ]
+    else {
+        return NativeResponse(
+            status: "error", opaqueReference: nil, errorCode: "invalid-request",
+            userPresenceToken: nil
+        )
+    }
+    prepareApplication()
+    let panel = NSSavePanel()
+    panel.title = "导出脱敏诊断"
+    panel.nameFieldStringValue = filename
+    panel.allowedContentTypes = [.json]
+    panel.canCreateDirectories = true
+    guard panel.runModal() == .OK, let destination = panel.url else {
+        return NativeResponse(
+            status: "cancelled", opaqueReference: nil, errorCode: nil,
+            userPresenceToken: nil
+        )
+    }
+    do {
+        try content.write(to: destination, options: .atomic)
+        return NativeResponse(
+            status: "exported", opaqueReference: nil, errorCode: nil,
+            userPresenceToken: nil
+        )
+    } catch {
+        return NativeResponse(
+            status: "error", opaqueReference: nil, errorCode: "export-write-failed",
+            userPresenceToken: nil
+        )
+    }
+}
+
 private func selfTestKeychain() -> Int32 {
     let account = "self-test-\(UUID().uuidString.lowercased())"
     var first = Array("temporary-agent-quota-self-test-a".utf8)
@@ -1209,6 +1269,20 @@ private struct AgentQuotaNative {
                     exit(64)
                 }
                 response = deleteReference(reference)
+            case "export-redacted":
+                guard
+                    let content = request.exportContentBase64,
+                    let filename = request.exportFilename
+                else {
+                    emit(
+                        NativeResponse(
+                            status: "error", opaqueReference: nil, errorCode: "invalid-request",
+                            userPresenceToken: nil
+                        )
+                    )
+                    exit(64)
+                }
+                response = exportRedacted(contentBase64: content, filename: filename)
             default:
                 response = NativeResponse(
                     status: "error", opaqueReference: nil, errorCode: "invalid-request",

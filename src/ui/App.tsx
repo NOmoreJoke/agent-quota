@@ -234,6 +234,20 @@ export function App() {
     }
   };
 
+  const exportRedacted = async () => {
+    const result = await invokeHost("export_redacted", {
+      export_profile: "redacted-diagnostics",
+      scope_ref: "scope-all",
+    });
+    const exportStatus = result.export_status as string;
+    setNotice({
+      tone: exportStatus === "completed" ? "success" : exportStatus === "cancelled" ? "info" : "danger",
+      text: exportStatus === "completed"
+        ? "脱敏诊断已导出。"
+        : exportStatus === "cancelled" ? "导出已取消；没有写入文件。" : "导出失败。",
+    });
+  };
+
   const filteredCapabilities = useMemo(() => {
     const kind = overviewMode === "window" ? "window" : "balance";
     const normalized = query.trim().toLowerCase();
@@ -420,7 +434,7 @@ export function App() {
             <h2 className="settings-label">显示</h2>
             <div className="settings-panel"><div><span>主题</span><strong>浅色（固定）</strong></div><div><span>时区</span><strong>Asia/Shanghai (UTC+8)（固定）</strong></div><div><span>减少动效</span><strong>跟随系统（固定）</strong></div></div>
             <h2 className="settings-label">安全</h2>
-            <div className="settings-panel"><div><span>凭据后端</span><strong>macOS Keychain（固定）</strong></div><div><span>Renderer 隔离</span><strong>已启用（默认）</strong></div><div><span>诊断日志导出</span><strong>当前版本未启用</strong></div></div>
+            <div className="settings-panel"><div><span>凭据后端</span><strong>macOS Keychain（固定）</strong></div><div><span>Renderer 隔离</span><strong>已启用（默认）</strong></div><div><span>诊断日志</span><button type="button" className="text-button" onClick={() => void exportRedacted()}>导出脱敏诊断</button></div></div>
             <h2 className="settings-label">无障碍</h2>
             <div className="settings-panel"><div><span>键盘可达</span><strong>已启用</strong></div><div><span>200% 缩放</span><strong>支持</strong></div><div><span>颜色对比</span><strong>WCAG 2.2 AA</strong></div></div>
             <h2 className="settings-label">Provider 行为</h2>

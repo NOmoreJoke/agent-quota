@@ -76,6 +76,10 @@ impl NativeHost {
         self.run_gated(request, DESTRUCTIVE_TIMEOUT)
     }
 
+    pub fn export_redacted(&self, request: Value) -> Result<NativeResponse, NativeError> {
+        self.run_gated(request, CREDENTIAL_TIMEOUT)
+    }
+
     pub fn provider_fetch(
         &self,
         reference: &str,
@@ -320,6 +324,10 @@ mod tests {
         }
         assert!(matches!(
             host.destructive(serde_json::json!({})),
+            Err(NativeError::Busy)
+        ));
+        assert!(matches!(
+            host.export_redacted(serde_json::json!({})),
             Err(NativeError::Busy)
         ));
     }

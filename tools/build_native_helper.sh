@@ -18,6 +18,7 @@ xcrun swiftc \
   -O \
   -framework AppKit \
   -framework Security \
+  -framework UniformTypeIdentifiers \
   "$repo_root/native/AgentQuotaNative.swift" \
   -o "$app_binary"
 
