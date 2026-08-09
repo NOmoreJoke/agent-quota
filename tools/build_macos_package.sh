@@ -18,6 +18,12 @@ generated="$repo_root/src-tauri/generated-resources"
 pyi_root="$repo_root/build/pyinstaller"
 artifact_dir="$repo_root/artifacts/iteration-4"
 
+if [ -n "$(git -C "$repo_root" status --porcelain)" ]; then
+  echo "package build requires a clean Git worktree" >&2
+  exit 1
+fi
+source_commit=$(git -C "$repo_root" rev-parse HEAD)
+
 if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
   echo "package build requires Apple Silicon macOS" >&2
   exit 1
@@ -144,11 +150,17 @@ uv run python tools/generate_bundle_manifest.py \
   --output "$artifact_dir/bundle-manifest.txt"
 uv run python tools/generate_package_sbom.py \
   --output "$artifact_dir/sbom.cdx.json"
+uv run python tools/generate_build_provenance.py \
+  --app "$artifact_dir/Agent Quota.app" \
+  --commit "$source_commit" \
+  --dmg "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
+  --output "$artifact_dir/build-provenance.json"
 
 (
   cd "$artifact_dir"
   /usr/bin/shasum -a 256 \
     "Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
+    "build-provenance.json" \
     "bundle-audit.json" \
     "bundle-manifest.txt" \
     "clean-install-audit.json" \
