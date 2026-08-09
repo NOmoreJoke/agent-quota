@@ -5,7 +5,12 @@ import { providerCatalog } from "./providerCatalog";
 type View = "overview" | "accounts" | "queue" | "status" | "settings";
 type OverviewMode = "window" | "wallet";
 type Notice = { tone: "danger" | "info" | "success" | "warning"; text: string };
-type Account = { display_label: string; lifecycle: string; principal_ref: string };
+type Account = {
+  display_label: string;
+  last_error_code?: string;
+  lifecycle: string;
+  principal_ref: string;
+};
 type Capability = {
   capability_ref: string;
   display_kind: string;
@@ -31,6 +36,15 @@ const providerOrder = ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code", "其�
 
 function readableError(error: unknown): string {
   return error instanceof Error ? error.message : "发生未知错误";
+}
+
+function safeErrorMessage(code: string): string {
+  if (code === "keychain-locked") return "macOS 登录钥匙串已锁定；解锁后再刷新";
+  if (code === "reauth-required") return "Provider 凭据已失效；请重新认证";
+  if (code === "provider-unavailable") return "Provider 暂时不可用";
+  if (code === "timeout") return "Provider 请求超时";
+  if (code === "contract-error") return "Provider 响应格式不受支持";
+  return code;
 }
 
 function providerName(reference: string): string {
@@ -172,20 +186,21 @@ export function App() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const refresh = async () => {
+  const refresh = async (scopeRef = "scope-all") => {
     setRefreshing(true);
     setRefreshState({ phase: "running", outcome: "none", text: "正在请求 host" });
     setNotice({ tone: "info", text: "正在刷新 Provider 额度…" });
     try {
-      const result = await invokeHost("refresh_scope", { scope_ref: "scope-all" });
+      const result = await invokeHost("refresh_scope", { scope_ref: scopeRef });
       const safeError = result.safe_error as { code?: string } | undefined;
       if (safeError?.code === "outcome-unknown") {
         setRefreshState({ phase: "completed", outcome: "warning", text: "刷新结果未知；请先检查账户状态" });
         setNotice({ tone: "warning", text: "刷新结果未知。为避免重复操作，请先检查账户状态，再手动重试。" });
       } else if (safeError?.code) {
         await load();
-        setRefreshState({ phase: "completed", outcome: "warning", text: `部分刷新未完成（${safeError.code}）` });
-        setNotice({ tone: "warning", text: `部分刷新未完成（${safeError.code}）；已保留成功结果与最近缓存。` });
+        const message = safeErrorMessage(safeError.code);
+        setRefreshState({ phase: "completed", outcome: "warning", text: `部分刷新未完成：${message}` });
+        setNotice({ tone: "warning", text: `部分刷新未完成：${message}；已保留成功结果与最近缓存。` });
       } else if ((result.refresh_state as { phase: string }).phase === "running") {
         setRefreshState({ phase: "running", outcome: "none", text: "host 仍在后台刷新" });
         setNotice({ tone: "info", text: "刷新仍在后台运行，可在刷新队列查看状态。" });
@@ -212,7 +227,7 @@ export function App() {
         text: result.status === "ok"
           ? transportMode === "fixture" ? "临时测试账户已添加；刷新页面会重置。" : "Provider 已添加并保存到 Keychain。"
           : result.opaque_reference_status === "reference-created"
-            ? `凭据已保存，但首次查询失败（${safeError?.code ?? "provider-unavailable"}）。`
+            ? `凭据已保存，但首次查询失败：${safeErrorMessage(safeError?.code ?? "provider-unavailable")}。`
             : "原生凭据窗口已取消；Renderer 从不接收密钥正文。",
       });
     } catch (error) {
@@ -343,8 +358,11 @@ export function App() {
                 <article className="provider-card" key={account.principal_ref}>
                   <div className="provider-card-head"><div className="provider-avatar">{providerFromAccount(account.display_label).slice(0, 1)}</div><div><h3>{providerFromAccount(account.display_label)}</h3><p>{account.display_label}</p></div><StatusPill value={account.lifecycle}/></div>
                   <p className="last-refresh">凭据：macOS Keychain · 查询：只读</p>
+                  {account.last_error_code && (
+                    <p className="last-refresh">最近错误：{safeErrorMessage(account.last_error_code)}</p>
+                  )}
                   <div className="provider-actions">
-                    <button type="button" className="primary compact" onClick={() => { setView("queue"); void refresh(); }}>刷新</button>
+                    <button type="button" className="primary compact" onClick={() => { setView("queue"); void refresh(account.principal_ref); }}>刷新</button>
                     <button type="button" className="secondary compact" onClick={async () => {
                       const result = await invokeHost("reauthenticate", { principal_ref: account.principal_ref });
                       await load();

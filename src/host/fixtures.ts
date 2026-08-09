@@ -4,6 +4,7 @@ export type FixtureScenario =
   | "default"
   | "empty"
   | "offline"
+  | "keychain-locked"
   | "outcome-unknown"
   | "partial"
   | "reauth"
@@ -15,6 +16,7 @@ function scenario(): FixtureScenario {
     "default",
     "empty",
     "offline",
+    "keychain-locked",
     "outcome-unknown",
     "partial",
     "reauth",
@@ -78,6 +80,13 @@ export async function fixtureInvoke(commandId: CommandId, payload: Record<string
         status: "ok",
       };
     case "refresh_scope":
+      if (mode === "keychain-locked") {
+        return {
+          refresh_state: { phase: "failed" },
+          safe_error: { code: "keychain-locked", retryable: false },
+          status: "error",
+        };
+      }
       if (mode === "outcome-unknown") {
         return {
           refresh_state: { phase: "failed" },

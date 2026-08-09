@@ -37,6 +37,10 @@ test("prototype covers primary navigation and host-owned actions", async ({ page
 });
 
 test("failure, empty, offline and responsive states remain operable", async ({ page }) => {
+  await page.goto("/?scenario=keychain-locked");
+  await page.getByRole("button", { name: "全部刷新" }).click();
+  await expect(page.getByRole("status")).toContainText("macOS 登录钥匙串已锁定；解锁后再刷新");
+
   await page.goto("/?scenario=outcome-unknown");
   await page.getByRole("button", { name: "全部刷新" }).click();
   await expect(page.getByRole("status")).toContainText("刷新结果未知");
@@ -82,6 +86,18 @@ test("provider preset catalog is complete, searchable, filtered and responsive",
   await search.fill("");
 
   const filter = page.getByRole("group", { name: "Provider 能力筛选" });
+  const filterButtons = filter.getByRole("button");
+  const filterBox = await filter.boundingBox();
+  const filterButtonBoxes = await filterButtons.evaluateAll((buttons) => buttons.map((button) => {
+    const box = button.getBoundingClientRect();
+    return { bottom: box.bottom, top: box.top };
+  }));
+  expect(filterBox).not.toBeNull();
+  expect(filterButtonBoxes).toHaveLength(3);
+  expect(new Set(filterButtonBoxes.map(({ top }) => top)).size).toBe(1);
+  expect(filterButtonBoxes.every(({ bottom }) => bottom <= filterBox!.y + filterBox!.height))
+    .toBe(true);
+
   await filter.getByRole("button", { name: "Window View" }).click();
   expect(await catalog.count()).toBeGreaterThan(0);
   expect(await catalog.locator(".preset-capabilities small:first-child").allTextContents())

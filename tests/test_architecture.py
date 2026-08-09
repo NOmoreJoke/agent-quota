@@ -131,9 +131,19 @@ def test_macos_package_script_has_ordered_resource_gates() -> None:
     assert 'MACOSX_DEPLOYMENT_TARGET_REQUIRED="13.0"' in script
     assert "SWIFT_MACOSX_DEPLOYMENT_TARGET must be exactly" in script
     assert '"$repo_root/tools/audit_package_size.py"' in script
+    assert "verify_clean_install_sidecar.py" in script
     assert script.index("audit_macos_bundle.py") < script.index("hdiutil create")
+    assert script.index("verify_clean_install_sidecar.py") < script.index("hdiutil create")
     assert script.index("audit_package_size.py") < script.index("hdiutil create")
     assert "20971520" in script
+
+
+def test_clean_install_verifier_matches_host_fd_and_canonical_path_boundary() -> None:
+    root = Path(__file__).parents[1]
+    verifier = (root / "tools/verify_clean_install_sidecar.py").read_text()
+    assert "SESSION_SECRET_FD = 3" in verifier
+    assert "pass_fds=tuple(sorted({child_secret_fd, SESSION_SECRET_FD}))" in verifier
+    assert 'Path(temporary).resolve(strict=True) / "data"' in verifier
 
 
 def test_production_renderer_has_no_timer_or_loopback_patterns() -> None:

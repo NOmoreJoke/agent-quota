@@ -48,8 +48,13 @@ target 与用户/repository Cargo config 覆写；`production` 与
 - `artifacts/iteration-4/Agent-Quota-0.1.0-arm64-local-unsigned.dmg`
 - `bundle-manifest.txt`
 - `bundle-audit.json`
+- `clean-install-audit.json`
 - `sbom.cdx.json`
 - `artifact-sha256.txt`
+
+`bundle-audit.json` 拒绝打包账户状态、SQLite、浏览器存储与 Keychain 目录；
+`clean-install-audit.json` 使用包内 sidecar 和全新 `0700` 数据目录启动，要求账户数为 0。
+静态 Provider Preset 目录是产品能力清单，不是已保存账户。
 
 ## 安装
 
@@ -77,6 +82,15 @@ target 与用户/repository Cargo config 覆写；`production` 与
 4. 启动并核对账户、设置和刷新状态。
 
 应用数据位于用户 Application Support；替换 `.app` 不删除数据或 Keychain 项。
+
+因此，同一 macOS 用户重装后看到其原有账户属于本机数据保留，不代表 DMG 携带账户。
+需要空白状态时，先在应用内完成 purge；安装或升级流程不得静默删除用户数据。
+
+## 公开发布门禁
+
+第三方直接下载版本必须同时具备 Developer ID 签名、Apple notarization/stapling、
+GitHub Release 校验和、SBOM、源码标签和可复现门禁证据。当前
+`local unsigned development package` 未满足签名/公证要求，不得标记为公开正式版。
 
 ## 回滚
 

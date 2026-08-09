@@ -735,6 +735,7 @@ private func kimiCodeOAuthCredential() -> (credential: [UInt8]?, errorCode: Stri
 private enum KimiCodeCredentialResolution {
     case ready(String)
     case reauthRequired
+    case keychainLocked
     case unavailable
 }
 
@@ -774,6 +775,10 @@ private func resolveKimiCodeCredential(reference: String, secret: Data) -> KimiC
         var bytes = encoded
         do {
             try keychainUpdate(account: reference, secret: &bytes)
+        } catch NativeFailure.keychain(let status)
+            where status == errSecInteractionNotAllowed || status == errSecAuthFailed
+        {
+            return .keychainLocked
         } catch {
             return .unavailable
         }
@@ -932,6 +937,11 @@ private func providerFetch(reference: String, provider id: String) -> NativeResp
                 status: "provider-response", opaqueReference: nil, errorCode: nil,
                 userPresenceToken: nil, provider: id, httpStatus: 401,
                 bodyBase64: Data("{}".utf8).base64EncodedString()
+            )
+        case .keychainLocked:
+            return NativeResponse(
+                status: "error", opaqueReference: nil, errorCode: "keychain-locked",
+                userPresenceToken: nil, provider: id
             )
         case .unavailable:
             return NativeResponse(

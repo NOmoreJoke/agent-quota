@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Mutex, mpsc};
+use std::sync::{Mutex, TryLockError, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -80,20 +80,35 @@ impl NativeHost {
         &self,
         reference: &str,
         provider: &str,
+        timeout: Duration,
     ) -> Result<NativeResponse, NativeError> {
         // Provider helpers are separate processes. Serializing their full fetch path prevents
         // two expired Kimi OAuth bundles from rotating the same refresh token concurrently.
-        let _provider_guard = self
-            .provider_gate
-            .lock()
-            .map_err(|_| NativeError::Process)?;
+        let timeout = timeout.min(PROVIDER_TIMEOUT);
+        let deadline = Instant::now() + timeout;
+        let _provider_guard = loop {
+            match self.provider_gate.try_lock() {
+                Ok(guard) => break guard,
+                Err(TryLockError::Poisoned(_)) => return Err(NativeError::Process),
+                Err(TryLockError::WouldBlock) => {
+                    if Instant::now() >= deadline {
+                        return Err(NativeError::Timeout);
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                }
+            }
+        };
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(NativeError::Timeout);
+        }
         self.run(
             serde_json::json!({
                 "action": "provider-fetch",
                 "opaqueReference": reference,
                 "provider": provider
             }),
-            PROVIDER_TIMEOUT,
+            remaining,
         )
     }
 
@@ -374,6 +389,7 @@ mod tests {
                 host.provider_fetch(
                     "credential-00000000-0000-4000-8000-000000000001",
                     "deepseek",
+                    Duration::from_secs(5),
                 )
                 .unwrap();
             }));
@@ -383,6 +399,20 @@ mod tests {
             thread.join().unwrap();
         }
         assert!(!overlap.exists());
+    }
+
+    #[test]
+    fn provider_gate_wait_respects_the_caller_deadline() {
+        let host = NativeHost::new(None);
+        let _guard = host.provider_gate.lock().unwrap();
+        let started = Instant::now();
+        let result = host.provider_fetch(
+            "credential-00000000-0000-4000-8000-000000000001",
+            "deepseek",
+            Duration::from_millis(20),
+        );
+        assert!(matches!(result, Err(NativeError::Timeout)));
+        assert!(started.elapsed() < Duration::from_millis(250));
     }
 
     #[test]

@@ -53,6 +53,15 @@ describe("renderer contract", () => {
     }
   });
 
+  it("keeps keychain lock distinct from Provider availability", () => {
+    expect(
+      validateSchema("aq-renderer-dto://v1/shared-safe-error", {
+        code: "keychain-locked",
+        retryable: false,
+      }),
+    ).toEqual({ code: "keychain-locked", retryable: false });
+  });
+
   it("rejects unknown commands, extra fields, nested extras and bad bounds", () => {
     expect(() => validateCommandRequest("unknown", {})).toThrow("unknown renderer command");
     expect(() => validateCommandRequest("bootstrap_state", { injected: true })).toThrow(

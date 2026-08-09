@@ -19,6 +19,7 @@ from agent_quota.providers import PROVIDER_IDS, manifest, parse_provider_respons
 STATE_SCHEMA: Final = "aq-native-account-state-v1"
 MAX_ACCOUNTS: Final = 64
 PLAN_TTL_NS: Final = 60_000_000_000
+FRESHNESS_TTL_MS: Final = 15 * 60 * 1000
 UUID_PATTERN: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 REFERENCE_PATTERN: Final = re.compile(rf"credential-{UUID_PATTERN}\Z")
 PRINCIPAL_PATTERN: Final = re.compile(r"principal-[0-9a-f]{24}\Z")
@@ -189,6 +190,7 @@ class NativeControlPlane:
                         or last_error
                         not in {
                             "contract-error",
+                            "keychain-locked",
                             "provider-unavailable",
                             "reauth-required",
                             "timeout",
@@ -253,6 +255,11 @@ class NativeControlPlane:
                 "principal_ref": account["principal_ref"],
                 "display_label": account["display_label"],
                 "lifecycle": account["lifecycle"],
+                **(
+                    {"last_error_code": account["last_error_code"]}
+                    if account["last_error_code"] is not None
+                    else {}
+                ),
             }
             for account in self.accounts
         ]
@@ -283,11 +290,23 @@ class NativeControlPlane:
         for account in self.accounts:
             if scope_ref not in {"scope-all", account["principal_ref"]}:
                 continue
-            rows.extend(cast(list[dict[str, str]], account["quota_projection"]))
+            principal = cast(str, account["principal_ref"])
+            for source in cast(list[dict[str, str]], account["quota_projection"]):
+                row = dict(source)
+                identity = hashlib.sha256(
+                    f"{principal}\0{source['capability_ref']}".encode()
+                ).hexdigest()[:24]
+                provider_id = cast(str, account["provider_id"])
+                row["capability_ref"] = f"cap-{provider_id}-account-{identity}"
+                rows.append(row)
             refreshed.append(cast(int, account["last_refresh_epoch_ms"]))
+        newest = max(refreshed, default=0)
+        now_ms = int(time.time() * 1000)
         return {
             "capability_rows": rows,
-            "freshness": "fresh" if rows and any(refreshed) else "stale",
+            "freshness": (
+                "fresh" if rows and 0 <= now_ms - newest <= FRESHNESS_TTL_MS else "stale"
+            ),
             "scope_ref": scope_ref,
         }
 
@@ -379,14 +398,47 @@ class NativeControlPlane:
             if account["provider_id"] != provider_id:
                 raise ValueError("provider response identity drift")
             result = parse_provider_response(provider_id, http_status, body_base64)
-            account["quota_projection"] = [dict(row) for row in result.rows]
-            account["last_refresh_epoch_ms"] = int(time.time() * 1000)
+            if result.ok:
+                account["quota_projection"] = [dict(row) for row in result.rows]
+                account["last_refresh_epoch_ms"] = int(time.time() * 1000)
             account["last_error_code"] = result.safe_error_code
-            account["lifecycle"] = (
-                "needs-reauth" if result.safe_error_code == "reauth-required" else "active"
-            )
+            if result.safe_error_code == "reauth-required":
+                account["lifecycle"] = "needs-reauth"
+            elif account["lifecycle"] != "disabled":
+                account["lifecycle"] = "active"
             self._persist()
             return result.safe_error_code, result.retryable
+        raise ValueError("unknown principal")
+
+    def commit_provider_failure(
+        self,
+        *,
+        principal_ref: str,
+        expected_generation: int,
+        provider_id: str,
+        safe_error_code: str,
+    ) -> None:
+        self._validate_principal(principal_ref)
+        if safe_error_code not in {
+            "contract-error",
+            "keychain-locked",
+            "provider-unavailable",
+            "reauth-required",
+            "timeout",
+        }:
+            raise ValueError("invalid provider failure")
+        for account in self.accounts:
+            if account["principal_ref"] != principal_ref:
+                continue
+            if account["generation"] != expected_generation:
+                raise ValueError("provider failure generation drift")
+            if account["provider_id"] != provider_id:
+                raise ValueError("provider failure identity drift")
+            account["last_error_code"] = safe_error_code
+            if safe_error_code == "reauth-required":
+                account["lifecycle"] = "needs-reauth"
+            self._persist()
+            return
         raise ValueError("unknown principal")
 
     def cleanup_pending(self) -> list[str]:

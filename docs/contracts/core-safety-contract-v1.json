@@ -592,6 +592,20 @@
               "redaction": "renderer-safe-redacted"
             },
             {
+              "name": "last_error_code",
+              "type": "string",
+              "required": false,
+              "max_utf8_bytes": 64,
+              "allowed_values": [
+                "contract-error",
+                "keychain-locked",
+                "provider-unavailable",
+                "reauth-required",
+                "timeout"
+              ],
+              "redaction": "renderer-safe-redacted"
+            },
+            {
               "name": "principal_ref",
               "type": "string",
               "required": true,
@@ -811,6 +825,7 @@
               "max_utf8_bytes": 64,
               "allowed_values": [
                 "contract-error",
+                "keychain-locked",
                 "not-authorized",
                 "outcome-unknown",
                 "provider-unavailable",

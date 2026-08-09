@@ -103,6 +103,17 @@ def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_pa
     )
     assert (error, retryable) == (None, False)
     assert "CNY 9.5" in control.quota_projection("scope-all")["capability_rows"][0]["value_display"]
+    successful_projection = control.quota_projection("scope-all")["capability_rows"]
+    error, retryable = control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=500,
+        body_base64="ignored",
+    )
+    assert (error, retryable) == ("provider-unavailable", True)
+    assert control.quota_projection("scope-all")["capability_rows"] == successful_projection
+    assert control.renderer_accounts()[0]["last_error_code"] == "provider-unavailable"
     restored = NativeControlPlane(root)
     assert restored.quota_projection("scope-all") == control.quota_projection("scope-all")
 
@@ -132,6 +143,44 @@ def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_pa
     )
     assert error == "reauth-required"
     assert restored.renderer_accounts()[0]["lifecycle"] == "needs-reauth"
+
+
+def test_account_projection_ids_are_unique_and_failures_preserve_rows(tmp_path: Path) -> None:
+    control = NativeControlPlane((tmp_path / "private").absolute())
+    created = [
+        control.commit_credential(
+            purpose="create-credential-reference",
+            credential_reference=reference(seed),
+            principal_ref=None,
+            expected_generation=None,
+            provider_id="deepseek",
+        )
+        for seed in (1, 2)
+    ]
+    for commit in created:
+        _, generation, provider = control.credential_context(commit.principal_ref)
+        control.commit_provider_response(
+            principal_ref=commit.principal_ref,
+            expected_generation=generation,
+            provider_id=provider,
+            http_status=200,
+            body_base64=provider_body(
+                {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "1"}]}
+            ),
+        )
+    rows = control.quota_projection("scope-all")["capability_rows"]
+    assert len(rows) == 2
+    assert len({row["capability_ref"] for row in rows}) == 2
+    assert all(row["capability_ref"].startswith("cap-deepseek-account-") for row in rows)
+    _, generation, provider = control.credential_context(created[0].principal_ref)
+    control.commit_provider_failure(
+        principal_ref=created[0].principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        safe_error_code="keychain-locked",
+    )
+    assert control.renderer_accounts()[0]["last_error_code"] == "keychain-locked"
+    assert len(control.quota_projection("scope-all")["capability_rows"]) == 2
 
 
 def test_destructive_two_phase_cancel_drift_replay_and_commit(tmp_path: Path) -> None:

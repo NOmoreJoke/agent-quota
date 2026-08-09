@@ -23,11 +23,13 @@ use resource::ValidatedResources;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use supervisor::{SidecarSupervisor, SupervisorError};
 use tauri::{AppHandle, Manager, State};
 
 type CommandResult = Result<Value, String>;
 const DEFAULT_BUDGET_NS: u64 = 2_000_000_000;
+const REFRESH_DEADLINE: Duration = Duration::from_secs(30);
 
 struct HostState {
     _instance_lease: InstanceLease,
@@ -185,6 +187,7 @@ fn cleanup_references(state: &State<'_, HostState>, references: &Value) {
 
 fn bounded_provider_error(code: Option<&str>) -> &'static str {
     match code {
+        Some("keychain-locked") => "keychain-locked",
         Some("reauth-required") => "reauth-required",
         Some("contract-error") => "contract-error",
         Some("timeout") => "timeout",
@@ -192,7 +195,30 @@ fn bounded_provider_error(code: Option<&str>) -> &'static str {
     }
 }
 
-fn refresh_principal(state: &State<'_, HostState>, principal: &str) -> Result<(), &'static str> {
+fn commit_provider_failure(
+    state: &State<'_, HostState>,
+    principal: &str,
+    generation: u64,
+    provider: &str,
+    code: &'static str,
+) {
+    let _ = call_internal(
+        state,
+        "host_internal.provider_failure_commit",
+        json!({
+            "expected_generation": generation,
+            "principal_ref": principal,
+            "provider_id": provider,
+            "safe_error_code": code
+        }),
+    );
+}
+
+fn refresh_principal(
+    state: &State<'_, HostState>,
+    principal: &str,
+    timeout: Duration,
+) -> Result<(), &'static str> {
     let context = call_internal(
         state,
         "host_internal.credential_context",
@@ -202,13 +228,20 @@ fn refresh_principal(state: &State<'_, HostState>, principal: &str) -> Result<()
     let reference = context["credential_reference"]
         .as_str()
         .ok_or("contract-error")?;
+    let generation = context["generation"].as_u64().ok_or("contract-error")?;
     let provider = context["provider_id"].as_str().ok_or("contract-error")?;
-    let response = state
-        .native
-        .provider_fetch(reference, provider)
-        .map_err(|error| native_error_code(&error))?;
+    let response = match state.native.provider_fetch(reference, provider, timeout) {
+        Ok(response) => response,
+        Err(error) => {
+            let code = native_error_code(&error);
+            commit_provider_failure(state, principal, generation, provider, code);
+            return Err(code);
+        }
+    };
     if response.status != "provider-response" {
-        return Err(bounded_provider_error(response.error_code.as_deref()));
+        let code = bounded_provider_error(response.error_code.as_deref());
+        commit_provider_failure(state, principal, generation, provider, code);
+        return Err(code);
     }
     if response.provider.as_deref() != Some(provider) {
         return Err("contract-error");
@@ -218,7 +251,7 @@ fn refresh_principal(state: &State<'_, HostState>, principal: &str) -> Result<()
         "host_internal.provider_response_commit",
         json!({
             "body_base64": response.body_base64.ok_or("contract-error")?,
-            "expected_generation": context["generation"],
+            "expected_generation": generation,
             "http_status": response.http_status.ok_or("contract-error")?,
             "principal_ref": principal,
             "provider_id": provider
@@ -232,6 +265,29 @@ fn refresh_principal(state: &State<'_, HostState>, principal: &str) -> Result<()
             committed["safe_error_code"].as_str(),
         ))
     }
+}
+
+fn select_refresh_principals(accounts: &Value, scope: &str) -> Result<Vec<String>, &'static str> {
+    let principals: Vec<String> = accounts["accounts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|account| account["lifecycle"].as_str() == Some("active"))
+        .filter_map(|account| account["principal_ref"].as_str().map(str::to_owned))
+        .filter(|principal| scope == "scope-all" || principal == scope)
+        .collect();
+    if scope != "scope-all" && principals.is_empty() {
+        return Err("contract-error");
+    }
+    Ok(principals)
+}
+
+fn refresh_accounts_error(accounts: &Value) -> Option<&str> {
+    (accounts["status"].as_str() != Some("ok")).then(|| {
+        accounts["safe_error"]["code"]
+            .as_str()
+            .unwrap_or("provider-unavailable")
+    })
 }
 
 #[tauri::command]
@@ -259,16 +315,30 @@ fn refresh_scope(state: State<'_, HostState>, request: Value) -> CommandResult {
         json!({"scope_ref": "scope-all"}),
         DEFAULT_BUDGET_NS,
     )?;
-    let principals: Vec<&str> = accounts["accounts"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|account| account["principal_ref"].as_str())
-        .filter(|principal| scope == "scope-all" || *principal == scope)
-        .collect();
+    if let Some(code) = refresh_accounts_error(&accounts) {
+        return validated(
+            "refresh_scope",
+            unavailable("refresh_scope", &request, code),
+        );
+    }
+    let principals = match select_refresh_principals(&accounts, scope) {
+        Ok(principals) => principals,
+        Err(code) => {
+            return validated(
+                "refresh_scope",
+                unavailable("refresh_scope", &request, code),
+            );
+        }
+    };
+    let deadline = Instant::now() + REFRESH_DEADLINE;
     let mut first_error = None;
     for principal in principals {
-        if let Err(code) = refresh_principal(&state, principal) {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            first_error.get_or_insert("timeout");
+            break;
+        }
+        if let Err(code) = refresh_principal(&state, &principal, remaining) {
             first_error.get_or_insert(code);
         }
     }
@@ -329,7 +399,7 @@ fn credential_dialog_open(
             ) {
                 Ok(result) if result["status"] == "committed" => {
                     let principal = result["principal_ref"].as_str().unwrap_or_default();
-                    match refresh_principal(&state, principal) {
+                    match refresh_principal(&state, principal, REFRESH_DEADLINE) {
                         Ok(()) => json!({
                             "opaque_reference_status": "reference-created",
                             "status": "ok"
@@ -533,7 +603,7 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
                             );
                         }
                     }
-                    match refresh_principal(&state, principal) {
+                    match refresh_principal(&state, principal, REFRESH_DEADLINE) {
                         Ok(()) => json!({"reauth_state": "succeeded", "status": "ok"}),
                         Err(code) => json!({
                             "reauth_state": "failed",
@@ -716,5 +786,54 @@ mod tests {
             )
             .unwrap();
         }
+    }
+
+    #[test]
+    fn keychain_locked_refresh_remains_actionable_and_non_retryable() {
+        let response = unavailable(
+            "refresh_scope",
+            &json!({"scope_ref": "scope"}),
+            bounded_provider_error(Some("keychain-locked")),
+        );
+        assert_eq!(response["safe_error"]["code"], "keychain-locked");
+        assert_eq!(response["safe_error"]["retryable"], false);
+        validate_response("refresh_scope", response).unwrap();
+    }
+
+    #[test]
+    fn refresh_selection_skips_disabled_and_rejects_unknown_scope() {
+        let accounts = json!({"accounts": [
+            {"principal_ref": "active", "lifecycle": "active"},
+            {"principal_ref": "disabled", "lifecycle": "disabled"}
+        ]});
+        assert_eq!(
+            select_refresh_principals(&accounts, "scope-all").unwrap(),
+            ["active"]
+        );
+        assert_eq!(
+            select_refresh_principals(&accounts, "disabled"),
+            Err("contract-error")
+        );
+        assert_eq!(
+            select_refresh_principals(&accounts, "missing"),
+            Err("contract-error")
+        );
+    }
+
+    #[test]
+    fn refresh_rejects_failed_accounts_snapshot() {
+        let unavailable_accounts = unavailable(
+            "accounts_read",
+            &json!({"scope_ref": "scope-all"}),
+            "provider-unavailable",
+        );
+        assert_eq!(
+            refresh_accounts_error(&unavailable_accounts),
+            Some("provider-unavailable")
+        );
+        assert_eq!(
+            refresh_accounts_error(&json!({"accounts": [], "status": "ok"})),
+            None
+        );
     }
 }

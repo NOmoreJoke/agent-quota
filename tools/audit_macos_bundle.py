@@ -23,6 +23,23 @@ REQUIRED_RESOURCES = (
     "native-helper/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative",
     "sidecar/agent-quota-sidecar",
 )
+FORBIDDEN_RUNTIME_STATE_NAMES = {
+    ".agent-quota-host-instance.lock",
+    "Cookies",
+    "Cookies-journal",
+    "Login Data",
+    "Web Data",
+    "agent-quota.sqlite",
+    "agent-quota.sqlite-shm",
+    "agent-quota.sqlite-wal",
+    "native-accounts-v1.json",
+}
+FORBIDDEN_RUNTIME_STATE_DIRECTORIES = {
+    "Application Support",
+    "Keychains",
+    "Local Storage",
+    "Session Storage",
+}
 MAXIMUM_DEPLOYMENT_TARGET = (13, 0, 0)
 
 
@@ -137,6 +154,12 @@ def deployment_target_supported(value: str) -> bool:
     return normalized <= MAXIMUM_DEPLOYMENT_TARGET
 
 
+def is_runtime_state_path(relative: PurePosixPath) -> bool:
+    return relative.name in FORBIDDEN_RUNTIME_STATE_NAMES or any(
+        part in FORBIDDEN_RUNTIME_STATE_DIRECTORIES for part in relative.parts
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", type=Path, required=True)
@@ -150,6 +173,13 @@ def main() -> int:
     resources = contents / "Resources"
     errors: list[str] = []
     manifest_digest, manifest_entries = verify_resource_manifest(resources, errors)
+    runtime_state_files = sorted(
+        path.relative_to(app).as_posix()
+        for path in app.rglob("*")
+        if path.is_file() and is_runtime_state_path(PurePosixPath(path.relative_to(app).as_posix()))
+    )
+    if runtime_state_files:
+        errors.append("packaged runtime/account state is forbidden")
 
     for path in (executable, *(resources / name for name in REQUIRED_RESOURCES)):
         metadata = path.lstat() if path.exists() else None
@@ -233,6 +263,7 @@ def main() -> int:
         ),
         "resource_manifest_entries": manifest_entries,
         "resource_manifest_sha256": manifest_digest,
+        "runtime_state_files": runtime_state_files,
         "status": "pass" if not errors and signature.returncode == 0 else "fail",
     }
     args.output.write_text(

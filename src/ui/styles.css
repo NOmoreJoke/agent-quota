@@ -216,7 +216,8 @@ main { min-width: 0; padding: 24px 32px 56px; }
 .catalog-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .catalog-heading p { margin: -8px 0 18px; color: var(--secondary); font-size: 12px; }
 .catalog-search { width: min(320px, 100%); margin-bottom: 18px; }
-.catalog-filter { margin: 0 0 16px; }
+.catalog-filter { margin: 0 0 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.catalog-filter button { min-width: 0; white-space: nowrap; }
 .preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .preset-card { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
 .preset-title { display: flex; align-items: center; gap: 9px; min-width: 0; }

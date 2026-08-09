@@ -380,3 +380,35 @@ def test_internal_provider_response_is_fenced_persisted_and_renderer_safe(tmp_pa
     assert "USD 7" in serialized
     assert "credential-" not in serialized
     assert body not in serialized
+    failure = session.dispatch(
+        envelope(
+            secret,
+            request_id=5,
+            command_id="host_internal.provider_failure_commit",
+            payload={
+                "expected_generation": context["generation"],
+                "principal_ref": principal,
+                "provider_id": context["provider_id"],
+                "safe_error_code": "keychain-locked",
+            },
+        )
+    )["response"]
+    assert failure == {"status": "committed"}
+    accounts = session.dispatch(
+        envelope(
+            secret,
+            request_id=6,
+            command_id="accounts_read",
+            payload={"scope_ref": "scope-all"},
+        )
+    )["response"]["accounts"]
+    assert accounts[0]["last_error_code"] == "keychain-locked"
+    cached = session.dispatch(
+        envelope(
+            secret,
+            request_id=7,
+            command_id="quota_overview",
+            payload={"scope_ref": "scope-all"},
+        )
+    )["response"]
+    assert "USD 7" in json.dumps(cached)

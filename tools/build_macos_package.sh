@@ -119,6 +119,9 @@ fi
 uv run python tools/audit_macos_bundle.py \
   --app "$artifact_dir/Agent Quota.app" \
   --output "$artifact_dir/bundle-audit.json"
+uv run python tools/verify_clean_install_sidecar.py \
+  --sidecar "$artifact_dir/Agent Quota.app/Contents/Resources/sidecar/agent-quota-sidecar" \
+  --output "$artifact_dir/clean-install-audit.json"
 uv run python "$repo_root/tools/audit_package_size.py" \
   --root "$artifact_dir/Agent Quota.app" \
   --max-mib 40
@@ -148,6 +151,7 @@ uv run python tools/generate_package_sbom.py \
     "Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
     "bundle-audit.json" \
     "bundle-manifest.txt" \
+    "clean-install-audit.json" \
     "sbom.cdx.json" > artifact-sha256.txt
 )
 

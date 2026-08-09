@@ -35,6 +35,7 @@ INTERNAL_COMMANDS: Final = {
     "host_internal.destructive_commit",
     "host_internal.destructive_prepare",
     "host_internal.provider_response_commit",
+    "host_internal.provider_failure_commit",
 }
 
 
@@ -287,6 +288,15 @@ def _validate_internal_request(command_id: str, payload: dict[str, object]) -> N
         for field in ("digest", "nonce", "plan_id", "user_presence_token"):
             _bounded_string(payload[field], 128)
         _bounded_integer(payload["generation"])
+    elif command_id == "host_internal.provider_failure_commit":
+        _exact(
+            payload,
+            {"expected_generation", "principal_ref", "provider_id", "safe_error_code"},
+        )
+        _bounded_integer(payload["expected_generation"])
+        _bounded_string(payload["principal_ref"])
+        _bounded_string(payload["provider_id"], 32)
+        _bounded_string(payload["safe_error_code"], 64)
     elif command_id == "host_internal.provider_response_commit":
         _exact(
             payload,
@@ -360,6 +370,9 @@ def _validate_internal_response(command_id: str, payload: dict[str, object]) -> 
         _exact(payload, {"cleanup_references", "status"})
         if payload["cleanup_references"] != []:
             _bounded_string_list(payload["cleanup_references"])
+        _bounded_string(payload["status"], 32)
+    elif command_id == "host_internal.provider_failure_commit":
+        _exact(payload, {"status"})
         _bounded_string(payload["status"], 32)
     elif command_id == "host_internal.provider_response_commit":
         _exact(payload, {"retryable", "safe_error_code", "status"})
@@ -446,6 +459,14 @@ def _internal_dispatch(
                 "safe_error_code": safe_error_code,
                 "status": "committed" if safe_error_code is None else "rejected",
             }
+        if command_id == "host_internal.provider_failure_commit":
+            native.commit_provider_failure(
+                principal_ref=str(payload["principal_ref"]),
+                expected_generation=cast(int, payload["expected_generation"]),
+                provider_id=str(payload["provider_id"]),
+                safe_error_code=str(payload["safe_error_code"]),
+            )
+            return {"status": "committed"}
     except (OSError, OverflowError, ValueError) as error:
         raise ContractViolation("internal operation rejected") from error
     raise ContractViolation("unknown internal command")

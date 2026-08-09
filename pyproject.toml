@@ -12,6 +12,10 @@ license = { text = "MIT" }
 authors = [{ name = "Agent Quota contributors" }]
 dependencies = []
 
+[project.urls]
+Repository = "https://github.com/NOmoreJoke/agent-quota"
+Issues = "https://github.com/NOmoreJoke/agent-quota/issues"
+
 [project.scripts]
 agent-quota = "agent_quota.cli:main"
 agent-quota-sidecar = "agent_quota.sidecar:main"

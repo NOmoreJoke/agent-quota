@@ -3,6 +3,8 @@ name = "agent-quota-desktop"
 version = "0.1.0"
 description = "Local quota control desktop host"
 authors = ["Agent Quota"]
+license = "MIT"
+repository = "https://github.com/NOmoreJoke/agent-quota"
 edition = "2024"
 rust-version = "1.85"
 
