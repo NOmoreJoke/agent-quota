@@ -152,7 +152,6 @@ export function App() {
     outcome: "none",
     text: "等待手动刷新",
   });
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [providerQuery, setProviderQuery] = useState("");
   const [providerMode, setProviderMode] = useState<"all" | OverviewMode>("all");
 
@@ -233,21 +232,6 @@ export function App() {
     } catch (error) {
       setNotice({ tone: "danger", text: `添加账户失败：${readableError(error)}` });
     }
-  };
-
-  const exportRedacted = async () => {
-    const result = await invokeHost("export_redacted", { export_profile: "redacted-diagnostics", scope_ref: "scope-all" });
-    setNotice({ tone: result.status === "ok" ? "success" : "danger", text: result.status === "ok" ? "脱敏诊断已导出。" : "导出失败。" });
-  };
-
-  const saveSettings = async () => {
-    await invokeHost("config_validate_apply", {
-      config_change_set: {
-        changes: [{ change_kind: "refresh-policy", change_ref: "setting-auto-refresh", refresh_policy: autoRefresh ? "scheduler-eligible" : "manual-only" }],
-        expected_generation: 0,
-      },
-    });
-    setNotice({ tone: "success", text: "设置已通过校验并保存。" });
   };
 
   const filteredCapabilities = useMemo(() => {
@@ -436,11 +420,11 @@ export function App() {
             <h2 className="settings-label">显示</h2>
             <div className="settings-panel"><div><span>主题</span><strong>浅色⌄</strong></div><div><span>时区</span><strong>Asia/Shanghai (UTC+8)⌄</strong></div><div><span>减少动效</span><strong>关 <i className="toggle"/></strong></div></div>
             <h2 className="settings-label">安全</h2>
-            <div className="settings-panel"><div><span>凭据后端</span><strong>macOS Keychain⌄</strong></div><div><span>Renderer 隔离</span><strong>已启用（默认）</strong></div><div><span>诊断日志</span><button type="button" className="text-button" onClick={() => void exportRedacted()}>导出脱敏诊断</button></div></div>
+            <div className="settings-panel"><div><span>凭据后端</span><strong>macOS Keychain⌄</strong></div><div><span>Renderer 隔离</span><strong>已启用（默认）</strong></div><div><span>诊断日志导出</span><strong>当前版本未启用</strong></div></div>
             <h2 className="settings-label">无障碍</h2>
             <div className="settings-panel"><div><span>键盘可达</span><strong>已启用</strong></div><div><span>200% 缩放</span><strong>支持</strong></div><div><span>颜色对比</span><strong>WCAG 2.2 AA</strong></div></div>
             <h2 className="settings-label">Provider 行为</h2>
-            <div className="settings-panel"><div><span>刷新频率</span><strong>{autoRefresh ? "自动" : "手动"}</strong></div><label><span>后台自动刷新</span><input type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)}/></label><div className="settings-actions"><button type="button" className="primary compact" onClick={() => void saveSettings()}>保存设置</button><button type="button" className="danger-button compact" onClick={async () => {
+            <div className="settings-panel"><div><span>刷新频率</span><strong>手动</strong></div><div><span>后台自动刷新</span><strong>当前版本未启用</strong></div><div className="settings-actions"><button type="button" className="danger-button compact" onClick={async () => {
               const result = await invokeHost("destructive_confirmation_open", { operation_intent: "purge", opaque_selection_handle: "selection-all-local-data" });
               if (result.status === "committed") await load();
               setNotice({ tone: "info", text: result.status === "committed" ? "本机数据已由原生流程清理。" : "原生清理确认已取消；没有更改数据。" });

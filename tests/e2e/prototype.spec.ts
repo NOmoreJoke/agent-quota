@@ -30,8 +30,9 @@ test("prototype covers primary navigation and host-owned actions", async ({ page
 
   await page.getByRole("button", { name: "设置" }).click();
   await expect(page.locator("[data-sidebar-position=left]")).toBeVisible();
-  await page.getByRole("button", { name: "导出脱敏诊断" }).click();
-  await expect(page.getByRole("status")).toContainText("脱敏诊断已导出");
+  await expect(page.getByText("诊断日志导出")).toBeVisible();
+  await expect(page.getByText("当前版本未启用")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "保存设置" })).toHaveCount(0);
   await page.getByRole("button", { name: "清理本机数据" }).click();
   await expect(page.getByRole("status")).toContainText("没有更改数据");
 });
