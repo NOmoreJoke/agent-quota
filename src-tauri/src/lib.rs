@@ -198,6 +198,25 @@ fn cleanup_references(state: &State<'_, HostState>, references: &Value) -> bool 
     .is_ok()
 }
 
+fn create_credential_candidate(state: &State<'_, HostState>) -> Result<String, SupervisorError> {
+    let result = call_internal(
+        state,
+        "host_internal.credential_candidate_create",
+        json!({}),
+    )?;
+    if result["status"] != "prepared" {
+        return Err(SupervisorError::Protocol);
+    }
+    result["credential_reference"]
+        .as_str()
+        .map(str::to_owned)
+        .ok_or(SupervisorError::Protocol)
+}
+
+fn cleanup_credential_candidate(state: &State<'_, HostState>, reference: &str) -> bool {
+    cleanup_references(state, &json!([reference]))
+}
+
 fn bounded_provider_error(code: Option<&str>) -> &'static str {
     match code {
         Some("keychain-locked") => "keychain-locked",
@@ -383,33 +402,52 @@ fn credential_dialog_open(
             unavailable("credential_dialog_open", &request, "not-authorized"),
         );
     }
+    let reference = match create_credential_candidate(&state) {
+        Ok(reference) => reference,
+        Err(error) => {
+            return validated(
+                "credential_dialog_open",
+                unavailable(
+                    "credential_dialog_open",
+                    &request,
+                    if matches!(error, SupervisorError::OutcomeUnknown) {
+                        "outcome-unknown"
+                    } else {
+                        "provider-unavailable"
+                    },
+                ),
+            );
+        }
+    };
     let response = match state.native.credential(json!({
         "action": "credential",
-        "dialogPurpose": "create-credential-reference"
+        "dialogPurpose": "create-credential-reference",
+        "opaqueReference": reference
     })) {
         Ok(response) if response.status == "cancelled" => {
-            json!({"opaque_reference_status": "cancelled", "status": "cancelled"})
+            if cleanup_credential_candidate(&state, &reference) {
+                json!({"opaque_reference_status": "cancelled", "status": "cancelled"})
+            } else {
+                unavailable("credential_dialog_open", &request, "provider-unavailable")
+            }
         }
         Ok(response) if response.status == "reference-created" => {
-            let (Some(reference), Some(provider)) = (response.opaque_reference, response.provider)
+            let (Some(returned_reference), Some(provider)) =
+                (response.opaque_reference, response.provider)
             else {
+                let _ = cleanup_credential_candidate(&state, &reference);
                 restore_main_window(&app);
                 return validated(
                     "credential_dialog_open",
                     unavailable("credential_dialog_open", &request, "provider-unavailable"),
                 );
             };
-            let prepared = call_internal(
-                &state,
-                "host_internal.credential_prepare",
-                json!({"credential_reference": reference}),
-            );
-            if !matches!(prepared, Ok(ref result) if result["status"] == "prepared") {
-                let _ = state.native.delete_reference(&reference);
+            if returned_reference != reference {
+                let _ = cleanup_credential_candidate(&state, &reference);
                 restore_main_window(&app);
                 return validated(
                     "credential_dialog_open",
-                    unavailable("credential_dialog_open", &request, "outcome-unknown"),
+                    unavailable("credential_dialog_open", &request, "provider-unavailable"),
                 );
             }
             match call_internal(
@@ -441,20 +479,28 @@ fn credential_dialog_open(
                     unavailable("credential_dialog_open", &request, "outcome-unknown")
                 }
                 _ => {
-                    let _ = state.native.delete_reference(&reference);
+                    let _ = cleanup_credential_candidate(&state, &reference);
                     unavailable("credential_dialog_open", &request, "provider-unavailable")
                 }
             }
         }
         Ok(response) => {
             let _ = response.error_code;
-            unavailable("credential_dialog_open", &request, "not-authorized")
+            let code = if cleanup_credential_candidate(&state, &reference) {
+                "not-authorized"
+            } else {
+                "provider-unavailable"
+            };
+            unavailable("credential_dialog_open", &request, code)
         }
-        Err(error) => unavailable(
-            "credential_dialog_open",
-            &request,
-            native_error_code(&error),
-        ),
+        Err(error) => {
+            let code = if cleanup_credential_candidate(&state, &reference) {
+                native_error_code(&error)
+            } else {
+                "provider-unavailable"
+            };
+            unavailable("credential_dialog_open", &request, code)
+        }
     };
     restore_main_window(&app);
     validated("credential_dialog_open", response)
@@ -597,34 +643,52 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
             );
         }
     };
+    let reference = match create_credential_candidate(&state) {
+        Ok(reference) => reference,
+        Err(error) => {
+            return validated(
+                "reauthenticate",
+                unavailable(
+                    "reauthenticate",
+                    &request,
+                    if matches!(error, SupervisorError::OutcomeUnknown) {
+                        "outcome-unknown"
+                    } else {
+                        "provider-unavailable"
+                    },
+                ),
+            );
+        }
+    };
     let native_response = state.native.credential(json!({
         "action": "credential",
         "dialogPurpose": "replace-credential-reference",
+        "opaqueReference": reference,
         "provider": context["provider_id"]
     }));
     restore_main_window(&app);
     let response = match native_response {
         Ok(response) if response.status == "cancelled" => {
-            json!({"reauth_state": "cancelled", "status": "ok"})
+            if cleanup_credential_candidate(&state, &reference) {
+                json!({"reauth_state": "cancelled", "status": "ok"})
+            } else {
+                unavailable("reauthenticate", &request, "provider-unavailable")
+            }
         }
         Ok(response) if response.status == "reference-replaced" => {
-            let Some(reference) = response.opaque_reference else {
+            let Some(returned_reference) = response.opaque_reference else {
+                let _ = cleanup_credential_candidate(&state, &reference);
                 restore_main_window(&app);
                 return validated(
                     "reauthenticate",
                     unavailable("reauthenticate", &request, "provider-unavailable"),
                 );
             };
-            let prepared = call_internal(
-                &state,
-                "host_internal.credential_prepare",
-                json!({"credential_reference": reference}),
-            );
-            if !matches!(prepared, Ok(ref result) if result["status"] == "prepared") {
-                let _ = state.native.delete_reference(&reference);
+            if returned_reference != reference {
+                let _ = cleanup_credential_candidate(&state, &reference);
                 return validated(
                     "reauthenticate",
-                    unavailable("reauthenticate", &request, "outcome-unknown"),
+                    unavailable("reauthenticate", &request, "provider-unavailable"),
                 );
             }
             match call_internal(
@@ -661,13 +725,27 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
                     unavailable("reauthenticate", &request, "outcome-unknown")
                 }
                 _ => {
-                    let _ = state.native.delete_reference(&reference);
+                    let _ = cleanup_credential_candidate(&state, &reference);
                     unavailable("reauthenticate", &request, "provider-unavailable")
                 }
             }
         }
-        Ok(_) => unavailable("reauthenticate", &request, "not-authorized"),
-        Err(error) => unavailable("reauthenticate", &request, native_error_code(&error)),
+        Ok(_) => {
+            let code = if cleanup_credential_candidate(&state, &reference) {
+                "not-authorized"
+            } else {
+                "provider-unavailable"
+            };
+            unavailable("reauthenticate", &request, code)
+        }
+        Err(error) => {
+            let code = if cleanup_credential_candidate(&state, &reference) {
+                native_error_code(&error)
+            } else {
+                "provider-unavailable"
+            };
+            unavailable("reauthenticate", &request, code)
+        }
     };
     validated("reauthenticate", response)
 }

@@ -110,8 +110,8 @@ private struct NativeRequest {
         switch action {
         case "credential":
             required = (value["dialogPurpose"] as? String) == "replace-credential-reference"
-                ? ["action", "dialogPurpose", "provider"]
-                : ["action", "dialogPurpose"]
+                ? ["action", "dialogPurpose", "opaqueReference", "provider"]
+                : ["action", "dialogPurpose", "opaqueReference"]
         case "provider-fetch":
             required = ["action", "opaqueReference", "provider"]
         case "destructive":
@@ -346,8 +346,15 @@ private func providerDefinition(_ id: String) -> ProviderDefinition? {
 }
 
 @MainActor
-private func credentialDialog(purpose: String, provider requestedProvider: String?) -> NativeResponse {
-    guard ["create-credential-reference", "replace-credential-reference"].contains(purpose) else {
+private func credentialDialog(
+    purpose: String,
+    reference: String,
+    provider requestedProvider: String?
+) -> NativeResponse {
+    guard
+        ["create-credential-reference", "replace-credential-reference"].contains(purpose),
+        isCredentialReference(reference)
+    else {
         return NativeResponse(
             status: "error", opaqueReference: nil, errorCode: "invalid-request",
             userPresenceToken: nil
@@ -463,7 +470,6 @@ private func credentialDialog(purpose: String, provider requestedProvider: Strin
             )
         }
     }
-    let reference = "credential-\(UUID().uuidString.lowercased())"
     do {
         try keychainAdd(account: reference, secret: &bytes)
         return NativeResponse(
@@ -1511,7 +1517,7 @@ private struct AgentQuotaNative {
             let response: NativeResponse
             switch request.action {
             case "credential":
-                guard let purpose = request.dialogPurpose else {
+                guard let purpose = request.dialogPurpose, let reference = request.opaqueReference else {
                     emit(
                         NativeResponse(
                             status: "error", opaqueReference: nil, errorCode: "invalid-request",
@@ -1520,7 +1526,11 @@ private struct AgentQuotaNative {
                     )
                     exit(64)
                 }
-                response = credentialDialog(purpose: purpose, provider: request.provider)
+                response = credentialDialog(
+                    purpose: purpose,
+                    reference: reference,
+                    provider: request.provider
+                )
             case "provider-fetch":
                 guard let reference = request.opaqueReference, let provider = request.provider else {
                     emit(

@@ -132,6 +132,19 @@ def test_prepared_credential_journal_reconciles_crash_boundaries(tmp_path: Path)
     assert replace_restart.cleanup_pending() == []
 
 
+def test_core_generated_candidate_is_durable_before_native_helper(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    candidate = control.create_credential_candidate()
+    assert candidate.startswith("credential-")
+    assert len(candidate) == 47
+    assert control.cleanup_pending() == [candidate]
+    restored = NativeControlPlane(root)
+    assert restored.cleanup_pending() == [candidate]
+    restored.acknowledge_cleanup([candidate])
+    assert restored.cleanup_pending() == []
+
+
 def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)

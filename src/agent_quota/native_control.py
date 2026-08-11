@@ -410,6 +410,21 @@ class NativeControlPlane:
         self._queue_keychain_deletion(credential_reference)
         self._persist()
 
+    def create_credential_candidate(self) -> str:
+        for _ in range(128):
+            token = secrets.token_hex(16)
+            candidate = (
+                f"credential-{token[:8]}-{token[8:12]}-{token[12:16]}-{token[16:20]}-{token[20:]}"
+            )
+            if candidate in self.pending_keychain_deletions or any(
+                account["credential_reference"] == candidate for account in self.accounts
+            ):
+                continue
+            self._queue_keychain_deletion(candidate)
+            self._persist()
+            return candidate
+        raise RuntimeError("credential candidate generation exhausted")
+
     def commit_prepared_credential(
         self,
         *,

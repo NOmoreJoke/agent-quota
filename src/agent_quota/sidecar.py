@@ -30,6 +30,7 @@ INTERNAL_COMMANDS: Final = {
     "host_internal.cleanup_ack",
     "host_internal.cleanup_pending",
     "host_internal.credential_context",
+    "host_internal.credential_candidate_create",
     "host_internal.credential_commit",
     "host_internal.credential_prepare",
     "host_internal.destructive_cancel",
@@ -256,6 +257,8 @@ def _validate_internal_request(command_id: str, payload: dict[str, object]) -> N
     elif command_id == "host_internal.credential_context":
         _exact(payload, {"principal_ref"})
         _bounded_string(payload["principal_ref"])
+    elif command_id == "host_internal.credential_candidate_create":
+        _exact(payload, set())
     elif command_id == "host_internal.credential_prepare":
         _exact(payload, {"credential_reference"})
         _bounded_string(payload["credential_reference"])
@@ -337,6 +340,11 @@ def _validate_internal_response(command_id: str, payload: dict[str, object]) -> 
         _bounded_string(payload["credential_reference"])
         _bounded_integer(payload["generation"])
         _bounded_string(payload["provider_id"], 32)
+    elif command_id == "host_internal.credential_candidate_create":
+        _exact(payload, {"credential_reference", "status"})
+        _bounded_string(payload["credential_reference"])
+        if payload["status"] != "prepared":
+            raise ContractViolation("invalid credential candidate status")
     elif command_id == "host_internal.credential_prepare":
         _exact(payload, {"status"})
         if payload["status"] != "prepared":
@@ -413,6 +421,11 @@ def _internal_dispatch(
                 "generation": generation,
                 "provider_id": provider_id,
                 "status": "ok",
+            }
+        if command_id == "host_internal.credential_candidate_create":
+            return {
+                "credential_reference": native.create_credential_candidate(),
+                "status": "prepared",
             }
         if command_id == "host_internal.credential_prepare":
             native.prepare_credential_reference(str(payload["credential_reference"]))

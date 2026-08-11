@@ -354,7 +354,8 @@ mod tests {
         let response = host
             .credential(serde_json::json!({
                 "action": "credential",
-                "dialogPurpose": "create-credential-reference"
+                "dialogPurpose": "create-credential-reference",
+                "opaqueReference": "credential-00000000-0000-4000-8000-000000000001"
             }))
             .unwrap();
         assert_eq!(response.status, "reference-created");

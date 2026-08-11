@@ -104,6 +104,9 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert "editor.paste(nil)" in swift
     assert "secure.menu = secureMenu" in swift
     assert "NSText.copy" not in swift
+    assert 'let reference = "credential-\\(UUID()' not in swift
+    assert '["action", "dialogPurpose", "opaqueReference"]' in swift
+    assert "isCredentialReference(reference)" in swift
     rust_host = (root / "src-tauri" / "src" / "lib.rs").read_text()
     lease = rust_host.index("InstanceLease::acquire(&data_root)")
     builder = rust_host.index("tauri::Builder::default()")
@@ -116,6 +119,15 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert lease < rust_host.index("NativeHost::new")
     assert "prune_references" not in rust_host
     assert "host_internal.credential_references" not in rust_host
+    credential_flow = rust_host[
+        rust_host.index("fn credential_dialog_open") : rust_host.index(
+            "fn destructive_confirmation_open"
+        )
+    ]
+    assert credential_flow.index("create_credential_candidate(&state)") < credential_flow.index(
+        "state.native.credential"
+    )
+    assert '"opaqueReference": reference' in credential_flow
     helper = (root / "tools/build_native_helper.sh").read_text()
     assert "-strict-concurrency=complete" in helper
     assert "-target arm64-apple-macosx13.0" in helper
