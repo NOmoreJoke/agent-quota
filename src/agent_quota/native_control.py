@@ -102,9 +102,17 @@ class NativeControlPlane:
         )
         try:
             try:
-                payload, metadata = read_regular_at(directory, self.path.name)
+                payload, metadata = read_regular_at(
+                    directory,
+                    self.path.name,
+                    max_bytes=MAX_STATE_BYTES,
+                )
             except FileNotFoundError:
                 return self._empty_state()
+            except ValueError as error:
+                if str(error) == "private file exceeds read bound":
+                    raise ValueError("native state is oversized") from error
+                raise
             except OSError as error:
                 raise ValueError("native state must be a regular file") from error
         finally:
@@ -237,7 +245,7 @@ class NativeControlPlane:
         ).encode()
         if len(payload) > MAX_STATE_BYTES:
             raise ValueError("native state is oversized")
-        atomic_write_private(self.path, payload)
+        atomic_write_private(self.path, payload, max_bytes=MAX_STATE_BYTES)
 
     @property
     def generation(self) -> int:

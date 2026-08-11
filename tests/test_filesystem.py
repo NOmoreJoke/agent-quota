@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_quota.filesystem import open_directory_nofollow, read_regular_at
+from agent_quota.filesystem import atomic_write_private, open_directory_nofollow, read_regular_at
 
 
 def test_directory_open_requires_absolute_private_mode(tmp_path: Path) -> None:
@@ -39,3 +39,22 @@ def test_regular_read_rejects_hardlink(tmp_path: Path) -> None:
             read_regular_at(descriptor, "value")
     finally:
         os.close(descriptor)
+
+
+def test_private_io_enforces_explicit_bounds(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    root.mkdir(mode=0o700)
+    root.chmod(0o700)
+    path = root / "value"
+    atomic_write_private(path, b"1234", max_bytes=4)
+    descriptor = open_directory_nofollow(root)
+    try:
+        with pytest.raises(ValueError, match="read bound"):
+            read_regular_at(descriptor, "value", max_bytes=True)
+        with pytest.raises(ValueError, match="exceeds read bound"):
+            read_regular_at(descriptor, "value", max_bytes=3)
+    finally:
+        os.close(descriptor)
+    with pytest.raises(ValueError, match="private write"):
+        atomic_write_private(path, b"1234", max_bytes=3)
+    assert path.read_bytes() == b"1234"

@@ -45,7 +45,14 @@ def open_directory_nofollow(
         raise
 
 
-def read_regular_at(directory: int, name: str) -> tuple[bytes, os.stat_result]:
+def read_regular_at(
+    directory: int,
+    name: str,
+    *,
+    max_bytes: int = 1024 * 1024,
+) -> tuple[bytes, os.stat_result]:
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
+        raise ValueError("invalid private read bound")
     descriptor = os.open(
         name,
         os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
@@ -53,6 +60,8 @@ def read_regular_at(directory: int, name: str) -> tuple[bytes, os.stat_result]:
     )
     try:
         metadata = os.fstat(descriptor)
+        if metadata.st_size > max_bytes:
+            raise ValueError("private file exceeds read bound")
         if (
             not stat.S_ISREG(metadata.st_mode)
             or metadata.st_uid != os.getuid()
@@ -60,7 +69,11 @@ def read_regular_at(directory: int, name: str) -> tuple[bytes, os.stat_result]:
         ):
             raise ValueError("private file identity mismatch")
         chunks = []
+        total = 0
         while chunk := os.read(descriptor, 65_536):
+            total += len(chunk)
+            if total > max_bytes:
+                raise ValueError("private file exceeds read bound")
             chunks.append(chunk)
         return b"".join(chunks), metadata
     finally:
@@ -79,10 +92,22 @@ def same_identity(left: os.stat_result, right: os.stat_result) -> bool:
     )
 
 
-def atomic_write_private(path: Path, payload: bytes) -> None:
+def atomic_write_private(
+    path: Path,
+    payload: bytes,
+    *,
+    max_bytes: int = 1024 * 1024,
+) -> None:
     """Atomically replace one private regular file inside a private directory."""
 
-    if not path.is_absolute() or not path.name or len(payload) > 1024 * 1024:
+    if (
+        not path.is_absolute()
+        or not path.name
+        or isinstance(max_bytes, bool)
+        or not isinstance(max_bytes, int)
+        or max_bytes < 1
+        or len(payload) > max_bytes
+    ):
         raise ValueError("invalid private write")
     directory = open_directory_nofollow(path.parent, require_owner=True, require_mode=0o700)
     temporary = f".{path.name}.{secrets.token_hex(8)}.tmp"

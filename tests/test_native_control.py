@@ -244,13 +244,60 @@ def test_writer_enforces_the_same_state_size_bound(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     control = NativeControlPlane((tmp_path / "private").absolute())
+    control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+    )
+    persisted = control.path.read_bytes()
     monkeypatch.setattr(
         "agent_quota.native_control.json.dumps",
         lambda *args, **kwargs: "x" * (MAX_STATE_BYTES + 1),
     )
     with pytest.raises(ValueError, match="oversized"):
         control._persist()
-    assert not control.path.exists()
+    assert control.path.read_bytes() == persisted
+
+
+def test_valid_state_over_one_megabyte_mutates_persists_and_restarts(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    principals: list[str] = []
+    for seed in range(1, 65):
+        created = control.commit_credential(
+            purpose="create-credential-reference",
+            credential_reference=reference(seed),
+            principal_ref=None,
+            expected_generation=None,
+            provider_id="deepseek",
+        )
+        principals.append(created.principal_ref)
+    rows = [
+        {
+            "capability_ref": f"capability-{index:03d}-" + "c" * 111,
+            "display_kind": "balance",
+            "health": "ok",
+            "value_display": "v" * 128,
+        }
+        for index in range(256)
+    ]
+    for account in control.accounts:
+        account["quota_projection"] = [dict(row) for row in rows]
+    control._persist()
+    assert 1024 * 1024 < control.path.stat().st_size <= MAX_STATE_BYTES
+
+    restored = NativeControlPlane(root)
+    _, generation, provider = restored.credential_context(principals[0])
+    restored.commit_provider_failure(
+        principal_ref=principals[0],
+        expected_generation=generation,
+        provider_id=provider,
+        safe_error_code="timeout",
+    )
+    final = NativeControlPlane(root)
+    account = next(item for item in final.accounts if item["principal_ref"] == principals[0])
+    assert account["last_error_code"] == "timeout"
 
 
 def test_loader_rejects_active_reference_in_cleanup_journal(tmp_path: Path) -> None:
