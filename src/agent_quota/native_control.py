@@ -291,6 +291,8 @@ class NativeControlPlane:
         for account in self.accounts:
             if scope_ref not in {"scope-all", account["principal_ref"]}:
                 continue
+            if account["lifecycle"] == "disabled":
+                continue
             principal = cast(str, account["principal_ref"])
             if account["lifecycle"] == "needs-reauth" and account["quota_projection"]:
                 reauth_blocked = True

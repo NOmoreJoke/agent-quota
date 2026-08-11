@@ -414,13 +414,25 @@ def test_invalid_roots_state_bounds_and_credential_inputs_fail_closed(tmp_path: 
 
 
 def test_destructive_intents_require_exact_scope_and_apply(tmp_path: Path) -> None:
-    control = NativeControlPlane((tmp_path / "private").absolute())
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
     created = control.commit_credential(
         purpose="create-credential-reference",
         credential_reference=reference(1),
         principal_ref=None,
         expected_generation=None,
     )
+    _, account_generation, provider = control.credential_context(created.principal_ref)
+    control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=account_generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}]}
+        ),
+    )
+    assert control.quota_projection("scope-all")["freshness"] == "fresh"
     with pytest.raises(ValueError, match="unknown destructive"):
         control.prepare_destructive(
             operation_intent="unknown",
@@ -448,6 +460,20 @@ def test_destructive_intents_require_exact_scope_and_apply(tmp_path: Path) -> No
         user_presence_token="00000000-0000-4000-8000-000000000010",
     )
     assert control.renderer_accounts()[0]["lifecycle"] == "disabled"
+    for scope in ("scope-all", created.principal_ref):
+        assert control.quota_projection(scope) == {
+            "capability_rows": [],
+            "freshness": "stale",
+            "scope_ref": scope,
+        }
+    restored = NativeControlPlane(root)
+    assert restored.renderer_accounts()[0]["lifecycle"] == "disabled"
+    for scope in ("scope-all", created.principal_ref):
+        assert restored.quota_projection(scope) == {
+            "capability_rows": [],
+            "freshness": "stale",
+            "scope_ref": scope,
+        }
     config = control.prepare_destructive(
         operation_intent="destructive-config-diff",
         opaque_selection_handle="config-all",
