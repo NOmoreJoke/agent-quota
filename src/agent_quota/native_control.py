@@ -403,14 +403,18 @@ class NativeControlPlane:
             if account["provider_id"] != provider_id:
                 raise ValueError("provider response identity drift")
             result = parse_provider_response(provider_id, http_status, body_base64)
+            if account["lifecycle"] == "needs-reauth":
+                account["last_error_code"] = "reauth-required"
+                self._persist()
+                return "reauth-required", False
+            if account["lifecycle"] == "disabled":
+                return "contract-error", False
             if result.ok:
                 account["quota_projection"] = [dict(row) for row in result.rows]
                 account["last_refresh_epoch_ms"] = int(time.time() * 1000)
             account["last_error_code"] = result.safe_error_code
             if result.safe_error_code == "reauth-required":
                 account["lifecycle"] = "needs-reauth"
-            elif account["lifecycle"] != "disabled":
-                account["lifecycle"] = "active"
             self._persist()
             return result.safe_error_code, result.retryable
         raise ValueError("unknown principal")
@@ -439,6 +443,12 @@ class NativeControlPlane:
                 raise ValueError("provider failure generation drift")
             if account["provider_id"] != provider_id:
                 raise ValueError("provider failure identity drift")
+            if account["lifecycle"] == "needs-reauth":
+                account["last_error_code"] = "reauth-required"
+                self._persist()
+                return
+            if account["lifecycle"] == "disabled":
+                return
             account["last_error_code"] = safe_error_code
             if safe_error_code == "reauth-required":
                 account["lifecycle"] = "needs-reauth"
