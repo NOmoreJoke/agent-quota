@@ -43,6 +43,7 @@ include = [
   "/tools",
   "/README.md",
   "/LICENSE",
+  "/ASSET_PROVENANCE.md",
   "/THIRD_PARTY_NOTICES.md",
   "/pyproject.toml",
   "/uv.lock",

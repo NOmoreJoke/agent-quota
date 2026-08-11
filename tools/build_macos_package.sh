@@ -139,6 +139,7 @@ uv run python "$repo_root/tools/audit_package_size.py" \
 /bin/mkdir -p "$dmg_root"
 /usr/bin/ditto "$app" "$dmg_root/Agent Quota.app"
 /bin/cp "$repo_root/LICENSE" "$dmg_root/LICENSE.txt"
+/bin/cp "$repo_root/ASSET_PROVENANCE.md" "$dmg_root/ASSET_PROVENANCE.md"
 /bin/cp "$repo_root/THIRD_PARTY_NOTICES.md" "$dmg_root/THIRD_PARTY_NOTICES.md"
 /bin/cp "$repo_root/README.md" "$dmg_root/README.md"
 /usr/bin/hdiutil create \

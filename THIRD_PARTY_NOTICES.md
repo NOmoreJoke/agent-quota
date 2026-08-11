@@ -7,8 +7,8 @@ license terms.
 The release SBOM is generated from the exact `pnpm-lock.yaml`, `uv.lock`, and
 `src-tauri/Cargo.lock` inputs. A release is blocked if a dependency has a
 missing, unknown, or incompatible license. No external fonts or photographs are
-bundled. The maintainer must confirm the provenance and relicensing authority
-for the repository icon before a public release.
+bundled. The original MIT-licensed application icon is documented in
+`ASSET_PROVENANCE.md`.
 
 Sanitized Provider fixtures contain only response field topology and synthetic
 replacement values. They do not contain Provider code, documentation text,

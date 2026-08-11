@@ -8,8 +8,7 @@
 | RC-004 | P0 | Bailian Coding/Token Plan documents UI usage but no supported read-only usage API was verified | Official public usage API |
 | RC-005 | P0 | GLM official query source exposes 5h tokens and monthly MCP, not weekly usage | Official weekly field/API |
 | RC-006 | P0 | No current installed-RC Provider accounts are configured | Holder-controlled native credential entry and live matrix replay |
-| RC-008 | P1 | Package remains local unsigned arm64 | Expected RC boundary; document Gatekeeper launch |
-| RC-009 | P1 | Maintainer confirmation of icon provenance/relicensing authority is absent | Written maintainer confirmation or replace with a newly generated MIT asset |
+| RC-008 | Accepted | Package remains local unsigned arm64 | Explicit RC target; document Gatekeeper launch |
 
 Do not replace any issue with browser scraping, Cookie reuse, private console
 endpoints, local estimation, synthetic values, or historical fixtures.
