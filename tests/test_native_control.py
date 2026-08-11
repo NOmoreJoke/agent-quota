@@ -337,6 +337,11 @@ def test_scope_all_is_stale_when_an_account_fails_before_first_projection(tmp_pa
             {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "1"}]}
         ),
     )
+    projection = control.quota_projection("scope-all")
+    assert len(projection["capability_rows"]) == 1
+    assert projection["freshness"] == "stale"
+    control = NativeControlPlane(root)
+    assert control.quota_projection("scope-all")["freshness"] == "stale"
     _, failed_generation, _ = control.credential_context(failed.principal_ref)
     for safe_error_code in ("provider-unavailable", "timeout"):
         control.commit_provider_failure(
@@ -359,6 +364,17 @@ def test_scope_all_is_stale_when_an_account_fails_before_first_projection(tmp_pa
     )
     assert control.renderer_accounts()[1]["lifecycle"] == "needs-reauth"
     assert control.quota_projection("scope-all")["freshness"] == "stale"
+    restored = NativeControlPlane(root)
+    assert restored.quota_projection("scope-all")["freshness"] == "stale"
+    restored.commit_credential(
+        purpose="replace-credential-reference",
+        credential_reference=reference(3),
+        principal_ref=failed.principal_ref,
+        expected_generation=failed_generation,
+        provider_id=provider,
+    )
+    assert restored.renderer_accounts()[1]["lifecycle"] == "active"
+    assert restored.quota_projection("scope-all")["freshness"] == "stale"
     restored = NativeControlPlane(root)
     assert restored.quota_projection("scope-all")["freshness"] == "stale"
 
