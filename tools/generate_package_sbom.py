@@ -6,6 +6,7 @@ import argparse
 import importlib.metadata
 import json
 import os
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -56,6 +57,42 @@ def component(
     }
     if license_name:
         result["licenses"] = [license_entry(license_name)]
+    return result
+
+
+def set_scope(entry: dict[str, Any], value: str) -> None:
+    properties = [
+        item
+        for item in entry.get("properties", [])
+        if item.get("name") != "agent-quota:distribution-scope"
+    ]
+    properties.append({"name": "agent-quota:distribution-scope", "value": value})
+    entry["properties"] = properties
+
+
+def cargo_target_packages() -> set[tuple[str, str]]:
+    output = command(
+        os.environ.get("CARGO", "cargo"),
+        "tree",
+        "--manifest-path",
+        str(ROOT / "src-tauri" / "Cargo.toml"),
+        "--locked",
+        "--target",
+        "aarch64-apple-darwin",
+        "--edges",
+        "normal,build",
+        "--prefix",
+        "none",
+        "--format",
+        "{p}",
+    )
+    result: set[tuple[str, str]] = set()
+    for line in output.splitlines():
+        match = re.match(r"^(\S+) v(\S+)", line)
+        if match:
+            result.add((match.group(1), match.group(2)))
+    if not result:
+        raise ValueError("target Cargo dependency closure is empty")
     return result
 
 
@@ -134,6 +171,18 @@ def main() -> int:
         )
         if declared := python_licenses.get(key):
             entry["licenses"] = [license_entry(declared)]
+        marker = next(
+            (
+                item.get("value")
+                for item in entry.get("properties", [])
+                if item.get("name") == "uv:package:marker"
+            ),
+            "",
+        )
+        set_scope(
+            entry,
+            "lockfile-non-target" if "sys_platform == 'win32'" in marker else "binary-build-tool",
+        )
     components.extend(
         [
             component(
@@ -153,6 +202,9 @@ def main() -> int:
             component("framework", "CPython", "3.11.15", "pkg:generic/cpython@3.11.15", "PSF-2.0"),
         ]
     )
+    for entry in components[-3:-1]:
+        set_scope(entry, "project")
+    set_scope(components[-1], "binary-runtime")
     components.extend(contract_validation_components())
 
     license_groups: dict[str, list[dict[str, Any]]] = json.loads(
@@ -168,6 +220,7 @@ def main() -> int:
                     f"pkg:npm/{package['name']}@{version}",
                 )
                 entry["licenses"] = [{"license": {"id": license_name}}]
+                set_scope(entry, "binary-runtime")
                 components.append(entry)
 
     cargo_lock = tomllib.loads((ROOT / "src-tauri" / "Cargo.lock").read_text(encoding="utf-8"))
@@ -185,18 +238,26 @@ def main() -> int:
         (str(package["name"]), str(package["version"])): package.get("license")
         for package in cargo_metadata["packages"]
     }
+    target_packages = cargo_target_packages()
     for package in cargo_lock["package"]:
         name = str(package["name"])
         version = str(package["version"])
-        components.append(
-            component(
-                "library",
-                name,
-                version,
-                f"pkg:cargo/{name}@{version}",
-                cargo_licenses.get((name, version)),
-            )
+        entry = component(
+            "library",
+            name,
+            version,
+            f"pkg:cargo/{name}@{version}",
+            cargo_licenses.get((name, version)),
         )
+        set_scope(
+            entry,
+            "project"
+            if name == "agent-quota-desktop"
+            else (
+                "binary-runtime" if (name, version) in target_packages else "lockfile-non-target"
+            ),
+        )
+        components.append(entry)
 
     unique: dict[str, dict[str, Any]] = {}
     for entry in components:

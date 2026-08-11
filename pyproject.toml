@@ -45,6 +45,7 @@ include = [
   "/LICENSE",
   "/ASSET_PROVENANCE.md",
   "/THIRD_PARTY_NOTICES.md",
+  "/THIRD_PARTY_LICENSE_CORPUS.json",
   "/pyproject.toml",
   "/uv.lock",
 ]

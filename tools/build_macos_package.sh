@@ -136,11 +136,23 @@ uv run python tools/verify_clean_install_sidecar.py \
 uv run python "$repo_root/tools/audit_package_size.py" \
   --root "$artifact_dir/Agent Quota.app" \
   --max-mib 40
+uv run python tools/generate_package_sbom.py \
+  --output "$artifact_dir/sbom.cdx.json"
+uv run python tools/generate_third_party_licenses.py \
+  --sbom "$artifact_dir/sbom.cdx.json" \
+  --check "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json"
+uv run python tools/audit_sbom_licenses.py \
+  --sbom "$artifact_dir/sbom.cdx.json" \
+  --corpus "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" > "$artifact_dir/license-audit.txt"
+/bin/cp "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" \
+  "$artifact_dir/third-party-license-corpus.json"
 /bin/mkdir -p "$dmg_root"
 /usr/bin/ditto "$app" "$dmg_root/Agent Quota.app"
 /bin/cp "$repo_root/LICENSE" "$dmg_root/LICENSE.txt"
 /bin/cp "$repo_root/ASSET_PROVENANCE.md" "$dmg_root/ASSET_PROVENANCE.md"
 /bin/cp "$repo_root/THIRD_PARTY_NOTICES.md" "$dmg_root/THIRD_PARTY_NOTICES.md"
+/bin/cp "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" \
+  "$dmg_root/THIRD_PARTY_LICENSE_CORPUS.json"
 /bin/cp "$repo_root/README.md" "$dmg_root/README.md"
 /usr/bin/hdiutil create \
   -volname "Agent Quota" \
@@ -159,10 +171,6 @@ fi
 uv run python tools/generate_bundle_manifest.py \
   --root "$artifact_dir/Agent Quota.app" \
   --output "$artifact_dir/bundle-manifest.txt"
-uv run python tools/generate_package_sbom.py \
-  --output "$artifact_dir/sbom.cdx.json"
-uv run python tools/audit_sbom_licenses.py \
-  --sbom "$artifact_dir/sbom.cdx.json" > "$artifact_dir/license-audit.txt"
 git -C "$repo_root" archive \
   --format=tar.gz \
   --prefix=agent-quota-0.1.0/ \
@@ -185,6 +193,7 @@ uv run python tools/generate_build_provenance.py \
     "clean-install-audit.json" \
     "license-audit.txt" \
     "sbom.cdx.json" \
+    "third-party-license-corpus.json" \
     "agent-quota-0.1.0-source.tar.gz" > artifact-sha256.txt
 )
 verify_source_lock

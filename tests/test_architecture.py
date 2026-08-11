@@ -135,6 +135,10 @@ def test_macos_package_script_has_ordered_resource_gates() -> None:
     assert script.index("audit_macos_bundle.py") < script.index("hdiutil create")
     assert script.index("verify_clean_install_sidecar.py") < script.index("hdiutil create")
     assert script.index("audit_package_size.py") < script.index("hdiutil create")
+    assert script.index("generate_third_party_licenses.py") < script.index("hdiutil create")
+    assert script.index("audit_sbom_licenses.py") < script.index("hdiutil create")
+    assert '"$dmg_root/THIRD_PARTY_LICENSE_CORPUS.json"' in script
+    assert '"third-party-license-corpus.json"' in script
     assert "20971520" in script
     assert script.count("verify_source_lock") == 4
     assert "rev-parse HEAD" in script

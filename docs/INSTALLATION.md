@@ -50,6 +50,7 @@ target 与用户/repository Cargo config 覆写；`production` 与
 - `bundle-audit.json`
 - `clean-install-audit.json`
 - `sbom.cdx.json`
+- `third-party-license-corpus.json`
 - `artifact-sha256.txt`
 
 `bundle-audit.json` 拒绝打包账户状态、SQLite、浏览器存储与 Keychain 目录；

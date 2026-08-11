@@ -28,7 +28,7 @@
 | Error/fail-closed | PASS | 401/403, 429, 5xx, schema drift, stale LKG and mutation negative tests |
 | Package/bundle | PASS | Final `bundle-audit.json`, DMG verification and size gate |
 | Clean install/lifecycle | BLOCKED_ACCOUNT | Empty-sidecar clean install and no-network install/upgrade/rollback/uninstall/reinstall retention PASS; real refresh, 401 recovery and native purge remain holder-controlled |
-| License/SBOM | PASS | 442 licensed components; contract-only dependencies marked `source-validation-only` |
+| License/SBOM | PASS | 442 inventoried components; 245 distributed components bound to 434 hashed license/notice texts; contract-only dependencies marked `source-validation-only` |
 | SHA-256/provenance | PASS | Final `artifact-sha256.txt` and clean-source `build-provenance.json` |
 
 Machine-readable exact results are delivered as
