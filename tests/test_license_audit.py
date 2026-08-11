@@ -39,9 +39,12 @@ def _documents() -> tuple[dict[str, object], dict[str, object]]:
                 "scope": "binary-runtime",
                 "declared_licenses": [license_name],
                 "attribution": {"authors": [], "repository": None},
+                "upstream_binding": None,
                 "notices": [
                     {
                         "source": f"fixture:{name}",
+                        "source_uri": f"pkg:test/{name}@{version}#LICENSE",
+                        "source_revision": f"{name}@{version}",
                         "sha256": hashlib.sha256(text.encode()).hexdigest(),
                         "text": text,
                     }
@@ -60,12 +63,28 @@ def _documents() -> tuple[dict[str, object], dict[str, object]]:
 
 
 def _run(
-    tmp_path: Path, sbom: dict[str, object], corpus: dict[str, object]
+    tmp_path: Path,
+    sbom: dict[str, object],
+    corpus: dict[str, object],
+    *,
+    bind_upstream: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     root = Path(__file__).resolve().parents[1]
     sbom_path = tmp_path / "sbom.json"
     corpus_path = tmp_path / "corpus.json"
+    upstream_path = tmp_path / "upstream.json"
     sbom_path.write_text(json.dumps(sbom), encoding="utf-8")
+    upstream_raw = json.dumps(
+        {
+            "schema": "agent-quota-upstream-license-sources-v1",
+            "entry_count": 0,
+            "entries": [],
+        }
+    ).encode()
+    upstream_path.write_bytes(upstream_raw)
+    corpus["upstream_source_manifest_sha256"] = (
+        hashlib.sha256(upstream_raw).hexdigest() if bind_upstream else "0" * 64
+    )
     corpus_path.write_text(json.dumps(corpus), encoding="utf-8")
     return subprocess.run(
         [
@@ -75,6 +94,8 @@ def _run(
             str(sbom_path),
             "--corpus",
             str(corpus_path),
+            "--upstream-sources",
+            str(upstream_path),
         ],
         capture_output=True,
         text=True,
@@ -97,3 +118,11 @@ def test_license_audit_rejects_notice_digest_drift(tmp_path: Path) -> None:
 
     assert completed.returncode != 0
     assert "notice digest mismatch" in completed.stderr
+
+
+def test_license_audit_rejects_unbound_upstream_manifest(tmp_path: Path) -> None:
+    sbom, corpus = _documents()
+    completed = _run(tmp_path, sbom, corpus, bind_upstream=False)
+
+    assert completed.returncode != 0
+    assert "upstream license source manifest is invalid or unbound" in completed.stderr

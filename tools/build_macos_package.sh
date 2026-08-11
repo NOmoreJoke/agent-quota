@@ -143,9 +143,13 @@ uv run python tools/generate_third_party_licenses.py \
   --check "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json"
 uv run python tools/audit_sbom_licenses.py \
   --sbom "$artifact_dir/sbom.cdx.json" \
-  --corpus "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" > "$artifact_dir/license-audit.txt"
+  --corpus "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" \
+  --upstream-sources "$repo_root/THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json" \
+  > "$artifact_dir/license-audit.txt"
 /bin/cp "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" \
   "$artifact_dir/third-party-license-corpus.json"
+/bin/cp "$repo_root/THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json" \
+  "$artifact_dir/upstream-license-sources.json"
 /bin/mkdir -p "$dmg_root"
 /usr/bin/ditto "$app" "$dmg_root/Agent Quota.app"
 /bin/cp "$repo_root/LICENSE" "$dmg_root/LICENSE.txt"
@@ -153,6 +157,8 @@ uv run python tools/audit_sbom_licenses.py \
 /bin/cp "$repo_root/THIRD_PARTY_NOTICES.md" "$dmg_root/THIRD_PARTY_NOTICES.md"
 /bin/cp "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" \
   "$dmg_root/THIRD_PARTY_LICENSE_CORPUS.json"
+/bin/cp "$repo_root/THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json" \
+  "$dmg_root/THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json"
 /bin/cp "$repo_root/README.md" "$dmg_root/README.md"
 /usr/bin/hdiutil create \
   -volname "Agent Quota" \
@@ -194,6 +200,7 @@ uv run python tools/generate_build_provenance.py \
     "license-audit.txt" \
     "sbom.cdx.json" \
     "third-party-license-corpus.json" \
+    "upstream-license-sources.json" \
     "agent-quota-0.1.0-source.tar.gz" > artifact-sha256.txt
 )
 verify_source_lock

@@ -39,6 +39,15 @@ def test_committed_license_corpus_has_hashed_psf_and_pyinstaller_notices() -> No
             assert hashlib.sha256(notice["text"].encode()).hexdigest() == notice["sha256"]
     pyinstaller = "\n".join(item["text"] for item in by_name["pyinstaller"]["notices"])
     cpython = "\n".join(item["text"] for item in by_name["CPython"]["notices"])
+    objc2_foundation = by_name["objc2-foundation"]
+    objc2_text = "\n".join(item["text"] for item in objc2_foundation["notices"])
     assert "bootloader" in pyinstaller.casefold()
     assert "exception" in pyinstaller.casefold()
     assert "PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2" in cpython
+    assert objc2_foundation["upstream_binding"]["vcs_commit"] == (
+        "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+    )
+    assert "Apple SDKs" in objc2_text
+    assert "Xcode" in objc2_text
+    assert "canonical-template:" not in json.dumps(document)
+    assert "the upstream contributors" not in json.dumps(document)

@@ -46,6 +46,7 @@ include = [
   "/ASSET_PROVENANCE.md",
   "/THIRD_PARTY_NOTICES.md",
   "/THIRD_PARTY_LICENSE_CORPUS.json",
+  "/THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json",
   "/pyproject.toml",
   "/uv.lock",
 ]

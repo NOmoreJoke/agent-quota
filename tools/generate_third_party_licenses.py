@@ -15,48 +15,8 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 LICENSE_NAME = re.compile(r"(?i)^(license|licence|copying|notice|copyright)([._-].*)?$")
-FALLBACK_IDS = ("Apache-2.0", "BSD-3-Clause", "MIT", "MPL-2.0")
-MIT_TERMS = """Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the \"Software\"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-"""
-BSD3_TERMS = """Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice,
-   this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-3. Neither the name of the copyright holder nor the names of its contributors
-   may be used to endorse or promote products derived from this software
-   without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-"""
+LICENSE_IDS = ("Apache-2.0", "BSD-3-Clause", "MIT", "MPL-2.0")
+UPSTREAM_SOURCES = ROOT / "THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json"
 
 
 def command(*arguments: str) -> str:
@@ -163,43 +123,27 @@ def python_files(name: str, version: str) -> tuple[list[Path], list[str], str | 
     return sorted(set(files)), authors, repository if isinstance(repository, str) else None
 
 
-def fallback_texts(
-    license_values: list[str],
-    authors: list[str],
-    cargo: dict[tuple[str, str], dict[str, Any]],
-) -> list[tuple[str, str]]:
-    rendered = " ".join(license_values)
-    identifiers = [identifier for identifier in FALLBACK_IDS if identifier in rendered]
-    if not identifiers:
-        raise ValueError(f"no approved fallback license template for {rendered}")
-    holders = ", ".join(authors) if authors else "the upstream contributors"
-    result: list[tuple[str, str]] = []
-    for identifier in identifiers:
-        if identifier == "MIT":
-            text = f"Copyright holders reported by package metadata: {holders}\n\n{MIT_TERMS}"
-        elif identifier == "BSD-3-Clause":
-            text = f"Copyright holders reported by package metadata: {holders}\n\n{BSD3_TERMS}"
-        else:
-            template_name = "bit-vec" if identifier == "Apache-2.0" else "cssparser"
-            package = next(item for key, item in cargo.items() if key[0] == template_name)
-            candidates = license_files(Path(package["manifest_path"]).parent)
-            selected = next(
-                (
-                    path
-                    for path in candidates
-                    if identifier.split("-", 1)[0].casefold() in path.name.casefold()
-                    or (identifier == "MPL-2.0" and path.name.casefold() == "license")
-                ),
-                None,
-            )
-            if selected is None:
-                raise ValueError(f"canonical fallback source is missing: {identifier}")
-            text = selected.read_text(encoding="utf-8")
-        result.append((f"canonical-template:{identifier}", text))
+def upstream_sources() -> dict[tuple[str, str], dict[str, Any]]:
+    document = json.loads(UPSTREAM_SOURCES.read_text(encoding="utf-8"))
+    entries = document.get("entries")
+    if (
+        document.get("schema") != "agent-quota-upstream-license-sources-v1"
+        or not isinstance(entries, list)
+        or document.get("entry_count") != len(entries)
+    ):
+        raise ValueError("upstream license source manifest is invalid")
+    result = {(str(item["name"]), str(item["version"])): item for item in entries}
+    if len(result) != len(entries):
+        raise ValueError("upstream license source manifest has duplicate components")
     return result
 
 
-def normalized_notice(source: str, text: str) -> dict[str, str]:
+def normalized_notice(
+    source: str,
+    source_uri: str,
+    source_revision: str,
+    text: str,
+) -> dict[str, str]:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
     if not normalized.endswith("\n"):
         normalized += "\n"
@@ -207,6 +151,8 @@ def normalized_notice(source: str, text: str) -> dict[str, str]:
         raise ValueError(f"license text is empty or oversized: {source}")
     return {
         "source": source,
+        "source_uri": source_uri,
+        "source_revision": source_revision,
         "sha256": hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
         "text": normalized,
     }
@@ -214,6 +160,7 @@ def normalized_notice(source: str, text: str) -> dict[str, str]:
 
 def build_corpus(sbom: dict[str, Any]) -> dict[str, Any]:
     cargo = cargo_packages()
+    vendored = upstream_sources()
     entries: list[dict[str, Any]] = []
     for component in sbom.get("components", []):
         component_scope = scope(component)
@@ -224,14 +171,21 @@ def build_corpus(sbom: dict[str, Any]) -> dict[str, Any]:
         purl = str(component["purl"])
         authors: list[str] = []
         repository: str | None = None
-        sources: list[tuple[str, str]] = []
+        sources: list[tuple[str, str, str, str]] = []
+        upstream_binding: dict[str, Any] | None = None
+        cargo_package: dict[str, Any] | None = None
         if purl.startswith("pkg:cargo/"):
-            package = cargo[(name, version)]
-            directory = Path(package["manifest_path"]).parent
-            authors = [str(value) for value in package.get("authors", [])]
-            repository = package.get("repository")
+            cargo_package = cargo[(name, version)]
+            directory = Path(cargo_package["manifest_path"]).parent
+            authors = [str(value) for value in cargo_package.get("authors", [])]
+            repository = cargo_package.get("repository")
             sources = [
-                (f"cargo:{name}@{version}/{path.name}", path.read_text(encoding="utf-8"))
+                (
+                    f"cargo:{name}@{version}/{path.name}",
+                    f"{purl}#{path.name}",
+                    f"{name}@{version}",
+                    path.read_text(encoding="utf-8"),
+                )
                 for path in license_files(directory)
             ]
         elif purl.startswith("pkg:npm/"):
@@ -247,29 +201,88 @@ def build_corpus(sbom: dict[str, Any]) -> dict[str, Any]:
                 repository_data.get("url") if isinstance(repository_data, dict) else repository_data
             )
             sources = [
-                (f"npm:{name}@{version}/{path.name}", path.read_text(encoding="utf-8"))
+                (
+                    f"npm:{name}@{version}/{path.name}",
+                    f"{purl}#{path.name}",
+                    f"{name}@{version}",
+                    path.read_text(encoding="utf-8"),
+                )
                 for path in license_files(directory)
             ]
         elif purl.startswith("pkg:pypi/"):
             files, authors, repository = python_files(name, version)
             sources = [
-                (f"pypi:{name}@{version}/{path.name}", path.read_text(encoding="utf-8"))
+                (
+                    f"pypi:{name}@{version}/{path.name}",
+                    f"{purl}#{path.name}",
+                    f"{name}@{version}",
+                    path.read_text(encoding="utf-8"),
+                )
                 for path in files
             ]
         elif purl.startswith("pkg:generic/cpython@"):
             path = Path(sys.base_prefix) / "lib" / "python3.11" / "LICENSE.txt"
-            sources = [(f"cpython:{version}/LICENSE.txt", path.read_text(encoding="utf-8"))]
+            sources = [
+                (
+                    f"cpython:{version}/LICENSE.txt",
+                    f"https://github.com/python/cpython/blob/v{version}/LICENSE",
+                    f"v{version}",
+                    path.read_text(encoding="utf-8"),
+                )
+            ]
             authors = ["Python Software Foundation"]
             repository = "https://github.com/python/cpython"
         else:
             raise ValueError(f"unsupported distributed component: {purl}")
         licenses = declared_licenses(component)
         if not sources:
-            sources = fallback_texts(licenses, authors, cargo)
+            if cargo_package is None:
+                raise ValueError(f"packaged license files are missing: {name}@{version}")
+            evidence = vendored.get((name, version))
+            if not isinstance(evidence, dict):
+                raise ValueError(
+                    f"source-bound upstream license evidence is missing: {name}@{version}"
+                )
+            vcs_path = Path(cargo_package["manifest_path"]).parent / ".cargo_vcs_info.json"
+            vcs = json.loads(vcs_path.read_text(encoding="utf-8"))
+            if vcs.get("git", {}).get("sha1") != evidence.get("vcs_commit"):
+                raise ValueError(f"upstream VCS commit mismatch: {name}@{version}")
+            if vcs.get("path_in_vcs") not in {None, evidence.get("path_in_vcs")}:
+                raise ValueError(f"upstream VCS path mismatch: {name}@{version}")
+            normalized_repository = str(repository).rstrip("/")
+            if normalized_repository != str(evidence.get("repository", "")).rstrip("/"):
+                raise ValueError(f"upstream repository mismatch: {name}@{version}")
+            identifiers = [item for item in LICENSE_IDS if item in " ".join(licenses)]
+            if sorted(identifiers) != sorted(evidence.get("license_ids", [])):
+                raise ValueError(f"upstream declared license mismatch: {name}@{version}")
+            metadata = evidence.get("metadata")
+            if not isinstance(metadata, dict):
+                raise ValueError(f"upstream metadata evidence is missing: {name}@{version}")
+            metadata_text = metadata.get("text")
+            if not isinstance(metadata_text, str) or hashlib.sha256(
+                metadata_text.encode()
+            ).hexdigest() != metadata.get("sha256"):
+                raise ValueError(f"upstream metadata digest mismatch: {name}@{version}")
+            upstream_binding = {
+                "repository": evidence["repository"],
+                "vcs_commit": evidence["vcs_commit"],
+                "path_in_vcs": evidence["path_in_vcs"],
+                "license_ids": evidence["license_ids"],
+                "metadata": metadata,
+            }
+            sources = [
+                (
+                    f"upstream:{name}@{version}/{Path(item['source_uri']).name}",
+                    str(item["source_uri"]),
+                    str(item["source_revision"]),
+                    str(item["text"]),
+                )
+                for item in evidence.get("notices", [])
+            ]
         notices = []
         seen: set[str] = set()
-        for source, text in sources:
-            notice = normalized_notice(source, text)
+        for source, source_uri, source_revision, text in sources:
+            notice = normalized_notice(source, source_uri, source_revision, text)
             if notice["sha256"] not in seen:
                 notices.append(notice)
                 seen.add(notice["sha256"])
@@ -281,12 +294,16 @@ def build_corpus(sbom: dict[str, Any]) -> dict[str, Any]:
                 "scope": component_scope,
                 "declared_licenses": licenses,
                 "attribution": {"authors": authors, "repository": repository},
+                "upstream_binding": upstream_binding,
                 "notices": notices,
             }
         )
     return {
         "schema": "agent-quota-third-party-license-corpus-v1",
         "sbom_component_count": len(sbom.get("components", [])),
+        "upstream_source_manifest_sha256": hashlib.sha256(
+            UPSTREAM_SOURCES.read_bytes()
+        ).hexdigest(),
         "entry_count": len(entries),
         "entries": sorted(entries, key=lambda item: str(item["bom_ref"])),
     }

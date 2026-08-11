@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 DENIED_MARKERS = (
@@ -21,9 +22,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sbom", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
+    parser.add_argument("--upstream-sources", type=Path, required=True)
     args = parser.parse_args()
     document = json.loads(args.sbom.read_text(encoding="utf-8"))
     corpus = json.loads(args.corpus.read_text(encoding="utf-8"))
+    upstream_raw = args.upstream_sources.read_bytes()
+    upstream = json.loads(upstream_raw)
     components = document.get("components")
     if not isinstance(components, list) or not components:
         raise SystemExit("SBOM components are missing")
@@ -51,6 +55,19 @@ def main() -> int:
         components
     ):
         raise SystemExit("third-party license corpus counts do not match the SBOM")
+    upstream_entries = upstream.get("entries")
+    if (
+        upstream.get("schema") != "agent-quota-upstream-license-sources-v1"
+        or not isinstance(upstream_entries, list)
+        or upstream.get("entry_count") != len(upstream_entries)
+        or corpus.get("upstream_source_manifest_sha256") != hashlib.sha256(upstream_raw).hexdigest()
+    ):
+        raise SystemExit("upstream license source manifest is invalid or unbound")
+    upstream_by_identity = {
+        (item.get("name"), item.get("version")): item for item in upstream_entries
+    }
+    if len(upstream_by_identity) != len(upstream_entries):
+        raise SystemExit("upstream license source manifest has duplicate components")
     by_reference = {entry.get("bom_ref"): entry for entry in entries}
     if len(by_reference) != len(entries):
         raise SystemExit("third-party license corpus has duplicate component references")
@@ -90,20 +107,69 @@ def main() -> int:
             text = notice.get("text")
             digest = notice.get("sha256")
             source = notice.get("source")
+            source_uri = notice.get("source_uri")
+            source_revision = notice.get("source_revision")
             if (
                 not isinstance(text, str)
                 or not isinstance(digest, str)
                 or not isinstance(source, str)
                 or not source
+                or not isinstance(source_uri, str)
+                or not source_uri
+                or not isinstance(source_revision, str)
+                or not source_revision
             ):
                 raise SystemExit(f"license corpus notice is malformed: {reference}")
+            if "canonical-template:" in source or "the upstream contributors" in text:
+                raise SystemExit(f"placeholder license evidence is forbidden: {reference}")
             encoded = text.encode("utf-8")
             if hashlib.sha256(encoded).hexdigest() != digest:
                 raise SystemExit(f"license corpus notice digest mismatch: {reference}")
             notice_count += 1
             notice_bytes += len(encoded)
+        binding = entry.get("upstream_binding")
+        expected_upstream = upstream_by_identity.get((entry.get("name"), entry.get("version")))
+        if binding is None:
+            if expected_upstream is not None:
+                raise SystemExit(f"upstream component binding is missing: {reference}")
+        else:
+            if not isinstance(binding, dict) or expected_upstream is None:
+                raise SystemExit(f"unexpected upstream component binding: {reference}")
+            commit = binding.get("vcs_commit")
+            if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+                raise SystemExit(f"upstream VCS commit is invalid: {reference}")
+            for field in ("repository", "vcs_commit", "path_in_vcs", "license_ids", "metadata"):
+                if binding.get(field) != expected_upstream.get(field):
+                    raise SystemExit(f"upstream component binding drift: {reference}:{field}")
+            metadata = binding.get("metadata")
+            if not isinstance(metadata, dict):
+                raise SystemExit(f"upstream metadata evidence is invalid: {reference}")
+            metadata_text = metadata.get("text")
+            if (
+                not isinstance(metadata_text, str)
+                or metadata.get("source_revision") != commit
+                or hashlib.sha256(metadata_text.encode()).hexdigest() != metadata.get("sha256")
+            ):
+                raise SystemExit(f"upstream metadata evidence is invalid: {reference}")
+            expected_notices = {
+                (item.get("source_uri"), item.get("source_revision"), item.get("sha256"))
+                for item in expected_upstream.get("notices", [])
+            }
+            actual_notices = {
+                (item.get("source_uri"), item.get("source_revision"), item.get("sha256"))
+                for item in notices
+            }
+            if actual_notices != expected_notices:
+                raise SystemExit(f"upstream notice set drift: {reference}")
     if set(by_reference) != required:
         raise SystemExit("license corpus component set does not match distributed SBOM scope")
+    bound_upstream = {
+        (entry.get("name"), entry.get("version"))
+        for entry in entries
+        if entry.get("upstream_binding") is not None
+    }
+    if bound_upstream != set(upstream_by_identity):
+        raise SystemExit("upstream source component set does not match corpus bindings")
     pyinstaller = next(
         (entry for entry in entries if entry.get("name") == "pyinstaller"),
         None,
@@ -126,6 +192,17 @@ def main() -> int:
     )
     if "PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2" not in cpython_text:
         raise SystemExit("CPython PSF license text is missing")
+    for entry in entries:
+        binding = entry.get("upstream_binding")
+        if (
+            isinstance(binding, dict)
+            and binding.get("repository") == "https://github.com/madsmtm/objc2"
+        ):
+            rendered = "\n".join(notice["text"] for notice in entry["notices"])
+            if "Apple SDKs" not in rendered or "Xcode" not in rendered:
+                raise SystemExit(
+                    f"objc2 Apple SDK/Xcode license caveat is missing: {entry['bom_ref']}"
+                )
     print(f"license_component_count={len(components)}")
     print(f"license_corpus_component_count={len(entries)}")
     print(f"license_notice_count={notice_count}")
