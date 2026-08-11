@@ -148,7 +148,12 @@ def test_volcengine_plan_projection() -> None:
         ("volc-plan", {"Result": {"AFPFiveHour": {}, "AFPWeekly": {}}}),
         (
             "volc-plan",
-            {"Result": {"AFPFiveHour": {"Quota": 0, "Used": 0}, "AFPWeekly": {"Quota": 1, "Used": 0}}},
+            {
+                "Result": {
+                    "AFPFiveHour": {"Quota": 0, "Used": 0},
+                    "AFPWeekly": {"Quota": 1, "Used": 0},
+                }
+            },
         ),
     ],
 )

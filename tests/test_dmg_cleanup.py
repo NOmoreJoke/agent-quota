@@ -148,3 +148,7 @@ def test_lifecycle_validation_preserves_fixed_real_state() -> None:
     assert "state_before=" in script
     assert "assert_persistent_state" in script
     assert "find-generic-password" in script
+    assert "credential-references" not in script
+    assert "evidence_root=" not in script
+    assert '/usr/bin/find "$test_root" -depth -delete' in script
+    assert 'echo "evidence_retention=none"' in script

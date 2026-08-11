@@ -79,6 +79,34 @@ def installed_python_licenses() -> dict[tuple[str, str], str]:
     return result
 
 
+def contract_validation_components() -> list[dict[str, Any]]:
+    lock = json.loads(
+        (ROOT / "docs" / "contracts" / "package-lock.json").read_text(encoding="utf-8")
+    )
+    packages = lock.get("packages")
+    if not isinstance(packages, dict):
+        raise ValueError("contract package lock is missing packages")
+    result: list[dict[str, Any]] = []
+    for package_path, package in packages.items():
+        if not isinstance(package_path, str) or not package_path.startswith("node_modules/"):
+            continue
+        if not isinstance(package, dict):
+            raise ValueError(f"invalid contract package entry: {package_path}")
+        name = package_path.removeprefix("node_modules/")
+        version = package.get("version")
+        license_name = package.get("license")
+        if not isinstance(version, str) or not isinstance(license_name, str):
+            raise ValueError(f"contract package metadata is incomplete: {name}")
+        entry = component("library", name, version, f"pkg:npm/{name}@{version}", license_name)
+        entry["properties"] = [
+            {"name": "agent-quota:distribution-scope", "value": "source-validation-only"}
+        ]
+        result.append(entry)
+    if not result:
+        raise ValueError("contract package lock has no dependencies")
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -100,7 +128,10 @@ def main() -> int:
     python_licenses = installed_python_licenses()
     python_licenses.update(LOCKED_PYTHON_LICENSES)
     for entry in components:
-        key = (str(entry.get("name", "")).casefold().replace("_", "-"), str(entry.get("version", "")))
+        key = (
+            str(entry.get("name", "")).casefold().replace("_", "-"),
+            str(entry.get("version", "")),
+        )
         if declared := python_licenses.get(key):
             entry["licenses"] = [license_entry(declared)]
     components.extend(
@@ -119,11 +150,10 @@ def main() -> int:
                 "pkg:generic/agent-quota-native@0.1.0",
                 "MIT",
             ),
-            component(
-                "framework", "CPython", "3.11.15", "pkg:generic/cpython@3.11.15", "PSF-2.0"
-            ),
+            component("framework", "CPython", "3.11.15", "pkg:generic/cpython@3.11.15", "PSF-2.0"),
         ]
     )
+    components.extend(contract_validation_components())
 
     license_groups: dict[str, list[dict[str, Any]]] = json.loads(
         command("pnpm", "licenses", "list", "--prod", "--json")

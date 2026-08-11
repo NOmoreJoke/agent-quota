@@ -19,9 +19,22 @@
 
 ## Release gate status
 
-All gates are unproven until replayed against the final exact commit and final
-artifact. Outputs must include exit status, artifact path, size, SHA-256, SBOM,
-and build provenance.
+| Gate | Result | Evidence |
+|---|---|---|
+| TypeScript | PASS | lint, typecheck, 6 unit tests, 4 E2E tests, production build |
+| Python | PASS | lint, format, mypy; 194 tests; 90.37% coverage |
+| Rust | PASS | fmt; clippy `-D warnings`; 33 tests in each production/development feature set |
+| Contract | PASS | 50-case exact mutation match; deterministic validator/projection replay; result SHA-256 `8579704000211908d497a8e035d86d83cd0454b345755e8fef3ed8cb6b9d6a6f` |
+| Error/fail-closed | PASS | 401/403, 429, 5xx, schema drift, stale LKG and mutation negative tests |
+| Package/bundle | PASS | Final `bundle-audit.json`, DMG verification and size gate |
+| Clean install/lifecycle | BLOCKED_ACCOUNT | Empty-sidecar clean install and no-network install/upgrade/rollback/uninstall/reinstall retention PASS; real refresh, 401 recovery and native purge remain holder-controlled |
+| License/SBOM | PASS | 442 licensed components; contract-only dependencies marked `source-validation-only` |
+| SHA-256/provenance | PASS | Final `artifact-sha256.txt` and clean-source `build-provenance.json` |
+
+Machine-readable exact results are delivered as
+`artifacts/iteration-4/release-gates-v1.json`. Overall Goal remains blocked:
+the acceptance matrix is `0/21 PASS` and the holder-controlled lifecycle is
+incomplete.
 
 ## Publishing boundary
 

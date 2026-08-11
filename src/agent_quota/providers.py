@@ -51,7 +51,7 @@ class ProviderResult:
 MANIFESTS: Final = {
     "bailian-wallet": ProviderManifest(
         "bailian-wallet",
-        "阿里云账户余额（百炼）",
+        "阿里云账户余额 (百炼)",
         "access-key-id+secret-key",
         "https://business.aliyuncs.com/?Action=QueryAccountBalance&Version=2017-12-14",
         "aliyun-rpc-hmac-sha1",
@@ -461,7 +461,11 @@ def _volc_plan(document: dict[str, object]) -> tuple[dict[str, str], ...]:
 
 def _bailian_wallet(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     data = document.get("Data")
-    if document.get("Success") is not True or str(document.get("Code")) != "200" or not isinstance(data, dict):
+    if (
+        document.get("Success") is not True
+        or str(document.get("Code")) != "200"
+        or not isinstance(data, dict)
+    ):
         raise ValueError("Alibaba Cloud wallet response mismatch")
     currency = data.get("Currency")
     if currency not in {"CNY", "USD", "JPY"}:
@@ -473,7 +477,12 @@ def _bailian_wallet(document: dict[str, object]) -> tuple[dict[str, str], ...]:
         ("MybankCreditAmount", "mybank", "网商银行额度"),
     )
     return tuple(
-        _row("bailian-wallet", suffix, "balance", f"{currency} {_number_display(data.get(field))} {label}")
+        _row(
+            "bailian-wallet",
+            suffix,
+            "balance",
+            f"{currency} {_number_display(data.get(field))} {label}",
+        )
         for field, suffix, label in fields
     )
 

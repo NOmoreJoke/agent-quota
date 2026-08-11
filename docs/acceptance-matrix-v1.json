@@ -1,6 +1,6 @@
 {
   "schema": "agent-quota-acceptance-matrix-v1",
-  "checked_at": "2026-08-11T14:39:20+08:00",
+  "checked_at": "2026-08-11T15:47:47+08:00",
   "deadline": "2026-08-11T23:59:00+08:00",
   "completion_rule": "complete iff all 21 cells are PASS and every release gate is PASS",
   "allowed_statuses": [
@@ -11,8 +11,8 @@
     "FAIL"
   ],
   "current_account_preflight": {
-    "configured_account_count": 0,
-    "evidence": "No runtime state file exists under ~/Library/Application Support/com.agentquota.desktop at checked_at; no secret store enumeration was performed.",
+    "configured_account_count": 1,
+    "evidence": "Native state contains one DeepSeek account with lifecycle needs-reauth; the installed app binary differs from the RC artifact, so this is not current installed-RC acceptance. No Keychain value was queried and no credential reference was emitted.",
     "holder_action": "Enter each credential only in the installed app native secure dialog."
   },
   "cells": [

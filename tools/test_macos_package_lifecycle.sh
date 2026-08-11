@@ -11,7 +11,6 @@ backup="$test_root/rollback/Agent Quota.app"
 real_home=$(/usr/bin/python3 -c 'import os, pwd; print(pwd.getpwuid(os.geteuid()).pw_dir)')
 data_root="$real_home/Library/Application Support/com.agentquota.desktop"
 state_file="$data_root/native-accounts-v1.json"
-reference_file="$test_root/credential-references"
 main_pid=
 mount_device=
 cleanup_started=0
@@ -34,7 +33,7 @@ fi
   exit 1
 }
 state_before=$(/usr/bin/shasum -a 256 "$state_file" | /usr/bin/awk '{print $1}')
-/usr/bin/python3 - "$state_file" "$reference_file" <<'PY'
+credential_references=$(/usr/bin/python3 - "$state_file" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -45,8 +44,9 @@ if document.get("schema") != "aq-native-account-state-v1":
 references = [account.get("credential_reference") for account in document.get("accounts", [])]
 if not references or any(not isinstance(reference, str) or "\n" in reference for reference in references):
     raise SystemExit("account state has unsafe credential references")
-Path(sys.argv[2]).write_text("".join(f"{reference}\n" for reference in references), encoding="utf-8")
+print("\n".join(references))
 PY
+)
 
 assert_persistent_state() {
   state_after=$(/usr/bin/shasum -a 256 "$state_file" | /usr/bin/awk '{print $1}')
@@ -60,7 +60,9 @@ assert_persistent_state() {
       echo "lifecycle launch removed a retained Keychain reference" >&2
       exit 1
     }
-  done < "$reference_file"
+  done <<EOF
+$credential_references
+EOF
 }
 
 assert_persistent_state
@@ -74,6 +76,9 @@ cleanup() {
     wait "$main_pid" 2>/dev/null || true
   fi
   aq_cleanup_dmg "$dmg" "$mount_point" "$mount_device" || result=1
+  if [ -d "$test_root" ]; then
+    /usr/bin/find "$test_root" -depth -delete || result=1
+  fi
   cleanup_result=$result
   return "$result"
 }
@@ -175,4 +180,4 @@ assert_persistent_state
 cleanup
 trap - EXIT HUP INT TERM
 echo "macOS package lifecycle PASS"
-echo "evidence_root=$test_root"
+echo "evidence_retention=none"

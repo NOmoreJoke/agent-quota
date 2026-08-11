@@ -30,7 +30,9 @@ not satisfy current installed-RC live acceptance.
 
 ## Account preflight
 
-- Configured accounts at `2026-08-11T14:39:20+08:00`: `0`.
-- No Keychain values or credential references were enumerated.
+- Configured accounts at `2026-08-11T15:47:47+08:00`: `1` DeepSeek account,
+  lifecycle `needs-reauth`; the installed app binary differs from the RC artifact, so it
+  does not satisfy current installed-RC acceptance.
+- No Keychain value was queried; no credential reference was emitted.
 - Account holder action: use only the installed app native secure dialog.
 - A blocked cell does not stop safe work on other cells.

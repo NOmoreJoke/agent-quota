@@ -107,8 +107,33 @@ GitHub Release 校验和、SBOM、源码标签和可复现门禁证据。当前
 
 普通卸载保留 Application Support 数据与 Keychain 引用，便于重装恢复。
 
+| 本机数据面 | 普通卸载 | 重装 | 应用内确认 Purge |
+|---|---|---|---|
+| `/Applications/Agent Quota.app` | 移除 | 重新复制 | 不处理 App 本体 |
+| Application Support 配置、账户绑定、LKG | 保留 | 恢复读取 | 删除已登记的本应用状态 |
+| `com.agentquota.desktop.credentials.v1` 精确 Keychain 引用 | 保留 | 继续使用 | 仅删除 destructive journal 登记的引用 |
+| 系统备份中的历史副本 | 不处理 | 不处理 | 无法保证删除，需由用户管理备份策略 |
+
 ## Purge
 
 必须在应用内发起 purge，并完成原生破坏性确认；成功后再卸载 `.app`。此流程由
 host/core 删除本机状态并清理 Keychain 引用。若 `.app` 已被移除，先重装同版本，
 再执行 purge；不要手工猜测或批量删除 Keychain 项。
+
+## 故障排查
+
+| 现象 | 判定/处理 |
+|---|---|
+| macOS 提示来源未识别 | 先核对发布方给出的 SHA-256；仅使用 Finder/系统设置提供的单应用人工确认，不关闭 Gatekeeper、不执行全局放行 |
+| 启动后账户数为 0 | 干净安装的预期状态；通过原生安全窗口添加账户，不把凭据写入配置或终端 |
+| 显示 `needs-reauth` | 重新认证；旧 LKG 只能显示 `stale`，认证成功刷新前不得视为最新数据 |
+| 显示 `provider-unavailable` | 保留 stale LKG；检查网络及官方服务状态，避免重复提交或切换到非官方接口 |
+| 显示 `contract-error` | 上游 schema 与固定合同不符；停止信任该次响应并升级应用/提交脱敏诊断 |
+| 重装后账户仍存在 | 普通卸载按设计保留本机状态；需要空白状态时先执行应用内原生确认 Purge |
+| Purge 被拒绝或中断 | 不手工删除部分文件/Keychain 项；重启同版本应用并重试，使 journal 完成精确清理 |
+
+校验 DMG：
+
+```bash
+/usr/bin/shasum -a 256 Agent-Quota-0.1.0-arm64-local-unsigned.dmg
+```
