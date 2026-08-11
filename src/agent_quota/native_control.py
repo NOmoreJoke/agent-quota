@@ -19,6 +19,8 @@ from agent_quota.providers import PROVIDER_IDS, manifest, parse_provider_respons
 STATE_SCHEMA: Final = "aq-native-account-state-v1"
 MAX_ACCOUNTS: Final = 64
 MAX_TRACKED_REFERENCES: Final = MAX_ACCOUNTS * 3
+MAX_RENDERER_ROWS: Final = 256
+MAX_STATE_BYTES: Final = 16 * 1024 * 1024
 PLAN_TTL_NS: Final = 60_000_000_000
 FRESHNESS_TTL_MS: Final = 15 * 60 * 1000
 UUID_PATTERN: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
@@ -109,7 +111,7 @@ class NativeControlPlane:
             os.close(directory)
         if stat.S_IMODE(metadata.st_mode) != 0o600:
             raise ValueError("native state permissions mismatch")
-        if len(payload) > 64 * 1024:
+        if len(payload) > MAX_STATE_BYTES:
             raise ValueError("native state is oversized")
         document: object = json.loads(payload.decode("utf-8"))
         self._validate_state(document)
@@ -233,6 +235,8 @@ class NativeControlPlane:
             sort_keys=True,
             separators=(",", ":"),
         ).encode()
+        if len(payload) > MAX_STATE_BYTES:
+            raise ValueError("native state is oversized")
         atomic_write_private(self.path, payload)
 
     @property
@@ -306,6 +310,12 @@ class NativeControlPlane:
             ):
                 projection_blocked = True
             for source in sources:
+                if len(rows) >= MAX_RENDERER_ROWS:
+                    return {
+                        "capability_rows": [],
+                        "freshness": "stale",
+                        "scope_ref": scope_ref,
+                    }
                 row = dict(source)
                 identity = hashlib.sha256(
                     f"{principal}\0{source['capability_ref']}".encode()

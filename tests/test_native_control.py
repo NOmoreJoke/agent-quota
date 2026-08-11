@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_quota.native_control import NativeControlPlane
+from agent_quota.native_control import MAX_STATE_BYTES, NativeControlPlane
 
 
 def reference(seed: int) -> str:
@@ -196,6 +196,78 @@ def test_purge_is_atomic_at_combined_reference_capacity(
     final = NativeControlPlane(root)
     assert final.renderer_accounts() == []
     assert final.cleanup_pending() == []
+
+
+def test_max_operational_provider_rows_persist_restart_and_fail_closed_aggregate(
+    tmp_path: Path,
+) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    body = provider_body(
+        {
+            "is_available": True,
+            "balance_infos": [
+                {"currency": f"C{index}", "total_balance": str(index)} for index in range(16)
+            ],
+        }
+    )
+    principals: list[str] = []
+    for seed in range(1, 65):
+        created = control.commit_credential(
+            purpose="create-credential-reference",
+            credential_reference=reference(seed),
+            principal_ref=None,
+            expected_generation=None,
+            provider_id="deepseek",
+        )
+        principals.append(created.principal_ref)
+        _, generation, provider = control.credential_context(created.principal_ref)
+        control.commit_provider_response(
+            principal_ref=created.principal_ref,
+            expected_generation=generation,
+            provider_id=provider,
+            http_status=200,
+            body_base64=body,
+        )
+    assert control.path.stat().st_size > 64 * 1024
+    restored = NativeControlPlane(root)
+    assert len(restored.renderer_accounts()) == 64
+    assert len(restored.quota_projection(principals[0])["capability_rows"]) == 16
+    assert restored.quota_projection("scope-all") == {
+        "capability_rows": [],
+        "freshness": "stale",
+        "scope_ref": "scope-all",
+    }
+
+
+def test_writer_enforces_the_same_state_size_bound(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    control = NativeControlPlane((tmp_path / "private").absolute())
+    monkeypatch.setattr(
+        "agent_quota.native_control.json.dumps",
+        lambda *args, **kwargs: "x" * (MAX_STATE_BYTES + 1),
+    )
+    with pytest.raises(ValueError, match="oversized"):
+        control._persist()
+    assert not control.path.exists()
+
+
+def test_loader_rejects_active_reference_in_cleanup_journal(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+    )
+    document = json.loads(control.path.read_text())
+    document["pending_keychain_deletions"] = [reference(1)]
+    control.path.write_text(json.dumps(document))
+    control.path.chmod(0o600)
+    with pytest.raises(ValueError, match="pending keychain deletion"):
+        NativeControlPlane(root)
 
 
 def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_path: Path) -> None:
@@ -591,7 +663,7 @@ def test_invalid_roots_state_bounds_and_credential_inputs_fail_closed(tmp_path: 
         NativeControlPlane(file_root)
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)
-    control.path.write_bytes(b"x" * (64 * 1024 + 1))
+    control.path.write_bytes(b"x" * (MAX_STATE_BYTES + 1))
     control.path.chmod(0o600)
     with pytest.raises(ValueError, match="oversized"):
         NativeControlPlane(root)
