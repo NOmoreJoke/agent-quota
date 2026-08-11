@@ -17,6 +17,7 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 generated="$repo_root/src-tauri/generated-resources"
 pyi_root="$repo_root/build/pyinstaller"
 artifact_dir="$repo_root/artifacts/iteration-4"
+dmg_root="$pyi_root/dmg-root"
 
 source_commit=$(git -C "$repo_root" rev-parse HEAD)
 verify_source_lock() {
@@ -135,9 +136,14 @@ uv run python tools/verify_clean_install_sidecar.py \
 uv run python "$repo_root/tools/audit_package_size.py" \
   --root "$artifact_dir/Agent Quota.app" \
   --max-mib 40
+/bin/mkdir -p "$dmg_root"
+/usr/bin/ditto "$app" "$dmg_root/Agent Quota.app"
+/bin/cp "$repo_root/LICENSE" "$dmg_root/LICENSE.txt"
+/bin/cp "$repo_root/THIRD_PARTY_NOTICES.md" "$dmg_root/THIRD_PARTY_NOTICES.md"
+/bin/cp "$repo_root/README.md" "$dmg_root/README.md"
 /usr/bin/hdiutil create \
   -volname "Agent Quota" \
-  -srcfolder "$app" \
+  -srcfolder "$dmg_root" \
   -ov \
   -format UDZO \
   "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
@@ -154,6 +160,13 @@ uv run python tools/generate_bundle_manifest.py \
   --output "$artifact_dir/bundle-manifest.txt"
 uv run python tools/generate_package_sbom.py \
   --output "$artifact_dir/sbom.cdx.json"
+uv run python tools/audit_sbom_licenses.py \
+  --sbom "$artifact_dir/sbom.cdx.json" > "$artifact_dir/license-audit.txt"
+git -C "$repo_root" archive \
+  --format=tar.gz \
+  --prefix=agent-quota-0.1.0/ \
+  --output="$artifact_dir/agent-quota-0.1.0-source.tar.gz" \
+  "$source_commit"
 verify_source_lock
 uv run python tools/generate_build_provenance.py \
   --app "$artifact_dir/Agent Quota.app" \
@@ -169,7 +182,9 @@ uv run python tools/generate_build_provenance.py \
     "bundle-audit.json" \
     "bundle-manifest.txt" \
     "clean-install-audit.json" \
-    "sbom.cdx.json" > artifact-sha256.txt
+    "license-audit.txt" \
+    "sbom.cdx.json" \
+    "agent-quota-0.1.0-source.tar.gz" > artifact-sha256.txt
 )
 verify_source_lock
 

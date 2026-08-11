@@ -13,6 +13,7 @@ MAX_PROVIDER_BODY_BYTES: Final = 256 * 1024
 PROVIDER_IDS: Final = frozenset(
     {
         "deepseek",
+        "bailian-wallet",
         "glm-cn",
         "glm-global",
         "kimi-cn",
@@ -20,6 +21,8 @@ PROVIDER_IDS: Final = frozenset(
         "kimi-global",
         "minimax-cn",
         "minimax-global",
+        "volc-plan",
+        "volc-wallet",
     }
 )
 
@@ -46,6 +49,14 @@ class ProviderResult:
 
 
 MANIFESTS: Final = {
+    "bailian-wallet": ProviderManifest(
+        "bailian-wallet",
+        "阿里云账户余额（百炼）",
+        "access-key-id+secret-key",
+        "https://business.aliyuncs.com/?Action=QueryAccountBalance&Version=2017-12-14",
+        "aliyun-rpc-hmac-sha1",
+        "https://help.aliyun.com/zh/user-center/developer-reference/api-bssopenapi-2017-12-14-queryaccountbalance",
+    ),
     "deepseek": ProviderManifest(
         "deepseek",
         "DeepSeek",
@@ -109,6 +120,22 @@ MANIFESTS: Final = {
         "https://api.z.ai/api/monitor/usage/quota/limit",
         "raw-authorization",
         "https://docs.z.ai/devpack/extension/usage-query-plugin",
+    ),
+    "volc-wallet": ProviderManifest(
+        "volc-wallet",
+        "火山引擎账户余额",
+        "access-key-id+secret-key",
+        "https://open.volcengineapi.com/?Action=QueryBalanceAcct&Version=2022-01-01",
+        "volc-hmac-sha256",
+        "https://www.volcengine.com/docs/6269/1223898",
+    ),
+    "volc-plan": ProviderManifest(
+        "volc-plan",
+        "火山方舟 Coding Plan",
+        "access-key-id+secret-key",
+        "https://ark.cn-beijing.volces.com/?Action=GetAFPUsage&Version=2024-01-01",
+        "volc-hmac-sha256",
+        "https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent+Plan+API&serviceCode=ark&version=2024-01-01",
     ),
 }
 
@@ -392,6 +419,65 @@ def _glm(document: dict[str, object], provider_id: str) -> tuple[dict[str, str],
     return tuple(rows)
 
 
+def _volc_wallet(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    result = document.get("Result")
+    if not isinstance(result, dict):
+        raise ValueError("Volcengine wallet response mismatch")
+    fields = (
+        ("AvailableBalance", "available", "可用余额"),
+        ("CashBalance", "cash", "现金余额"),
+        ("CreditLimit", "credit", "信控额度"),
+        ("FreezeAmount", "frozen", "冻结金额"),
+        ("ArrearsBalance", "arrears", "欠费金额"),
+    )
+    return tuple(
+        _row("volc-wallet", suffix, "balance", f"CNY {_number_display(result.get(field))} {label}")
+        for field, suffix, label in fields
+    )
+
+
+def _volc_plan(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    result = document.get("Result")
+    if not isinstance(result, dict):
+        raise ValueError("Volcengine plan response mismatch")
+    rows: list[dict[str, str]] = []
+    for key, suffix, label in (
+        ("AFPFiveHour", "5h", "5小时剩余"),
+        ("AFPWeekly", "weekly", "周剩余"),
+    ):
+        window = result.get(key)
+        if not isinstance(window, dict):
+            raise ValueError("Volcengine plan window mismatch")
+        rows.append(
+            _row(
+                "volc-plan",
+                suffix,
+                "window",
+                f"{label} {_remaining_percentage(window.get('Used'), window.get('Quota'))}",
+            )
+        )
+    return tuple(rows)
+
+
+def _bailian_wallet(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    data = document.get("Data")
+    if document.get("Success") is not True or str(document.get("Code")) != "200" or not isinstance(data, dict):
+        raise ValueError("Alibaba Cloud wallet response mismatch")
+    currency = data.get("Currency")
+    if currency not in {"CNY", "USD", "JPY"}:
+        raise ValueError("Alibaba Cloud currency mismatch")
+    fields = (
+        ("AvailableAmount", "available", "可用额度"),
+        ("AvailableCashAmount", "cash", "现金余额"),
+        ("CreditAmount", "credit", "信控额度"),
+        ("MybankCreditAmount", "mybank", "网商银行额度"),
+    )
+    return tuple(
+        _row("bailian-wallet", suffix, "balance", f"{currency} {_number_display(data.get(field))} {label}")
+        for field, suffix, label in fields
+    )
+
+
 def _provider_error(document: dict[str, object], provider_id: str) -> ProviderResult | None:
     # GLM returns authentication failures as HTTP 200 JSON envelopes. Classify
     # only the observed stable machine code; unknown envelopes remain contract
@@ -421,7 +507,9 @@ def parse_provider_response(
         document = _decode_json(body_base64)
         if provider_error := _provider_error(document, provider_id):
             return provider_error
-        if provider_id == "deepseek":
+        if provider_id == "bailian-wallet":
+            rows = _bailian_wallet(document)
+        elif provider_id == "deepseek":
             rows = _deepseek(document)
         elif provider_id == "kimi-code":
             rows = _kimi_code(document)
@@ -431,6 +519,10 @@ def parse_provider_response(
             rows = _minimax(document, provider_id)
         elif provider_id.startswith("glm-"):
             rows = _glm(document, provider_id)
+        elif provider_id == "volc-wallet":
+            rows = _volc_wallet(document)
+        elif provider_id == "volc-plan":
+            rows = _volc_plan(document)
         else:  # pragma: no cover - manifest closes this branch
             raise ValueError("unsupported provider")
         return ProviderResult(rows)

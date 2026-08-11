@@ -992,16 +992,16 @@
         "evidence": "Not sufficient for generic quota adapter"
       },
       "wallet": {
-        "status": "unsupported",
-        "endpoint": "",
-        "evidence": "No stable public wallet contract"
+        "status": "supported",
+        "endpoint": "https://business.aliyuncs.com/?Action=QueryAccountBalance&Version=2017-12-14",
+        "evidence": "https://help.aliyun.com/zh/user-center/developer-reference/api-bssopenapi-2017-12-14-queryaccountbalance"
       },
-      "support_tier": "Experimental",
-      "blocker": "Official service limits exist but not a generic Agent Quota machine contract",
+      "support_tier": "Supported",
+      "blocker": "Coding Plan 5h/week lacks a verified public usage API; wallet requires live RC acceptance",
       "confidence": "A",
-      "checked_at": "2026-08-02",
-      "adapter_ids": [],
-      "catalog_note": "目录覆盖不等于可查询"
+      "checked_at": "2026-08-11",
+      "adapter_ids": ["bailian-wallet"],
+      "catalog_note": "阿里云费用与成本账户余额；Coding Plan 窗口继续 fail-closed"
     },
     {
       "row_id": "provider-046",
@@ -1163,23 +1163,26 @@
       "row_id": "provider-053",
       "screenshot_label": "DouBaoSeed",
       "canonical_id": "doubaoseed",
-      "entity_status": "ambiguous",
+      "entity_status": "verified",
       "window": {
-        "status": "unsupported",
-        "endpoint": "",
-        "evidence": "No stable public quota/window API contract"
+        "status": "supported",
+        "endpoint": "https://ark.cn-beijing.volces.com/?Action=GetAFPUsage&Version=2024-01-01",
+        "evidence": "https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent%20Plan%20API&serviceCode=ark&version=2024-01-01"
       },
       "wallet": {
-        "status": "unsupported",
-        "endpoint": "",
-        "evidence": "No stable public wallet contract"
+        "status": "supported",
+        "endpoint": "https://open.volcengineapi.com/?Action=QueryBalanceAcct&Version=2022-01-01",
+        "evidence": "https://www.volcengine.com/docs/6269/1223898"
       },
-      "support_tier": "Catalog-only",
-      "blocker": "No public stable machine-readable quota contract verified",
-      "confidence": "C",
-      "checked_at": "2026-08-02",
-      "adapter_ids": [],
-      "catalog_note": "目录覆盖不等于可查询"
+      "support_tier": "Supported",
+      "blocker": "Requires a read-only Volcengine IAM AccessKey pair and live RC acceptance",
+      "confidence": "A",
+      "checked_at": "2026-08-11",
+      "adapter_ids": [
+        "volc-wallet",
+        "volc-plan"
+      ],
+      "catalog_note": "火山引擎费用中心余额 + 方舟 Agent Plan 5小时/周窗口"
     },
     {
       "row_id": "provider-054",

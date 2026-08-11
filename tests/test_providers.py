@@ -40,7 +40,7 @@ def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
 
 
 def test_manifests_are_fixed_https_official_endpoints() -> None:
-    assert len(MANIFESTS) == 8
+    assert len(MANIFESTS) == 11
     assert all(item.endpoint.startswith("https://") for item in MANIFESTS.values())
     assert all("example" not in item.endpoint for item in MANIFESTS.values())
     with pytest.raises(ValueError, match="unsupported"):
@@ -67,6 +67,95 @@ def test_deepseek_balance_projection() -> None:
     )
     assert result.ok
     assert result.rows[0]["value_display"] == "CNY 110 可用"
+
+
+def test_volcengine_wallet_projection() -> None:
+    result = parse_provider_response(
+        "volc-wallet",
+        200,
+        encoded(
+            {
+                "Result": {
+                    "AccountID": 210000001,
+                    "AvailableBalance": "77.01",
+                    "CashBalance": "83.01",
+                    "CreditLimit": "0.01",
+                    "FreezeAmount": "5.01",
+                    "ArrearsBalance": "1.01",
+                }
+            }
+        ),
+    )
+    assert result.ok
+    assert [row["value_display"] for row in result.rows] == [
+        "CNY 77.01 可用余额",
+        "CNY 83.01 现金余额",
+        "CNY 0.01 信控额度",
+        "CNY 5.01 冻结金额",
+        "CNY 1.01 欠费金额",
+    ]
+
+
+def test_bailian_wallet_projection() -> None:
+    result = parse_provider_response(
+        "bailian-wallet",
+        200,
+        encoded(
+            {
+                "Code": "200",
+                "Success": True,
+                "Data": {
+                    "AvailableAmount": "10000.00",
+                    "AvailableCashAmount": "9000.00",
+                    "CreditAmount": "1000.00",
+                    "MybankCreditAmount": "0.00",
+                    "Currency": "CNY",
+                },
+            }
+        ),
+    )
+    assert result.ok
+    assert [row["value_display"] for row in result.rows] == [
+        "CNY 10000 可用额度",
+        "CNY 9000 现金余额",
+        "CNY 1000 信控额度",
+        "CNY 0 网商银行额度",
+    ]
+
+
+def test_volcengine_plan_projection() -> None:
+    result = parse_provider_response(
+        "volc-plan",
+        200,
+        encoded(
+            {
+                "Result": {
+                    "PlanType": "AFP",
+                    "AFPFiveHour": {"Quota": 1000, "Used": 250, "ResetTime": 1},
+                    "AFPWeekly": {"Quota": 8000, "Used": 2000, "ResetTime": 2},
+                }
+            }
+        ),
+    )
+    assert result.ok
+    assert [row["value_display"] for row in result.rows] == ["5小时剩余 75%", "周剩余 75%"]
+
+
+@pytest.mark.parametrize(
+    "provider,document",
+    [
+        ("volc-wallet", {"Result": {"AvailableBalance": "1"}}),
+        ("volc-plan", {"Result": {"AFPFiveHour": {}, "AFPWeekly": {}}}),
+        (
+            "volc-plan",
+            {"Result": {"AFPFiveHour": {"Quota": 0, "Used": 0}, "AFPWeekly": {"Quota": 1, "Used": 0}}},
+        ),
+    ],
+)
+def test_volcengine_contract_mismatch_fails_closed(provider: str, document: object) -> None:
+    result = parse_provider_response(provider, 200, encoded(document))
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
 
 
 @pytest.mark.parametrize("provider", ["kimi-cn", "kimi-global"])

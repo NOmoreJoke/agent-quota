@@ -1,0 +1,266 @@
+{
+  "schema": "agent-quota-acceptance-matrix-v1",
+  "checked_at": "2026-08-11T14:39:20+08:00",
+  "deadline": "2026-08-11T23:59:00+08:00",
+  "completion_rule": "complete iff all 21 cells are PASS and every release gate is PASS",
+  "allowed_statuses": [
+    "PASS",
+    "BLOCKED_OFFICIAL_API_ABSENT",
+    "BLOCKED_PRODUCT_ABSENT",
+    "BLOCKED_ACCOUNT",
+    "FAIL"
+  ],
+  "current_account_preflight": {
+    "configured_account_count": 0,
+    "evidence": "No runtime state file exists under ~/Library/Application Support/com.agentquota.desktop at checked_at; no secret store enumeration was performed.",
+    "holder_action": "Enter each credential only in the installed app native secure dialog."
+  },
+  "cells": [
+    {
+      "provider": "DeepSeek",
+      "capability": "wallet_balance",
+      "product": "DeepSeek Open Platform pay-as-you-go API",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://api-docs.deepseek.com/api/get-user-balance/"],
+      "machine_contract": "GET https://api.deepseek.com/user/balance; bearer API key",
+      "implementation": "present",
+      "live_requirement": "Current installed RC add -> Keychain -> refresh -> restart semantic replay"
+    },
+    {
+      "provider": "DeepSeek",
+      "capability": "token_plan_5h",
+      "product": "No DeepSeek Coding/Token Plan identified in the listed official API documentation",
+      "region": "China",
+      "status": "BLOCKED_PRODUCT_ABSENT",
+      "official_evidence": ["https://api-docs.deepseek.com/"],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Official product and public read-only quota API"
+    },
+    {
+      "provider": "DeepSeek",
+      "capability": "token_plan_week",
+      "product": "No DeepSeek Coding/Token Plan identified in the listed official API documentation",
+      "region": "China",
+      "status": "BLOCKED_PRODUCT_ABSENT",
+      "official_evidence": ["https://api-docs.deepseek.com/"],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Official product and public read-only quota API"
+    },
+    {
+      "provider": "Alibaba Bailian",
+      "capability": "wallet_balance",
+      "product": "Alibaba Cloud account balance used by Model Studio pay-as-you-go",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://help.aliyun.com/zh/user-center/developer-reference/api-bssopenapi-2017-12-14-queryaccountbalance"],
+      "machine_contract": "BssOpenApi QueryAccountBalance; Alibaba Cloud AccessKey signed request",
+      "implementation": "bailian-wallet fixed RPC HMAC-SHA1 adapter + fail-closed parser",
+      "live_requirement": "Least-privilege RAM credential and current installed RC semantic verification"
+    },
+    {
+      "provider": "Alibaba Bailian",
+      "capability": "token_plan_5h",
+      "product": "Model Studio Coding Plan / Token Plan personal",
+      "region": "China",
+      "status": "BLOCKED_OFFICIAL_API_ABSENT",
+      "official_evidence": [
+        "https://help.aliyun.com/zh/model-studio/coding-plan",
+        "https://help.aliyun.com/zh/model-studio/token-plan-personal-faq"
+      ],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Public supported read-only usage API; current docs direct users to the Coding Plan page"
+    },
+    {
+      "provider": "Alibaba Bailian",
+      "capability": "token_plan_week",
+      "product": "Model Studio Coding Plan / Token Plan personal",
+      "region": "China",
+      "status": "BLOCKED_OFFICIAL_API_ABSENT",
+      "official_evidence": [
+        "https://help.aliyun.com/zh/model-studio/coding-plan",
+        "https://help.aliyun.com/zh/model-studio/token-plan-personal-faq"
+      ],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Public supported read-only usage API; current docs direct users to the Coding Plan page"
+    },
+    {
+      "provider": "Volcengine",
+      "capability": "wallet_balance",
+      "product": "Volcengine Billing Center funds account",
+      "region": "cn-beijing",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://www.volcengine.com/docs/6269/1223898"],
+      "machine_contract": "QueryBalanceAcct 2022-01-01 at open.volcengineapi.com; signed AK/SK",
+      "implementation": "volc-wallet fixed signed adapter + fail-closed parser",
+      "live_requirement": "Least-privilege AK/SK and current installed RC semantic verification"
+    },
+    {
+      "provider": "Volcengine",
+      "capability": "token_plan_5h",
+      "product": "Ark Agent Plan personal / Coding Plan",
+      "region": "cn-beijing",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent+Plan+API&serviceCode=ark&version=2024-01-01"],
+      "machine_contract": "GetAFPUsage 2024-01-01; AFPFiveHour; signed AK/SK",
+      "implementation": "volc-plan fixed signed adapter; AFPFiveHour projection",
+      "live_requirement": "Active plan, least-privilege AK/SK, semantic reset verification"
+    },
+    {
+      "provider": "Volcengine",
+      "capability": "token_plan_week",
+      "product": "Ark Agent Plan personal / Coding Plan",
+      "region": "cn-beijing",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent+Plan+API&serviceCode=ark&version=2024-01-01"],
+      "machine_contract": "GetAFPUsage 2024-01-01; AFPWeekly; signed AK/SK",
+      "implementation": "volc-plan fixed signed adapter; AFPWeekly projection",
+      "live_requirement": "Active plan, least-privilege AK/SK, semantic reset verification"
+    },
+    {
+      "provider": "MiniMax",
+      "capability": "wallet_balance",
+      "product": "MiniMax Open Platform pay-as-you-go balance",
+      "region": "China",
+      "status": "BLOCKED_OFFICIAL_API_ABSENT",
+      "official_evidence": ["https://platform.minimaxi.com/docs/faq/about-account"],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Public supported read-only balance API; current docs expose console balance management"
+    },
+    {
+      "provider": "MiniMax",
+      "capability": "token_plan_5h",
+      "product": "MiniMax Token Plan",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://platform.minimaxi.com/docs/token-plan/faq"],
+      "machine_contract": "GET https://www.minimaxi.com/v1/token_plan/remains; bearer Token Plan key",
+      "implementation": "present",
+      "live_requirement": "Current installed RC semantic verification"
+    },
+    {
+      "provider": "MiniMax",
+      "capability": "token_plan_week",
+      "product": "MiniMax Token Plan",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://platform.minimaxi.com/docs/token-plan/faq"],
+      "machine_contract": "GET https://www.minimaxi.com/v1/token_plan/remains; bearer Token Plan key",
+      "implementation": "present",
+      "live_requirement": "Current installed RC semantic verification including weekly status"
+    },
+    {
+      "provider": "Zhipu GLM",
+      "capability": "wallet_balance",
+      "product": "Zhipu Open Platform pay-as-you-go balance",
+      "region": "China",
+      "status": "BLOCKED_OFFICIAL_API_ABSENT",
+      "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/faq"],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Public supported read-only balance API"
+    },
+    {
+      "provider": "Zhipu GLM",
+      "capability": "token_plan_5h",
+      "product": "GLM Coding Plan",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin"],
+      "machine_contract": "GET https://open.bigmodel.cn/api/monitor/usage/quota/limit; raw Authorization token; TOKENS_LIMIT",
+      "implementation": "present",
+      "live_requirement": "Current installed RC semantic verification"
+    },
+    {
+      "provider": "Zhipu GLM",
+      "capability": "token_plan_week",
+      "product": "GLM Coding Plan",
+      "region": "China",
+      "status": "BLOCKED_OFFICIAL_API_ABSENT",
+      "official_evidence": [
+        "https://docs.bigmodel.cn/cn/coding-plan/faq",
+        "https://github.com/zai-org/zai-coding-plugins/blob/main/plugins/glm-plan-usage/skills/usage-query-skill/scripts/query-usage.mjs"
+      ],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Official query endpoint currently projects TOKENS_LIMIT (5h) and TIME_LIMIT (monthly MCP), not weekly plan usage"
+    },
+    {
+      "provider": "Kimi",
+      "capability": "wallet_balance",
+      "product": "Kimi Open Platform pay-as-you-go API",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": ["https://platform.kimi.com/docs/api/balance"],
+      "machine_contract": "GET https://api.moonshot.cn/v1/users/me/balance; bearer API key",
+      "implementation": "present",
+      "live_requirement": "Current installed RC semantic verification"
+    },
+    {
+      "provider": "Kimi",
+      "capability": "token_plan_5h",
+      "product": "Kimi Code membership",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": [
+        "https://www.kimi.com/code/docs/kimi-code/membership.html",
+        "https://github.com/MoonshotAI/kimi-code/blob/main/packages/oauth/src/managed-usage.ts"
+      ],
+      "machine_contract": "GET https://api.kimi.com/coding/v1/usages; official OAuth device flow",
+      "implementation": "present",
+      "live_requirement": "Current installed RC OAuth and semantic reset verification"
+    },
+    {
+      "provider": "Kimi",
+      "capability": "token_plan_week",
+      "product": "Kimi Code membership",
+      "region": "China",
+      "status": "BLOCKED_ACCOUNT",
+      "official_evidence": [
+        "https://www.kimi.com/code/docs/kimi-code/membership.html",
+        "https://github.com/MoonshotAI/kimi-code/blob/main/packages/oauth/src/managed-usage.ts"
+      ],
+      "machine_contract": "GET https://api.kimi.com/coding/v1/usages; official OAuth device flow",
+      "implementation": "present",
+      "live_requirement": "Current installed RC OAuth and semantic reset verification"
+    },
+    {
+      "provider": "Xiaomi MiMo",
+      "capability": "wallet_balance",
+      "product": "Xiaomi MiMo API pay-as-you-go balance",
+      "region": "China/global platform",
+      "status": "BLOCKED_OFFICIAL_API_ABSENT",
+      "official_evidence": ["https://mimo.mi.com/llms.txt"],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Public supported read-only balance API"
+    },
+    {
+      "provider": "Xiaomi MiMo",
+      "capability": "token_plan_5h",
+      "product": "Xiaomi MiMo Token Plan uses monthly or annual fixed Credits",
+      "region": "China/global platform",
+      "status": "BLOCKED_PRODUCT_ABSENT",
+      "official_evidence": ["https://mimo.mi.com/static/docs/price/token-plan.md"],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Official 5-hour product window and public read-only API"
+    },
+    {
+      "provider": "Xiaomi MiMo",
+      "capability": "token_plan_week",
+      "product": "Xiaomi MiMo Token Plan uses monthly or annual fixed Credits",
+      "region": "China/global platform",
+      "status": "BLOCKED_PRODUCT_ABSENT",
+      "official_evidence": ["https://mimo.mi.com/static/docs/price/token-plan.md"],
+      "machine_contract": null,
+      "implementation": "fail-closed",
+      "live_requirement": "Official weekly product window and public read-only API"
+    }
+  ]
+}

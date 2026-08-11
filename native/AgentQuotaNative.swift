@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Foundation
 import Security
 import UniformTypeIdentifiers
@@ -14,6 +15,8 @@ private enum ProviderAuthMode: Equatable {
     case bearer
     case raw
     case kimiCodeOAuth
+    case volcAKSK(service: String, region: String, action: String, version: String, method: String)
+    case aliyunRPC(action: String, version: String)
 }
 
 private struct ProviderDefinition {
@@ -44,6 +47,7 @@ private struct ProviderDefinition {
 }
 
 private let providers = [
+    ProviderDefinition(id: "bailian-wallet", label: "阿里云账户余额（百炼）", host: "business.aliyuncs.com", path: "/", authMode: .aliyunRPC(action: "QueryAccountBalance", version: "2017-12-14")),
     ProviderDefinition(id: "deepseek", label: "DeepSeek", host: "api.deepseek.com", path: "/user/balance", authMode: .bearer),
     ProviderDefinition(id: "glm-cn", label: "GLM Coding Plan（中国区）", host: "open.bigmodel.cn", path: "/api/monitor/usage/quota/limit", authMode: .raw),
     ProviderDefinition(id: "glm-global", label: "GLM Coding Plan（国际区）", host: "api.z.ai", path: "/api/monitor/usage/quota/limit", authMode: .raw),
@@ -52,7 +56,14 @@ private let providers = [
     ProviderDefinition(id: "kimi-code", label: "Kimi Code Token Plan", host: "api.kimi.com", path: "/coding/v1/usages", authMode: .kimiCodeOAuth),
     ProviderDefinition(id: "minimax-cn", label: "MiniMax Token Plan（中国区）", host: "www.minimaxi.com", path: "/v1/token_plan/remains", authMode: .bearer),
     ProviderDefinition(id: "minimax-global", label: "MiniMax Token Plan（国际区）", host: "www.minimax.io", path: "/v1/token_plan/remains", authMode: .bearer),
+    ProviderDefinition(id: "volc-wallet", label: "火山引擎账户余额", host: "open.volcengineapi.com", path: "/", authMode: .volcAKSK(service: "billing", region: "cn-beijing", action: "QueryBalanceAcct", version: "2022-01-01", method: "GET")),
+    ProviderDefinition(id: "volc-plan", label: "火山方舟 Coding Plan", host: "ark.cn-beijing.volces.com", path: "/", authMode: .volcAKSK(service: "ark", region: "cn-beijing", action: "GetAFPUsage", version: "2024-01-01", method: "POST")),
 ]
+
+private struct CloudKeyBundle: Codable {
+    let accessKeyID: String
+    let secretAccessKey: String
+}
 
 private struct KimiCodeTokenBundle: Codable {
     let accessToken: String
@@ -346,17 +357,17 @@ private func credentialDialog(purpose: String, provider requestedProvider: Strin
     let alert = NSAlert()
     alert.alertStyle = .informational
     alert.messageText = purpose == "replace-credential-reference" ? "替换本机凭据" : "添加本机凭据"
-    alert.informativeText = "API Key/Token 可直接粘贴；Kimi Code 使用官方 OAuth 设备登录。凭据只写入 macOS 钥匙串。"
+    alert.informativeText = "API Key/Token 可直接粘贴；阿里云/火山需 AccessKey ID + SecretKey；Kimi Code 使用官方 OAuth。凭据只写入 macOS 钥匙串。"
     alert.addButton(withTitle: "继续")
     alert.addButton(withTitle: "取消")
 
-    let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 88))
-    let selector = NSPopUpButton(frame: NSRect(x: 0, y: 54, width: 360, height: 28))
+    let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 122))
+    let selector = NSPopUpButton(frame: NSRect(x: 0, y: 88, width: 360, height: 28))
     for item in providers { selector.addItem(withTitle: item.label) }
     selector.isHidden = purpose == "replace-credential-reference"
     container.addSubview(selector)
-    let secure = PasteSecureTextField(frame: NSRect(x: 0, y: 18, width: 360, height: 28))
-    secure.placeholderString = "API Key / Token（Kimi Code 留空）"
+    let secure = PasteSecureTextField(frame: NSRect(x: 0, y: 52, width: 360, height: 28))
+    secure.placeholderString = "API Key / Token / AccessKey ID（Kimi Code 留空）"
     secure.setAccessibilityLabel("本机安全凭据")
     let secureMenu = NSMenu()
     secureMenu.addItem(
@@ -366,6 +377,11 @@ private func credentialDialog(purpose: String, provider requestedProvider: Strin
     )
     secure.menu = secureMenu
     container.addSubview(secure)
+    let cloudSecret = PasteSecureTextField(frame: NSRect(x: 0, y: 18, width: 360, height: 28))
+    cloudSecret.placeholderString = "SecretKey（仅火山签名接口）"
+    cloudSecret.setAccessibilityLabel("云接口 SecretKey")
+    cloudSecret.menu = secureMenu
+    container.addSubview(cloudSecret)
     alert.accessoryView = container
     alert.window.initialFirstResponder = secure
 
@@ -373,6 +389,7 @@ private func credentialDialog(purpose: String, provider requestedProvider: Strin
     // didResignActive as cancellation races every successful modal teardown.
     guard alert.runModal() == .alertFirstButtonReturn else {
         secure.stringValue = ""
+        cloudSecret.stringValue = ""
         return NativeResponse(
             status: "cancelled", opaqueReference: nil, errorCode: nil, userPresenceToken: nil
         )
@@ -382,6 +399,7 @@ private func credentialDialog(purpose: String, provider requestedProvider: Strin
         : providers[selector.indexOfSelectedItem].id
     guard let selectedProvider, let definition = providerDefinition(selectedProvider) else {
         secure.stringValue = ""
+        cloudSecret.stringValue = ""
         return NativeResponse(
             status: "error", opaqueReference: nil, errorCode: "invalid-provider",
             userPresenceToken: nil
@@ -390,6 +408,7 @@ private func credentialDialog(purpose: String, provider requestedProvider: Strin
     var bytes: [UInt8]
     if definition.authMode == .kimiCodeOAuth {
         secure.stringValue = ""
+        cloudSecret.stringValue = ""
         let login = kimiCodeOAuthCredential()
         guard let credential = login.credential else {
             return NativeResponse(
@@ -400,9 +419,42 @@ private func credentialDialog(purpose: String, provider requestedProvider: Strin
             )
         }
         bytes = credential
+    } else if case .volcAKSK = definition.authMode {
+        let accessKeyID = secure.stringValue
+        let secretAccessKey = cloudSecret.stringValue
+        secure.stringValue = ""
+        cloudSecret.stringValue = ""
+        guard isSafeCredential(accessKeyID), isSafeCredential(secretAccessKey),
+              let encoded = try? JSONEncoder().encode(
+                  CloudKeyBundle(accessKeyID: accessKeyID, secretAccessKey: secretAccessKey)
+              )
+        else {
+            return NativeResponse(
+                status: "error", opaqueReference: nil, errorCode: "invalid-secret",
+                userPresenceToken: nil
+            )
+        }
+        bytes = Array(encoded)
+    } else if case .aliyunRPC = definition.authMode {
+        let accessKeyID = secure.stringValue
+        let secretAccessKey = cloudSecret.stringValue
+        secure.stringValue = ""
+        cloudSecret.stringValue = ""
+        guard isSafeCredential(accessKeyID), isSafeCredential(secretAccessKey),
+              let encoded = try? JSONEncoder().encode(
+                  CloudKeyBundle(accessKeyID: accessKeyID, secretAccessKey: secretAccessKey)
+              )
+        else {
+            return NativeResponse(
+                status: "error", opaqueReference: nil, errorCode: "invalid-secret",
+                userPresenceToken: nil
+            )
+        }
+        bytes = Array(encoded)
     } else {
         bytes = Array(secure.stringValue.utf8)
         secure.stringValue = ""
+        cloudSecret.stringValue = ""
         guard let value = String(bytes: bytes, encoding: .utf8), isSafeCredential(value) else {
             bytes.resetBytes(in: bytes.indices)
             return NativeResponse(
@@ -899,6 +951,33 @@ private func minimizedProviderDocument(provider: String, document: [String: Any]
         result["data"] = ["limits": limits]
         return result
     }
+    if provider == "volc-wallet" {
+        guard let result = document["Result"] as? [String: Any] else { return nil }
+        return [
+            "Result": selected(
+                result,
+                ["ArrearsBalance", "AvailableBalance", "CashBalance", "CreditLimit", "FreezeAmount"]
+            ),
+        ]
+    }
+    if provider == "volc-plan" {
+        guard let result = document["Result"] as? [String: Any] else { return nil }
+        var sanitized = selected(result, ["PlanType"])
+        for key in ["AFPFiveHour", "AFPWeekly"] {
+            guard let window = result[key] as? [String: Any] else { return nil }
+            sanitized[key] = selected(window, ["Quota", "Used", "SubscribeTime", "ResetTime"])
+        }
+        return ["Result": sanitized]
+    }
+    if provider == "bailian-wallet" {
+        guard let data = document["Data"] as? [String: Any] else { return nil }
+        var result = selected(document, ["Code", "Success"])
+        result["Data"] = selected(
+            data,
+            ["AvailableAmount", "AvailableCashAmount", "CreditAmount", "Currency", "MybankCreditAmount", "QuotaLimit"]
+        )
+        return result
+    }
     return nil
 }
 
@@ -912,11 +991,106 @@ private func minimizedProviderBody(provider: String, status: Int, body: Data) ->
     return try? JSONSerialization.data(withJSONObject: projectionSource, options: [.sortedKeys])
 }
 
+private func sha256Hex(_ data: Data) -> String {
+    SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+}
+
+private func hmacSHA256(key: Data, message: String) -> Data {
+    Data(HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: SymmetricKey(data: key)))
+}
+
+private func volcSignedRequest(
+    definition: ProviderDefinition,
+    accessKeyID: String,
+    secretAccessKey: String,
+    now: Date = Date()
+) -> (url: URL, method: String, headers: [String: String], body: Data?)? {
+    guard case let .volcAKSK(service, region, action, version, method) = definition.authMode else {
+        return nil
+    }
+    let body = method == "POST" ? Data("{}".utf8) : nil
+    let payloadHash = sha256Hex(body ?? Data())
+    let query = "Action=\(action)&Version=\(version)"
+    guard let url = URL(string: "https://\(definition.host)/?\(query)") else { return nil }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+    let xDate = formatter.string(from: now)
+    formatter.dateFormat = "yyyyMMdd"
+    let shortDate = formatter.string(from: now)
+    let signedHeaders = "host;x-content-sha256;x-date"
+    let canonicalHeaders = "host:\(definition.host)\nx-content-sha256:\(payloadHash)\nx-date:\(xDate)\n"
+    let canonicalRequest = "\(method)\n/\n\(query)\n\(canonicalHeaders)\n\(signedHeaders)\n\(payloadHash)"
+    let scope = "\(shortDate)/\(region)/\(service)/request"
+    let stringToSign = "HMAC-SHA256\n\(xDate)\n\(scope)\n\(sha256Hex(Data(canonicalRequest.utf8)))"
+    let dateKey = hmacSHA256(key: Data(secretAccessKey.utf8), message: shortDate)
+    let regionKey = hmacSHA256(key: dateKey, message: region)
+    let serviceKey = hmacSHA256(key: regionKey, message: service)
+    let signingKey = hmacSHA256(key: serviceKey, message: "request")
+    let signature = hmacSHA256(key: signingKey, message: stringToSign)
+        .map { String(format: "%02x", $0) }.joined()
+    return (
+        url,
+        method,
+        [
+            "Accept": "application/json",
+            "Authorization": "HMAC-SHA256 Credential=\(accessKeyID)/\(scope), SignedHeaders=\(signedHeaders), Signature=\(signature)",
+            "Content-Type": "application/json; charset=utf-8",
+            "Host": definition.host,
+            "X-Content-Sha256": payloadHash,
+            "X-Date": xDate,
+        ],
+        body
+    )
+}
+
+private func aliyunPercentEncode(_ value: String) -> String {
+    var allowed = CharacterSet.alphanumerics
+    allowed.insert(charactersIn: "-_.~")
+    return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+}
+
+private func aliyunSignedURL(
+    definition: ProviderDefinition,
+    accessKeyID: String,
+    secretAccessKey: String,
+    now: Date = Date(),
+    nonce: String = UUID().uuidString
+) -> URL? {
+    guard case let .aliyunRPC(action, version) = definition.authMode else { return nil }
+    let formatter = ISO8601DateFormatter()
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.formatOptions = [.withInternetDateTime]
+    var parameters = [
+        "AccessKeyId": accessKeyID,
+        "Action": action,
+        "Format": "JSON",
+        "SignatureMethod": "HMAC-SHA1",
+        "SignatureNonce": nonce,
+        "SignatureVersion": "1.0",
+        "Timestamp": formatter.string(from: now),
+        "Version": version,
+    ]
+    let canonical = parameters.sorted { $0.key < $1.key }
+        .map { "\(aliyunPercentEncode($0.key))=\(aliyunPercentEncode($0.value))" }
+        .joined(separator: "&")
+    let stringToSign = "GET&%2F&\(aliyunPercentEncode(canonical))"
+    let key = SymmetricKey(data: Data("\(secretAccessKey)&".utf8))
+    parameters["Signature"] = Data(
+        HMAC<Insecure.SHA1>.authenticationCode(for: Data(stringToSign.utf8), using: key)
+    ).base64EncodedString()
+    let query = parameters.sorted { $0.key < $1.key }
+        .map { "\(aliyunPercentEncode($0.key))=\(aliyunPercentEncode($0.value))" }
+        .joined(separator: "&")
+    return URL(string: "https://\(definition.host)/?\(query)")
+}
+
 private func providerFetch(reference: String, provider id: String) -> NativeResponse {
     guard
         isCredentialReference(reference),
         let definition = providerDefinition(id),
-        let url = definition.endpoint
+        definition.endpoint != nil
     else {
         return NativeResponse(
             status: "error", opaqueReference: nil, errorCode: "invalid-request",
@@ -944,7 +1118,11 @@ private func providerFetch(reference: String, provider id: String) -> NativeResp
             userPresenceToken: nil, provider: id
         )
     }
-    let credential: String
+    var credential = ""
+    var requestURL: URL
+    var requestMethod = "GET"
+    var requestHeaders: [String: String] = [:]
+    var requestBody: Data?
     switch definition.authMode {
     case .kimiCodeOAuth:
         switch resolveKimiCodeCredential(reference: reference, secret: secret) {
@@ -967,6 +1145,15 @@ private func providerFetch(reference: String, provider id: String) -> NativeResp
                 userPresenceToken: nil, provider: id
             )
         }
+        guard let endpoint = definition.endpoint else {
+            return NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-request", userPresenceToken: nil, provider: id)
+        }
+        requestURL = endpoint
+        requestHeaders = [
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en",
+            "Authorization": "Bearer \(credential)",
+        ]
     case .bearer, .raw:
         guard let value = String(data: secret, encoding: .utf8), isSafeCredential(value) else {
             return NativeResponse(
@@ -975,16 +1162,51 @@ private func providerFetch(reference: String, provider id: String) -> NativeResp
             )
         }
         credential = value
-    }
-    let authorization = definition.authMode == .raw ? credential : "Bearer \(credential)"
-    guard let response = boundedHTTPRequest(
-        url: url,
-        method: "GET",
-        headers: [
+        guard let endpoint = definition.endpoint else {
+            return NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-request", userPresenceToken: nil, provider: id)
+        }
+        requestURL = endpoint
+        requestHeaders = [
             "Accept": "application/json",
             "Accept-Language": "en-US,en",
-            "Authorization": authorization,
+            "Authorization": definition.authMode == .raw ? credential : "Bearer \(credential)",
         ]
+    case .volcAKSK:
+        guard
+            let bundle = try? JSONDecoder().decode(CloudKeyBundle.self, from: secret),
+            isSafeCredential(bundle.accessKeyID), isSafeCredential(bundle.secretAccessKey),
+            let signed = volcSignedRequest(
+                definition: definition,
+                accessKeyID: bundle.accessKeyID,
+                secretAccessKey: bundle.secretAccessKey
+            )
+        else {
+            return NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-secret", userPresenceToken: nil, provider: id)
+        }
+        requestURL = signed.url
+        requestMethod = signed.method
+        requestHeaders = signed.headers
+        requestBody = signed.body
+    case .aliyunRPC:
+        guard
+            let bundle = try? JSONDecoder().decode(CloudKeyBundle.self, from: secret),
+            isSafeCredential(bundle.accessKeyID), isSafeCredential(bundle.secretAccessKey),
+            let signedURL = aliyunSignedURL(
+                definition: definition,
+                accessKeyID: bundle.accessKeyID,
+                secretAccessKey: bundle.secretAccessKey
+            )
+        else {
+            return NativeResponse(status: "error", opaqueReference: nil, errorCode: "invalid-secret", userPresenceToken: nil, provider: id)
+        }
+        requestURL = signedURL
+        requestHeaders = ["Accept": "application/json"]
+    }
+    guard let response = boundedHTTPRequest(
+        url: requestURL,
+        method: requestMethod,
+        headers: requestHeaders,
+        body: requestBody
     ) else {
         return NativeResponse(
             status: "error", opaqueReference: nil, errorCode: "provider-unavailable",
@@ -1183,10 +1405,13 @@ private func selfTestKeychain() -> Int32 {
 private func selfTestProviderMinimization() -> Int32 {
     let samples = [
         ("deepseek", #"{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"1","account_id":"sensitive"}],"user":{"email":"sensitive"}}"#),
+        ("bailian-wallet", #"{"Code":"200","Success":true,"RequestId":"sensitive","Data":{"AvailableAmount":"100","AvailableCashAmount":"90","CreditAmount":"10","MybankCreditAmount":"0","Currency":"CNY","AccountID":"sensitive"}}"#),
         ("kimi-cn", #"{"code":0,"data":{"available_balance":1,"cash_balance":1,"voucher_balance":0,"account_id":"sensitive"},"user":{"email":"sensitive"}}"#),
         ("kimi-code", #"{"usage":{"limit":"10","remaining":"9","userId":"sensitive"},"limits":[{"window":{"duration":300,"timeUnit":"TIME_UNIT_MINUTE","region":"sensitive"},"detail":{"limit":"10","remaining":"9","businessId":"sensitive"}}],"authentication":{"scope":"sensitive"},"user":{"email":"sensitive"}}"#),
         ("minimax-cn", #"{"base_resp":{"status_code":0,"trace_id":"sensitive"},"model_remains":[{"model_name":"general","current_interval_remaining_percent":90,"current_weekly_remaining_percent":80,"current_weekly_status":1,"account_id":"sensitive"}],"user":{"email":"sensitive"}}"#),
         ("glm-cn", #"{"code":200,"success":true,"data":{"limits":[{"type":"TOKENS_LIMIT","percentage":1,"account_id":"sensitive"}],"user":{"email":"sensitive"}}}"#),
+        ("volc-wallet", #"{"ResponseMetadata":{"RequestId":"sensitive"},"Result":{"AccountID":210000001,"AvailableBalance":"77.01","CashBalance":"83.01","CreditLimit":"0.01","FreezeAmount":"5.01","ArrearsBalance":"1.01"}}"#),
+        ("volc-plan", #"{"ResponseMetadata":{"RequestId":"sensitive"},"Result":{"PlanType":"AFP","AFPFiveHour":{"Quota":1000,"Used":250,"SubscribeTime":1,"ResetTime":2,"AccountID":"sensitive"},"AFPWeekly":{"Quota":8000,"Used":2000,"SubscribeTime":1,"ResetTime":2}}}"#),
     ]
     for (provider, source) in samples {
         guard
@@ -1205,6 +1430,43 @@ private func selfTestProviderMinimization() -> Int32 {
         isSafeCredential("valid-token_123"),
         !isSafeCredential("injected\r\nHeader: value")
     else { return 11 }
+    var components = DateComponents()
+    components.calendar = Calendar(identifier: .gregorian)
+    components.timeZone = TimeZone(secondsFromGMT: 0)
+    components.year = 2026
+    components.month = 8
+    components.day = 11
+    components.hour = 1
+    components.minute = 2
+    components.second = 3
+    guard
+        let date = components.date,
+        let definition = providerDefinition("volc-plan"),
+        let signed = volcSignedRequest(
+            definition: definition,
+            accessKeyID: "AKTEST",
+            secretAccessKey: "secret-test",
+            now: date
+        ),
+        signed.method == "POST",
+        signed.body == Data("{}".utf8),
+        signed.headers["X-Date"] == "20260811T010203Z",
+        signed.headers["Authorization"]?.hasSuffix(
+            "Signature=5f7d529b3da7006b514b96c46fb6fac1057502509b27eb13cfb766e94ce7b662"
+        ) == true
+    else { return 12 }
+    guard
+        let aliyunDefinition = providerDefinition("bailian-wallet"),
+        let aliyunURL = aliyunSignedURL(
+            definition: aliyunDefinition,
+            accessKeyID: "testid",
+            secretAccessKey: "testsecret",
+            now: date,
+            nonce: "nonce-test"
+        ),
+        aliyunURL.absoluteString.contains("Signature=tQPS4ljhN8dSSmBREFGdrt4RugM%3D"),
+        aliyunURL.absoluteString.contains("Timestamp=2026-08-11T01%3A02%3A03Z")
+    else { return 13 }
     return 0
 }
 

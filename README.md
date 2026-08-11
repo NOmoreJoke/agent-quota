@@ -17,7 +17,10 @@ Agent Quota Desktop 是一个本地优先的独立桌面额度聚合产品。mac
   QoderWork/QwenWork、Trae、Cursor。完整机器清单见
   [`provider_catalog_v1.json`](src/agent_quota/resources/provider_catalog_v1.json)。
 - 已接入固定官方只读查询：DeepSeek Wallet、Kimi 中国/国际 Wallet、Kimi Code
-  Window/Extra Usage、MiniMax 中国/国际 Token Plan、GLM 中国/国际 Coding Plan。
+  Window/Extra Usage、MiniMax 中国/国际 Token Plan、GLM 中国/国际 Coding Plan、
+  阿里云账户余额、火山引擎账户余额与方舟 Agent Plan 5小时/周窗口。
+- 七家目标厂商的 21 单元验收状态见 [`ACCEPTANCE_MATRIX.md`](ACCEPTANCE_MATRIX.md)；
+  无官方产品/API 或未完成当前安装包实测的单元保持 fail-closed，不以模拟值代替。
 - Codex、Claude Code、Cursor、Trae、WorkBuddy、QoderWork/QwenWork 等保留为
   Experimental；无公开稳定机器额度合同或未进入固定 host allowlist 时不可添加。
 - `Catalog-only` 只代表可发现，不代表可以查询；`Custom Configuration` 明确不支持
