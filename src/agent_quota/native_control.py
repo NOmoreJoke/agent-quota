@@ -295,9 +295,7 @@ class NativeControlPlane:
                 continue
             principal = cast(str, account["principal_ref"])
             sources = cast(list[dict[str, str]], account["quota_projection"])
-            if sources and (
-                account["lifecycle"] == "needs-reauth" or account["last_error_code"] is not None
-            ):
+            if account["lifecycle"] == "needs-reauth" or account["last_error_code"] is not None:
                 projection_blocked = True
             for source in sources:
                 row = dict(source)

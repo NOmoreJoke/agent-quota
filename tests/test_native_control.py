@@ -310,6 +310,59 @@ def test_scope_all_is_stale_when_any_displayed_account_is_expired(tmp_path: Path
     assert restored.quota_projection("scope-all")["freshness"] == "stale"
 
 
+def test_scope_all_is_stale_when_an_account_fails_before_first_projection(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    successful = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="deepseek",
+    )
+    failed = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(2),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="deepseek",
+    )
+    _, successful_generation, provider = control.credential_context(successful.principal_ref)
+    control.commit_provider_response(
+        principal_ref=successful.principal_ref,
+        expected_generation=successful_generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "1"}]}
+        ),
+    )
+    _, failed_generation, _ = control.credential_context(failed.principal_ref)
+    for safe_error_code in ("provider-unavailable", "timeout"):
+        control.commit_provider_failure(
+            principal_ref=failed.principal_ref,
+            expected_generation=failed_generation,
+            provider_id=provider,
+            safe_error_code=safe_error_code,
+        )
+        projection = control.quota_projection("scope-all")
+        assert len(projection["capability_rows"]) == 1
+        assert projection["freshness"] == "stale"
+        control = NativeControlPlane(root)
+        assert control.quota_projection("scope-all")["freshness"] == "stale"
+    control.commit_provider_response(
+        principal_ref=failed.principal_ref,
+        expected_generation=failed_generation,
+        provider_id=provider,
+        http_status=401,
+        body_base64="ignored",
+    )
+    assert control.renderer_accounts()[1]["lifecycle"] == "needs-reauth"
+    assert control.quota_projection("scope-all")["freshness"] == "stale"
+    restored = NativeControlPlane(root)
+    assert restored.quota_projection("scope-all")["freshness"] == "stale"
+
+
 def test_destructive_two_phase_cancel_drift_replay_and_commit(tmp_path: Path) -> None:
     control = NativeControlPlane((tmp_path / "private").absolute())
     control.commit_credential(
