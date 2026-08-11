@@ -22,10 +22,10 @@
 | Gate | Result | Evidence |
 |---|---|---|
 | TypeScript | PASS | lint, typecheck, 6 unit tests, 4 E2E tests, production build |
-| Python | PASS | lint, format, mypy; 200 tests; 90.58% coverage |
+| Python | PASS | lint, format, mypy; 201 tests; 90.57% coverage |
 | Rust | PASS | fmt; clippy `-D warnings`; 33 tests in each production/development feature set |
 | Contract | PASS | 50-case exact mutation match; deterministic validator/projection replay; result SHA-256 `8579704000211908d497a8e035d86d83cd0454b345755e8fef3ed8cb6b9d6a6f` |
-| Error/fail-closed | PASS | 401/403, 429, 5xx, schema drift, stale LKG and mutation negative tests |
+| Error/fail-closed | PASS | 401/403, 429, 5xx, schema drift, stale LKG, credential outcome-unknown journal and mutation negative tests |
 | Package/bundle | PASS | Final `bundle-audit.json`, DMG verification and size gate |
 | Clean install/lifecycle | BLOCKED_ACCOUNT | Empty-sidecar clean install and no-network install/upgrade/rollback/uninstall/reinstall retention PASS; real refresh, 401 recovery and native purge remain holder-controlled |
 | License/SBOM | PASS | 442 inventoried components; 245 distributed components bound to 454 hashed license/notice texts; 16 unpackaged repo-level notices bound to exact VCS commits; contract-only dependencies marked `source-validation-only` |

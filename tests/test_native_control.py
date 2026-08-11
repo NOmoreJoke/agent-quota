@@ -78,6 +78,56 @@ def test_replace_generation_drift_and_duplicate_are_rejected(tmp_path: Path) -> 
         )
 
 
+def test_prepared_credential_journal_reconciles_crash_boundaries(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    with pytest.raises(ValueError, match="not prepared"):
+        control.commit_prepared_credential(
+            purpose="create-credential-reference",
+            credential_reference=reference(1),
+            principal_ref=None,
+            expected_generation=None,
+        )
+
+    control.prepare_credential_reference(reference(1))
+    pre_persist_restart = NativeControlPlane(root)
+    assert pre_persist_restart.cleanup_pending() == [reference(1)]
+    created = pre_persist_restart.commit_prepared_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+    )
+    post_persist_restart = NativeControlPlane(root)
+    assert post_persist_restart.cleanup_pending() == []
+    assert post_persist_restart.credential_reference(created.principal_ref)[0] == reference(1)
+
+    _, generation = post_persist_restart.credential_reference(created.principal_ref)
+    post_persist_restart.prepare_credential_reference(reference(2))
+    post_persist_restart.commit_prepared_credential(
+        purpose="replace-credential-reference",
+        credential_reference=reference(2),
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+    )
+    replace_restart = NativeControlPlane(root)
+    assert replace_restart.credential_reference(created.principal_ref)[0] == reference(2)
+    assert replace_restart.cleanup_pending() == [reference(1)]
+
+    purge = replace_restart.prepare_destructive(
+        operation_intent="purge",
+        opaque_selection_handle="selection-all-local-data",
+    )
+    replace_restart.commit_destructive(
+        plan_id=purge.plan_id,
+        digest=purge.digest,
+        generation=purge.generation,
+        nonce=purge.nonce,
+        user_presence_token="00000000-0000-4000-8000-000000000099",
+    )
+    assert set(replace_restart.cleanup_pending()) == {reference(1), reference(2)}
+
+
 def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)

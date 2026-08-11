@@ -31,6 +31,7 @@ INTERNAL_COMMANDS: Final = {
     "host_internal.cleanup_pending",
     "host_internal.credential_context",
     "host_internal.credential_commit",
+    "host_internal.credential_prepare",
     "host_internal.destructive_cancel",
     "host_internal.destructive_commit",
     "host_internal.destructive_prepare",
@@ -255,6 +256,9 @@ def _validate_internal_request(command_id: str, payload: dict[str, object]) -> N
     elif command_id == "host_internal.credential_context":
         _exact(payload, {"principal_ref"})
         _bounded_string(payload["principal_ref"])
+    elif command_id == "host_internal.credential_prepare":
+        _exact(payload, {"credential_reference"})
+        _bounded_string(payload["credential_reference"])
     elif command_id == "host_internal.credential_commit":
         _exact(
             payload,
@@ -333,6 +337,10 @@ def _validate_internal_response(command_id: str, payload: dict[str, object]) -> 
         _bounded_string(payload["credential_reference"])
         _bounded_integer(payload["generation"])
         _bounded_string(payload["provider_id"], 32)
+    elif command_id == "host_internal.credential_prepare":
+        _exact(payload, {"status"})
+        if payload["status"] != "prepared":
+            raise ContractViolation("invalid credential prepare status")
     elif command_id == "host_internal.credential_commit":
         _exact(payload, {"old_reference", "principal_ref", "status"})
         _bounded_string(payload["principal_ref"])
@@ -406,8 +414,11 @@ def _internal_dispatch(
                 "provider_id": provider_id,
                 "status": "ok",
             }
+        if command_id == "host_internal.credential_prepare":
+            native.prepare_credential_reference(str(payload["credential_reference"]))
+            return {"status": "prepared"}
         if command_id == "host_internal.credential_commit":
-            commit = native.commit_credential(
+            commit = native.commit_prepared_credential(
                 purpose=str(payload["purpose"]),
                 credential_reference=str(payload["credential_reference"]),
                 principal_ref=(

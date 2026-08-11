@@ -334,8 +334,11 @@ class NativeControlPlane:
         principal_ref: str | None,
         expected_generation: int | None,
         provider_id: str = "deepseek",
+        _prepared: bool = False,
     ) -> CredentialCommit:
         self._validate_reference(credential_reference)
+        if _prepared and credential_reference not in self.pending_keychain_deletions:
+            raise ValueError("credential reference was not prepared")
         provider = manifest(provider_id)
         if any(
             account["credential_reference"] == credential_reference for account in self.accounts
@@ -350,6 +353,8 @@ class NativeControlPlane:
             principal = (
                 "principal-" + hashlib.sha256(credential_reference.encode()).hexdigest()[:24]
             )
+            if _prepared:
+                self.pending_keychain_deletions.remove(credential_reference)
             self.accounts.append(
                 {
                     "principal_ref": principal,
@@ -387,12 +392,41 @@ class NativeControlPlane:
             account["last_error_code"] = None
             account["last_refresh_epoch_ms"] = 0
             account["quota_projection"] = []
+            if _prepared:
+                self.pending_keychain_deletions.remove(credential_reference)
             self._queue_keychain_deletion(old_reference)
             self._state["generation"] = next_generation
             self._persist()
             assert isinstance(old_reference, str)
             return CredentialCommit(principal_ref, old_reference)
         raise ValueError("unknown principal")
+
+    def prepare_credential_reference(self, credential_reference: str) -> None:
+        self._validate_reference(credential_reference)
+        if any(
+            account["credential_reference"] == credential_reference for account in self.accounts
+        ):
+            raise ValueError("credential reference already committed")
+        self._queue_keychain_deletion(credential_reference)
+        self._persist()
+
+    def commit_prepared_credential(
+        self,
+        *,
+        purpose: str,
+        credential_reference: str,
+        principal_ref: str | None,
+        expected_generation: int | None,
+        provider_id: str = "deepseek",
+    ) -> CredentialCommit:
+        return self.commit_credential(
+            purpose=purpose,
+            credential_reference=credential_reference,
+            principal_ref=principal_ref,
+            expected_generation=expected_generation,
+            provider_id=provider_id,
+            _prepared=True,
+        )
 
     def commit_provider_response(
         self,

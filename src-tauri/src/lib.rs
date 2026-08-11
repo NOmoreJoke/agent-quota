@@ -387,6 +387,19 @@ fn credential_dialog_open(
                     unavailable("credential_dialog_open", &request, "provider-unavailable"),
                 );
             };
+            let prepared = call_internal(
+                &state,
+                "host_internal.credential_prepare",
+                json!({"credential_reference": reference}),
+            );
+            if !matches!(prepared, Ok(ref result) if result["status"] == "prepared") {
+                let _ = state.native.delete_reference(&reference);
+                restore_main_window(&app);
+                return validated(
+                    "credential_dialog_open",
+                    unavailable("credential_dialog_open", &request, "outcome-unknown"),
+                );
+            }
             match call_internal(
                 &state,
                 "host_internal.credential_commit",
@@ -583,6 +596,18 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
                     unavailable("reauthenticate", &request, "provider-unavailable"),
                 );
             };
+            let prepared = call_internal(
+                &state,
+                "host_internal.credential_prepare",
+                json!({"credential_reference": reference}),
+            );
+            if !matches!(prepared, Ok(ref result) if result["status"] == "prepared") {
+                let _ = state.native.delete_reference(&reference);
+                return validated(
+                    "reauthenticate",
+                    unavailable("reauthenticate", &request, "outcome-unknown"),
+                );
+            }
             match call_internal(
                 &state,
                 "host_internal.credential_commit",

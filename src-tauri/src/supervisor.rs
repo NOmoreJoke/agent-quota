@@ -380,6 +380,16 @@ mod tests {
         {
             let mut supervisor = SidecarSupervisor::spawn(Path::new(&executable), &arguments)
                 .expect("spawn real sidecar");
+            supervisor
+                .call_internal(
+                    "host_internal.credential_prepare",
+                    json!({
+                        "credential_reference":
+                            "credential-00000000-0000-4000-8000-000000000001"
+                    }),
+                    2_000_000_000,
+                )
+                .expect("prepare credential reference");
             let committed = supervisor
                 .call_internal(
                     "host_internal.credential_commit",
