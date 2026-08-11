@@ -135,10 +135,24 @@ def test_prepared_credential_journal_reconciles_crash_boundaries(tmp_path: Path)
 def test_core_generated_candidate_is_durable_before_native_helper(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)
+    stale_purge = control.prepare_destructive(
+        operation_intent="purge",
+        opaque_selection_handle="selection-all-local-data",
+    )
+    generation_before = control.generation
     candidate = control.create_credential_candidate()
     assert candidate.startswith("credential-")
     assert len(candidate) == 47
+    assert control.generation == generation_before + 1
     assert control.cleanup_pending() == [candidate]
+    with pytest.raises(ValueError, match="drift"):
+        control.commit_destructive(
+            plan_id=stale_purge.plan_id,
+            digest=stale_purge.digest,
+            generation=stale_purge.generation,
+            nonce=stale_purge.nonce,
+            user_presence_token="00000000-0000-4000-8000-000000000098",
+        )
     restored = NativeControlPlane(root)
     assert restored.cleanup_pending() == [candidate]
     restored.acknowledge_cleanup([candidate])

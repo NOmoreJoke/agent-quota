@@ -34,6 +34,7 @@ const REFRESH_DEADLINE: Duration = Duration::from_secs(30);
 
 struct HostState {
     _instance_lease: InstanceLease,
+    credential_destructive_transaction: Mutex<()>,
     sidecar: Mutex<Option<SidecarSupervisor>>,
     native: NativeHost,
 }
@@ -402,6 +403,15 @@ fn credential_dialog_open(
             unavailable("credential_dialog_open", &request, "not-authorized"),
         );
     }
+    let _transaction = match state.credential_destructive_transaction.lock() {
+        Ok(transaction) => transaction,
+        Err(_) => {
+            return validated(
+                "credential_dialog_open",
+                unavailable("credential_dialog_open", &request, "provider-unavailable"),
+            );
+        }
+    };
     let reference = match create_credential_candidate(&state) {
         Ok(reference) => reference,
         Err(error) => {
@@ -520,6 +530,19 @@ fn destructive_confirmation_open(
             unavailable("destructive_confirmation_open", &request, "not-authorized"),
         );
     }
+    let _transaction = match state.credential_destructive_transaction.lock() {
+        Ok(transaction) => transaction,
+        Err(_) => {
+            return validated(
+                "destructive_confirmation_open",
+                unavailable(
+                    "destructive_confirmation_open",
+                    &request,
+                    "provider-unavailable",
+                ),
+            );
+        }
+    };
     let plan = match call_internal(&state, "host_internal.destructive_prepare", request.clone()) {
         Ok(plan) => plan,
         Err(_) => {
@@ -629,6 +652,15 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
             unavailable("reauthenticate", &request, "not-authorized"),
         );
     }
+    let _transaction = match state.credential_destructive_transaction.lock() {
+        Ok(transaction) => transaction,
+        Err(_) => {
+            return validated(
+                "reauthenticate",
+                unavailable("reauthenticate", &request, "provider-unavailable"),
+            );
+        }
+    };
     let principal = request["principal_ref"].as_str().unwrap_or_default();
     let context = match call_internal(
         &state,
@@ -922,6 +954,7 @@ pub fn run() {
             }
             app.manage(HostState {
                 _instance_lease: instance_lease,
+                credential_destructive_transaction: Mutex::new(()),
                 sidecar: Mutex::new(sidecar),
                 native,
             });

@@ -407,7 +407,11 @@ class NativeControlPlane:
             account["credential_reference"] == credential_reference for account in self.accounts
         ):
             raise ValueError("credential reference already committed")
+        if credential_reference in self.pending_keychain_deletions:
+            return
+        next_generation = self._next_generation()
         self._queue_keychain_deletion(credential_reference)
+        self._state["generation"] = next_generation
         self._persist()
 
     def create_credential_candidate(self) -> str:
@@ -420,7 +424,9 @@ class NativeControlPlane:
                 account["credential_reference"] == candidate for account in self.accounts
             ):
                 continue
+            next_generation = self._next_generation()
             self._queue_keychain_deletion(candidate)
+            self._state["generation"] = next_generation
             self._persist()
             return candidate
         raise RuntimeError("credential candidate generation exhausted")

@@ -127,7 +127,16 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert credential_flow.index("create_credential_candidate(&state)") < credential_flow.index(
         "state.native.credential"
     )
+    assert credential_flow.index(
+        "credential_destructive_transaction.lock()"
+    ) < credential_flow.index("create_credential_candidate(&state)")
     assert '"opaqueReference": reference' in credential_flow
+    destructive_flow = rust_host[
+        rust_host.index("fn destructive_confirmation_open") : rust_host.index("fn reauthenticate")
+    ]
+    assert destructive_flow.index(
+        "credential_destructive_transaction.lock()"
+    ) < destructive_flow.index("host_internal.destructive_prepare")
     helper = (root / "tools/build_native_helper.sh").read_text()
     assert "-strict-concurrency=complete" in helper
     assert "-target arm64-apple-macosx13.0" in helper
