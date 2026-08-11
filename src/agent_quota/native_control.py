@@ -287,10 +287,13 @@ class NativeControlPlane:
     def quota_projection(self, scope_ref: str) -> dict[str, object]:
         rows: list[dict[str, str]] = []
         refreshed: list[int] = []
+        reauth_blocked = False
         for account in self.accounts:
             if scope_ref not in {"scope-all", account["principal_ref"]}:
                 continue
             principal = cast(str, account["principal_ref"])
+            if account["lifecycle"] == "needs-reauth" and account["quota_projection"]:
+                reauth_blocked = True
             for source in cast(list[dict[str, str]], account["quota_projection"]):
                 row = dict(source)
                 identity = hashlib.sha256(
@@ -305,7 +308,9 @@ class NativeControlPlane:
         return {
             "capability_rows": rows,
             "freshness": (
-                "fresh" if rows and 0 <= now_ms - newest <= FRESHNESS_TTL_MS else "stale"
+                "fresh"
+                if rows and not reauth_blocked and 0 <= now_ms - newest <= FRESHNESS_TTL_MS
+                else "stale"
             ),
             "scope_ref": scope_ref,
         }

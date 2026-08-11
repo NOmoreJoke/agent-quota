@@ -145,6 +145,44 @@ def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_pa
     assert restored.renderer_accounts()[0]["lifecycle"] == "needs-reauth"
 
 
+def test_reauth_failure_preserves_lkg_but_forces_stale(tmp_path: Path) -> None:
+    control = NativeControlPlane((tmp_path / "private").absolute())
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="deepseek",
+    )
+    _, generation, provider = control.credential_context(created.principal_ref)
+    control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}]}
+        ),
+    )
+    assert control.quota_projection("scope-all")["freshness"] == "fresh"
+    control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=401,
+        body_base64="ignored",
+    )
+    projection = control.quota_projection("scope-all")
+    assert projection["capability_rows"]
+    assert projection["freshness"] == "stale"
+    assert (
+        NativeControlPlane((tmp_path / "private").absolute()).quota_projection("scope-all")[
+            "freshness"
+        ]
+        == "stale"
+    )
+
+
 def test_account_projection_ids_are_unique_and_failures_preserve_rows(tmp_path: Path) -> None:
     control = NativeControlPlane((tmp_path / "private").absolute())
     created = [
