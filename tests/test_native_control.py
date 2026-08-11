@@ -113,9 +113,20 @@ def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_pa
     )
     assert (error, retryable) == ("provider-unavailable", True)
     assert control.quota_projection("scope-all")["capability_rows"] == successful_projection
+    assert control.quota_projection("scope-all")["freshness"] == "stale"
     assert control.renderer_accounts()[0]["last_error_code"] == "provider-unavailable"
     restored = NativeControlPlane(root)
     assert restored.quota_projection("scope-all") == control.quota_projection("scope-all")
+    restored.commit_provider_failure(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        safe_error_code="timeout",
+    )
+    assert restored.quota_projection("scope-all")["freshness"] == "stale"
+    restored = NativeControlPlane(root)
+    assert restored.renderer_accounts()[0]["last_error_code"] == "timeout"
+    assert restored.quota_projection("scope-all")["freshness"] == "stale"
 
     restored.commit_credential(
         purpose="replace-credential-reference",
@@ -260,6 +271,43 @@ def test_account_projection_ids_are_unique_and_failures_preserve_rows(tmp_path: 
     )
     assert control.renderer_accounts()[0]["last_error_code"] == "keychain-locked"
     assert len(control.quota_projection("scope-all")["capability_rows"]) == 2
+    assert control.quota_projection("scope-all")["freshness"] == "stale"
+
+
+def test_scope_all_is_stale_when_any_displayed_account_is_expired(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    created = [
+        control.commit_credential(
+            purpose="create-credential-reference",
+            credential_reference=reference(seed),
+            principal_ref=None,
+            expected_generation=None,
+            provider_id="deepseek",
+        )
+        for seed in (1, 2)
+    ]
+    for commit in created:
+        _, generation, provider = control.credential_context(commit.principal_ref)
+        control.commit_provider_response(
+            principal_ref=commit.principal_ref,
+            expected_generation=generation,
+            provider_id=provider,
+            http_status=200,
+            body_base64=provider_body(
+                {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "1"}]}
+            ),
+        )
+    control.accounts[0]["last_refresh_epoch_ms"] = (
+        int(control.accounts[0]["last_refresh_epoch_ms"]) - 16 * 60 * 1000
+    )
+    control._persist()
+    assert control.quota_projection(created[0].principal_ref)["freshness"] == "stale"
+    assert control.quota_projection(created[1].principal_ref)["freshness"] == "fresh"
+    assert len(control.quota_projection("scope-all")["capability_rows"]) == 2
+    assert control.quota_projection("scope-all")["freshness"] == "stale"
+    restored = NativeControlPlane(root)
+    assert restored.quota_projection("scope-all")["freshness"] == "stale"
 
 
 def test_destructive_two_phase_cancel_drift_replay_and_commit(tmp_path: Path) -> None:

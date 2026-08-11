@@ -287,16 +287,19 @@ class NativeControlPlane:
     def quota_projection(self, scope_ref: str) -> dict[str, object]:
         rows: list[dict[str, str]] = []
         refreshed: list[int] = []
-        reauth_blocked = False
+        projection_blocked = False
         for account in self.accounts:
             if scope_ref not in {"scope-all", account["principal_ref"]}:
                 continue
             if account["lifecycle"] == "disabled":
                 continue
             principal = cast(str, account["principal_ref"])
-            if account["lifecycle"] == "needs-reauth" and account["quota_projection"]:
-                reauth_blocked = True
-            for source in cast(list[dict[str, str]], account["quota_projection"]):
+            sources = cast(list[dict[str, str]], account["quota_projection"])
+            if sources and (
+                account["lifecycle"] == "needs-reauth" or account["last_error_code"] is not None
+            ):
+                projection_blocked = True
+            for source in sources:
                 row = dict(source)
                 identity = hashlib.sha256(
                     f"{principal}\0{source['capability_ref']}".encode()
@@ -304,14 +307,18 @@ class NativeControlPlane:
                 provider_id = cast(str, account["provider_id"])
                 row["capability_ref"] = f"cap-{provider_id}-account-{identity}"
                 rows.append(row)
-            refreshed.append(cast(int, account["last_refresh_epoch_ms"]))
-        newest = max(refreshed, default=0)
+            if sources:
+                refreshed.append(cast(int, account["last_refresh_epoch_ms"]))
         now_ms = int(time.time() * 1000)
         return {
             "capability_rows": rows,
             "freshness": (
                 "fresh"
-                if rows and not reauth_blocked and 0 <= now_ms - newest <= FRESHNESS_TTL_MS
+                if rows
+                and not projection_blocked
+                and all(
+                    0 <= now_ms - refreshed_at <= FRESHNESS_TTL_MS for refreshed_at in refreshed
+                )
                 else "stale"
             ),
             "scope_ref": scope_ref,
