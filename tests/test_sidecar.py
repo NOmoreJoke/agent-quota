@@ -242,10 +242,18 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     )["response"]
     assert context["credential_reference"].endswith("000000000001")
     assert context["provider_id"] == "deepseek"
-    plan = session.dispatch(
+    session.dispatch(
         envelope(
             secret,
             request_id=5,
+            command_id="host_internal.credential_prepare",
+            payload={"credential_reference": "credential-00000000-0000-4000-8000-000000000002"},
+        )
+    )
+    plan = session.dispatch(
+        envelope(
+            secret,
+            request_id=6,
             command_id="host_internal.destructive_prepare",
             payload={
                 "operation_intent": "purge",
@@ -256,7 +264,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     cancelled = session.dispatch(
         envelope(
             secret,
-            request_id=6,
+            request_id=7,
             command_id="host_internal.destructive_cancel",
             payload={"plan_id": plan["plan_id"]},
         )
@@ -265,7 +273,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     plan = session.dispatch(
         envelope(
             secret,
-            request_id=7,
+            request_id=8,
             command_id="host_internal.destructive_prepare",
             payload={
                 "operation_intent": "purge",
@@ -276,7 +284,7 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     committed = session.dispatch(
         envelope(
             secret,
-            request_id=8,
+            request_id=9,
             command_id="host_internal.destructive_commit",
             payload={
                 "digest": plan["digest"],
@@ -288,13 +296,16 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
         )
     )["response"]
     assert committed == {
-        "cleanup_references": ["credential-00000000-0000-4000-8000-000000000001"],
+        "cleanup_references": [
+            "credential-00000000-0000-4000-8000-000000000002",
+            "credential-00000000-0000-4000-8000-000000000001",
+        ],
         "status": "committed",
     }
     pending = session.dispatch(
         envelope(
             secret,
-            request_id=9,
+            request_id=10,
             command_id="host_internal.cleanup_pending",
             payload={},
         )
@@ -303,17 +314,26 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     acknowledged = session.dispatch(
         envelope(
             secret,
-            request_id=10,
+            request_id=11,
             command_id="host_internal.cleanup_ack",
             payload={"references": pending["references"]},
         )
     )["response"]
     assert acknowledged == {"status": "acknowledged"}
+    pending = session.dispatch(
+        envelope(
+            secret,
+            request_id=12,
+            command_id="host_internal.cleanup_pending",
+            payload={},
+        )
+    )["response"]
+    assert pending["references"] == []
     with pytest.raises(ContractViolation):
         session.dispatch(
             envelope(
                 secret,
-                request_id=11,
+                request_id=13,
                 command_id="host_internal.destructive_commit",
                 payload={
                     "digest": plan["digest"],

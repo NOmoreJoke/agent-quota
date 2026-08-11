@@ -168,22 +168,34 @@ fn validated(command_id: &str, response: Value) -> CommandResult {
     validate_response(command_id, response).map_err(|_| "response rejected".to_owned())
 }
 
-fn cleanup_references(state: &State<'_, HostState>, references: &Value) {
+fn cleanup_references(state: &State<'_, HostState>, references: &Value) -> bool {
     let Some(references) = references.as_array() else {
-        return;
+        return false;
     };
     let acknowledged: Vec<&str> = references
         .iter()
         .filter_map(Value::as_str)
         .filter(|reference| state.native.delete_reference(reference).is_ok())
         .collect();
-    if !acknowledged.is_empty() {
-        let _ = call_internal(
-            state,
-            "host_internal.cleanup_ack",
-            json!({"references": acknowledged}),
-        );
+    if acknowledged.len() != references.len() {
+        if !acknowledged.is_empty() {
+            let _ = call_internal(
+                state,
+                "host_internal.cleanup_ack",
+                json!({"references": acknowledged}),
+            );
+        }
+        return false;
     }
+    if acknowledged.is_empty() {
+        return true;
+    }
+    call_internal(
+        state,
+        "host_internal.cleanup_ack",
+        json!({"references": acknowledged}),
+    )
+    .is_ok()
 }
 
 fn bounded_provider_error(code: Option<&str>) -> &'static str {
@@ -518,8 +530,15 @@ fn destructive_confirmation_open(
                 }),
             ) {
                 Ok(result) if result["status"] == "committed" => {
-                    cleanup_references(&state, &result["cleanup_references"]);
-                    json!({"status": "committed"})
+                    if cleanup_references(&state, &result["cleanup_references"]) {
+                        json!({"status": "committed"})
+                    } else {
+                        unavailable(
+                            "destructive_confirmation_open",
+                            &request,
+                            "provider-unavailable",
+                        )
+                    }
                 }
                 Err(SupervisorError::OutcomeUnknown) => {
                     unavailable("destructive_confirmation_open", &request, "outcome-unknown")

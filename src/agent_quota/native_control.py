@@ -633,6 +633,8 @@ class NativeControlPlane:
             self._queue_keychain_deletion(reference)
         self._state["generation"] = self._next_generation()
         self._persist()
+        if plan.operation_intent == "purge":
+            return tuple(self.pending_keychain_deletions)
         return tuple(removed_references)
 
     def _plan_summary(self, operation_intent: str, selection: str) -> str:

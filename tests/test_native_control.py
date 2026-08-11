@@ -118,7 +118,7 @@ def test_prepared_credential_journal_reconciles_crash_boundaries(tmp_path: Path)
         operation_intent="purge",
         opaque_selection_handle="selection-all-local-data",
     )
-    replace_restart.commit_destructive(
+    cleanup_references = replace_restart.commit_destructive(
         plan_id=purge.plan_id,
         digest=purge.digest,
         generation=purge.generation,
@@ -126,6 +126,10 @@ def test_prepared_credential_journal_reconciles_crash_boundaries(tmp_path: Path)
         user_presence_token="00000000-0000-4000-8000-000000000099",
     )
     assert set(replace_restart.cleanup_pending()) == {reference(1), reference(2)}
+    assert set(cleanup_references) == {reference(1), reference(2)}
+    replace_restart.acknowledge_cleanup(list(cleanup_references))
+    assert replace_restart.renderer_accounts() == []
+    assert replace_restart.cleanup_pending() == []
 
 
 def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_path: Path) -> None:
