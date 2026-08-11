@@ -241,7 +241,7 @@ def _bounded_integer(value: object) -> int:
 def _bounded_string_list(value: object) -> list[str]:
     if (
         not isinstance(value, list)
-        or not 1 <= len(value) <= 128
+        or not 1 <= len(value) <= 192
         or any(not isinstance(item, str) or not 1 <= len(item.encode()) <= 128 for item in value)
     ):
         raise ContractViolation("invalid internal string list")

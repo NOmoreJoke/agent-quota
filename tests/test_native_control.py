@@ -159,6 +159,45 @@ def test_core_generated_candidate_is_durable_before_native_helper(tmp_path: Path
     assert restored.cleanup_pending() == []
 
 
+@pytest.mark.parametrize(("active_count", "pending_count"), [(1, 128), (64, 65)])
+def test_purge_is_atomic_at_combined_reference_capacity(
+    tmp_path: Path, active_count: int, pending_count: int
+) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    for seed in range(1, active_count + 1):
+        control.commit_credential(
+            purpose="create-credential-reference",
+            credential_reference=reference(seed),
+            principal_ref=None,
+            expected_generation=None,
+        )
+    for seed in range(1_000, 1_000 + pending_count):
+        control.prepare_credential_reference(reference(seed))
+    purge = control.prepare_destructive(
+        operation_intent="purge",
+        opaque_selection_handle="selection-all-local-data",
+    )
+    cleanup = control.commit_destructive(
+        plan_id=purge.plan_id,
+        digest=purge.digest,
+        generation=purge.generation,
+        nonce=purge.nonce,
+        user_presence_token="00000000-0000-4000-8000-000000000097",
+    )
+    assert len(cleanup) == active_count + pending_count
+    assert control.renderer_accounts() == []
+    split = len(cleanup) // 2
+    control.acknowledge_cleanup(list(cleanup[:split]))
+    restored = NativeControlPlane(root)
+    assert restored.renderer_accounts() == []
+    assert restored.cleanup_pending() == list(cleanup[split:])
+    restored.acknowledge_cleanup(list(cleanup[split:]))
+    final = NativeControlPlane(root)
+    assert final.renderer_accounts() == []
+    assert final.cleanup_pending() == []
+
+
 def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)

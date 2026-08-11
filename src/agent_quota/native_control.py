@@ -18,6 +18,7 @@ from agent_quota.providers import PROVIDER_IDS, manifest, parse_provider_respons
 
 STATE_SCHEMA: Final = "aq-native-account-state-v1"
 MAX_ACCOUNTS: Final = 64
+MAX_TRACKED_REFERENCES: Final = MAX_ACCOUNTS * 3
 PLAN_TTL_NS: Final = 60_000_000_000
 FRESHNESS_TTL_MS: Final = 15 * 60 * 1000
 UUID_PATTERN: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
@@ -135,7 +136,8 @@ class NativeControlPlane:
             or not isinstance(accounts, list)
             or len(accounts) > MAX_ACCOUNTS
             or not isinstance(pending_deletions, list)
-            or len(pending_deletions) > MAX_ACCOUNTS * 2
+            or len(pending_deletions) > MAX_TRACKED_REFERENCES
+            or len(accounts) + len(pending_deletions) > MAX_TRACKED_REFERENCES
         ):
             raise ValueError("native state bounds mismatch")
         seen_principals: set[str] = set()
@@ -219,6 +221,8 @@ class NativeControlPlane:
             not isinstance(reference, str) or REFERENCE_PATTERN.fullmatch(reference) is None
             for reference in pending_deletions
         ) or len(set(pending_deletions)) != len(pending_deletions):
+            raise ValueError("pending keychain deletion mismatch")
+        if set(cast(list[str], pending_deletions)).intersection(seen_references):
             raise ValueError("pending keychain deletion mismatch")
 
     def _persist(self) -> None:
@@ -526,7 +530,7 @@ class NativeControlPlane:
         return list(self.pending_keychain_deletions)
 
     def acknowledge_cleanup(self, references: list[str]) -> None:
-        if not references or len(references) > MAX_ACCOUNTS * 2:
+        if not references or len(references) > MAX_TRACKED_REFERENCES:
             raise ValueError("invalid cleanup acknowledgement")
         for reference in references:
             self._validate_reference(reference)
@@ -632,7 +636,16 @@ class NativeControlPlane:
             removed_references = [
                 cast(str, account["credential_reference"]) for account in self.accounts
             ]
+            complete_cleanup = list(self.pending_keychain_deletions)
+            complete_cleanup.extend(
+                reference
+                for reference in removed_references
+                if reference not in self.pending_keychain_deletions
+            )
+            if len(complete_cleanup) > MAX_TRACKED_REFERENCES:
+                raise ValueError("tracked credential reference limit reached")
             self.accounts.clear()
+            self.pending_keychain_deletions[:] = complete_cleanup
         elif plan.operation_intent in {"delete", "cascade"}:
             removed_references = [
                 cast(str, account["credential_reference"])
@@ -650,8 +663,9 @@ class NativeControlPlane:
                     account["lifecycle"] = "disabled"
         elif plan.operation_intent != "destructive-config-diff":
             raise ValueError("unknown destructive intent")
-        for reference in removed_references:
-            self._queue_keychain_deletion(reference)
+        if plan.operation_intent != "purge":
+            for reference in removed_references:
+                self._queue_keychain_deletion(reference)
         self._state["generation"] = self._next_generation()
         self._persist()
         if plan.operation_intent == "purge":
@@ -675,7 +689,7 @@ class NativeControlPlane:
             raise ValueError("invalid cleanup reference")
         self._validate_reference(reference)
         if reference not in self.pending_keychain_deletions:
-            if len(self.pending_keychain_deletions) >= MAX_ACCOUNTS * 2:
+            if len(self.pending_keychain_deletions) + len(self.accounts) >= MAX_TRACKED_REFERENCES:
                 raise ValueError("pending cleanup limit reached")
             self.pending_keychain_deletions.append(reference)
 
