@@ -35,9 +35,9 @@ def license_entry(value: str) -> dict[str, Any]:
     value = value.strip()
     if not value:
         raise ValueError("empty license")
-    if "\n" not in value and len(value) <= 128:
-        return {"license": {"name": value}}
-    return {"license": {"name": "License text declared in package metadata"}}
+    if len(value.encode("utf-8")) > 128 * 1024:
+        raise ValueError("license metadata is oversized")
+    return {"license": {"name": value}}
 
 
 def component(

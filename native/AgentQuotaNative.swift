@@ -56,7 +56,7 @@ private let providers = [
     ProviderDefinition(id: "kimi-code", label: "Kimi Code Token Plan", host: "api.kimi.com", path: "/coding/v1/usages", authMode: .kimiCodeOAuth),
     ProviderDefinition(id: "minimax-cn", label: "MiniMax Token Plan（中国区）", host: "www.minimaxi.com", path: "/v1/token_plan/remains", authMode: .bearer),
     ProviderDefinition(id: "minimax-global", label: "MiniMax Token Plan（国际区）", host: "www.minimax.io", path: "/v1/token_plan/remains", authMode: .bearer),
-    ProviderDefinition(id: "volc-wallet", label: "火山引擎账户余额", host: "open.volcengineapi.com", path: "/", authMode: .volcAKSK(service: "billing", region: "cn-beijing", action: "QueryBalanceAcct", version: "2022-01-01", method: "GET")),
+    ProviderDefinition(id: "volc-wallet", label: "火山引擎账户余额", host: "open.volcengineapi.com", path: "/", authMode: .volcAKSK(service: "billing", region: "cn-beijing", action: "QueryBalanceAcct", version: "2022-01-01", method: "POST")),
     ProviderDefinition(id: "volc-plan", label: "火山方舟 Coding Plan", host: "ark.cn-beijing.volces.com", path: "/", authMode: .volcAKSK(service: "ark", region: "cn-beijing", action: "GetAFPUsage", version: "2024-01-01", method: "POST")),
 ]
 
@@ -1467,6 +1467,20 @@ private func selfTestProviderMinimization() -> Int32 {
         aliyunURL.absoluteString.contains("Signature=tQPS4ljhN8dSSmBREFGdrt4RugM%3D"),
         aliyunURL.absoluteString.contains("Timestamp=2026-08-11T01%3A02%3A03Z")
     else { return 13 }
+    guard
+        let walletDefinition = providerDefinition("volc-wallet"),
+        let walletSigned = volcSignedRequest(
+            definition: walletDefinition,
+            accessKeyID: "AKTEST",
+            secretAccessKey: "secret-test",
+            now: date
+        ),
+        walletSigned.method == "POST",
+        walletSigned.body == Data("{}".utf8),
+        walletSigned.headers["Authorization"]?.hasSuffix(
+            "Signature=6688c394846c619523648413a14245ac671d5540e2b055ed40bcf553e4b16faa"
+        ) == true
+    else { return 14 }
     return 0
 }
 

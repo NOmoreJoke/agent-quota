@@ -6,7 +6,14 @@ import argparse
 import json
 from pathlib import Path
 
-DENIED_MARKERS = ("AGPL", "BUSL", "BUSINESS SOURCE", "COMMONS CLAUSE", "SSPL")
+DENIED_MARKERS = (
+    "AGPL",
+    "BUSL",
+    "BUSINESS SOURCE",
+    "COMMONS CLAUSE",
+    "LICENSE TEXT DECLARED IN PACKAGE METADATA",
+    "SSPL",
+)
 
 
 def main() -> int:

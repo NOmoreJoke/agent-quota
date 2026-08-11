@@ -69,7 +69,7 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert "let snapshot = delegate.snapshot()" in swift
     assert "dataTask(with: request) {" not in swift
     assert "keychainRead(account: reference)" in swift
-    assert 'method: "GET"' in swift
+    assert 'var requestMethod = "GET"' in swift
     assert 'host: "auth.kimi.com"' not in swift
     assert 'private let kimiCodeOAuthHost = "auth.kimi.com"' in swift
     assert 'path: "/coding/v1/usages"' in swift
