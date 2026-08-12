@@ -95,16 +95,24 @@ function isFiveHourWindow(row: Capability): boolean {
     (row.capability_ref.endsWith("-5h") || /5小时(?:剩余|已用)/u.test(row.value_display));
 }
 
-function windowFamily(row: Capability): string {
-  const model = row.capability_ref.match(/^(cap-minimax-(?:cn|global)-model-\d+)-/u);
-  return model?.[1] ?? providerName(row.capability_ref);
+function minimaxSubject(row: Capability): string | null {
+  if (providerName(row.capability_ref) !== "MiniMax") return null;
+  const separator = row.value_display.indexOf(" · ");
+  if (separator < 1) return null;
+  return row.value_display.slice(0, separator).trim().toLowerCase();
 }
 
-function windowOrder(row: Capability, sourceIndex: number): [number, number, number] {
+function windowFamily(row: Capability): string {
+  const subject = minimaxSubject(row);
+  return subject ? `MiniMax:${subject}` : providerName(row.capability_ref);
+}
+
+function windowOrder(row: Capability, sourceIndex: number): [string, number, number] {
+  const subject = minimaxSubject(row);
   const model = row.capability_ref.match(/-model-(\d+)-/u);
-  const familyOrder = /^general\s*·/iu.test(row.value_display)
-    ? 0
-    : model ? Number(model[1]) + 1 : 0;
+  const familyOrder = subject === "general"
+    ? "0-general"
+    : model ? `1-${model[1].padStart(6, "0")}` : subject ? `2-${subject}` : "0";
   const periodOrder = isWeeklyWindow(row) ? 0 : isFiveHourWindow(row) ? 1 : 2;
   return [familyOrder, periodOrder, sourceIndex];
 }
@@ -115,7 +123,7 @@ function compareWindowOrder(
 ): number {
   const a = windowOrder(left.row, left.sourceIndex);
   const b = windowOrder(right.row, right.sourceIndex);
-  return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+  return a[0].localeCompare(b[0]) || a[1] - b[1] || a[2] - b[2];
 }
 
 function effectiveHealth(row: Capability, exhaustedWeeklyFamilies: ReadonlySet<string>): string {
