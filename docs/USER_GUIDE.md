@@ -8,8 +8,8 @@ unsigned DMG；当前不提供 Intel/universal、Developer ID 或公证声明。
 ## 添加 Provider
 
 1. 打开「账户与 Provider」。
-2. 在 Provider Preset 中搜索名称，并按「全部 / Window View / Wallet View」筛选。
-3. 只有显示「添加」的 Supported 预设可继续；其他状态会给出阻塞原因。
+2. Provider Preset 仅展示 DeepSeek、Kimi、Kimi For Coding、MiniMax、Zhipu GLM；可搜索名称，并按「全部 / Window View / Wallet View」筛选。
+3. 选择显示「添加」的预设继续；其他目录供应商不会生成卡片。
 4. 在 macOS 原生安全窗口输入凭据。Renderer 不接收秘密正文。
 5. 返回概览，手动刷新并查看对应 Window View 或 Wallet View。
 

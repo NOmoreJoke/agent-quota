@@ -142,8 +142,16 @@ describe("App", () => {
       "Kimi Code",
       "Kimi",
     ]);
-    expect(host.querySelectorAll("[data-provider-id]")).toHaveLength(78);
-    expect(host.querySelector<HTMLButtonElement>('[aria-label="Cursor 不可添加"]')?.disabled).toBe(true);
+    expect([...host.querySelectorAll("[data-provider-id]")].map((node) =>
+      node.getAttribute("data-provider-id"),
+    )).toEqual([
+      "provider-026",
+      "provider-034",
+      "provider-035",
+      "provider-038",
+      "provider-073",
+    ]);
+    expect(host.querySelector('[aria-label^="Cursor "]')).toBeNull();
 
     const queue = [...host.querySelectorAll("button")].find((node) =>
       node.textContent?.includes("刷新队列"),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invokeHost, transportMode } from "../host/transport";
-import { providerCatalog } from "./providerCatalog";
+import { visibleProviderRows } from "./providerCatalog";
 
 type View = "overview" | "accounts" | "queue" | "status" | "settings";
 type OverviewMode = "window" | "wallet";
@@ -335,7 +335,7 @@ export function App() {
 
   const filteredProviders = useMemo(() => {
     const normalized = providerQuery.trim().toLowerCase();
-    return providerCatalog.rows.filter((provider) => {
+    return visibleProviderRows.filter((provider) => {
       const matchesQuery = !normalized ||
         `${provider.screenshot_label} ${provider.canonical_id}`.toLowerCase().includes(normalized);
       const matchesMode = providerMode === "all" ||
@@ -461,7 +461,7 @@ export function App() {
               <div className="catalog-heading">
                 <div>
                   <h2 id="provider-catalog-title" className="section-title">Provider Preset</h2>
-                  <p>78 项目录覆盖 · 仅固定官方合同可启用 · 目录覆盖不等于实时查询支持</p>
+                  <p>当前保留 5 项供应商 · 仅展示已完成本机接入的 Provider</p>
                 </div>
                 <label className="search catalog-search"><Icon name="search"/><input value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} placeholder="搜索 Provider" aria-label="搜索 Provider Preset"/></label>
               </div>

@@ -12,6 +12,10 @@
 机器权威清单：`src/agent_quota/resources/provider_catalog_v1.json`。清单固定 78 行、
 `row_id` 唯一；同一官方实体的区域/产品预设允许共享 `canonical_id`。
 
+Desktop 的 Provider Preset 只渲染当前已完成本机接入的 5 张卡片：DeepSeek、Kimi、
+Kimi For Coding、MiniMax、Zhipu GLM。其余目录行继续保留为合同/审计输入，但不进入
+卡片、搜索结果或能力筛选结果。
+
 ## 已实现查询
 
 | Preset | Adapter | Window | Wallet | 验证方式 |
@@ -28,6 +32,6 @@ fail-closed 行为；不得表述为真实账户、生产或所有地区验证�
 ## 主流 Agent
 
 Codex、Claude Code、GitHub Copilot、Cursor、Trae、WorkBuddy、
-QoderWork/QwenWork 当前均为 Experimental：UI 可搜索和查看能力边界，但不会调用
-网络、读取 CLI 私有状态或接受 Cookie。升级到 Supported 需要公开稳定机器合同、固定
-identity/endpoint/auth/response schema、脱敏 fixture 和独立 live opt-in 门禁。
+QoderWork/QwenWork 当前均为 Experimental，且不在 Desktop Provider Preset 中展示。
+升级到 Supported 需要公开稳定机器合同、固定 identity/endpoint/auth/response schema、
+脱敏 fixture 和独立 live opt-in 门禁。

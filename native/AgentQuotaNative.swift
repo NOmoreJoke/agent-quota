@@ -60,6 +60,14 @@ private let providers = [
     ProviderDefinition(id: "volc-plan", label: "火山方舟 Coding Plan", host: "ark.cn-beijing.volces.com", path: "/", authMode: .volcAKSK(service: "ark", region: "cn-beijing", action: "GetAFPUsage", version: "2024-01-01", method: "POST")),
 ]
 
+private let creatableProviderIDs = [
+    "deepseek", "glm-cn", "kimi-cn", "kimi-code", "minimax-cn",
+]
+
+private let creatableProviders = creatableProviderIDs.compactMap { id in
+    providers.first { $0.id == id }
+}
+
 private struct CloudKeyBundle: Codable {
     let accessKeyID: String
     let secretAccessKey: String
@@ -364,13 +372,15 @@ private func credentialDialog(
     let alert = NSAlert()
     alert.alertStyle = .informational
     alert.messageText = purpose == "replace-credential-reference" ? "替换本机凭据" : "添加本机凭据"
-    alert.informativeText = "API Key/Token 可直接粘贴；阿里云/火山需 AccessKey ID + SecretKey；Kimi Code 使用官方 OAuth。凭据只写入 macOS 钥匙串。"
+    alert.informativeText = purpose == "replace-credential-reference"
+        ? "替换已配置 Provider 的凭据；凭据只写入 macOS 钥匙串。"
+        : "仅可添加当前 5 项 Provider；API Key/Token 可直接粘贴，Kimi Code 使用官方 OAuth。凭据只写入 macOS 钥匙串。"
     alert.addButton(withTitle: "继续")
     alert.addButton(withTitle: "取消")
 
     let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 122))
     let selector = NSPopUpButton(frame: NSRect(x: 0, y: 88, width: 360, height: 28))
-    for item in providers { selector.addItem(withTitle: item.label) }
+    for item in creatableProviders { selector.addItem(withTitle: item.label) }
     selector.isHidden = purpose == "replace-credential-reference"
     container.addSubview(selector)
     let secure = PasteSecureTextField(frame: NSRect(x: 0, y: 52, width: 360, height: 28))
@@ -388,6 +398,7 @@ private func credentialDialog(
     cloudSecret.placeholderString = "SecretKey（仅火山签名接口）"
     cloudSecret.setAccessibilityLabel("云接口 SecretKey")
     cloudSecret.menu = secureMenu
+    cloudSecret.isHidden = purpose == "create-credential-reference"
     container.addSubview(cloudSecret)
     alert.accessoryView = container
     alert.window.initialFirstResponder = secure
@@ -403,7 +414,9 @@ private func credentialDialog(
     }
     let selectedProvider = purpose == "replace-credential-reference"
         ? requestedProvider
-        : providers[selector.indexOfSelectedItem].id
+        : creatableProviders.indices.contains(selector.indexOfSelectedItem)
+            ? creatableProviders[selector.indexOfSelectedItem].id
+            : nil
     guard let selectedProvider, let definition = providerDefinition(selectedProvider) else {
         secure.stringValue = ""
         cloudSecret.stringValue = ""
@@ -1409,6 +1422,10 @@ private func selfTestKeychain() -> Int32 {
 }
 
 private func selfTestProviderMinimization() -> Int32 {
+    guard
+        creatableProviders.map(\.id) == creatableProviderIDs,
+        Set(creatableProviderIDs).count == 5
+    else { return 9 }
     let samples = [
         ("deepseek", #"{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"1","account_id":"sensitive"}],"user":{"email":"sensitive"}}"#),
         ("bailian-wallet", #"{"Code":"200","Success":true,"RequestId":"sensitive","Data":{"AvailableAmount":"100","AvailableCashAmount":"90","CreditAmount":"10","MybankCreditAmount":"0","Currency":"CNY","AccountID":"sensitive"}}"#),

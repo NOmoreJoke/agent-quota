@@ -77,17 +77,25 @@ test("failure, empty, offline and responsive states remain operable", async ({ p
   await expect(page.getByRole("heading", { name: "Provider 行为" })).toBeVisible();
 });
 
-test("provider preset catalog is complete, searchable, filtered and responsive", async ({ page }) => {
+test("provider preset catalog only shows the five connected suppliers", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "账户与 Provider" }).click();
 
   const catalog = page.locator("[data-provider-id]");
-  await expect(catalog).toHaveCount(78);
+  await expect(catalog).toHaveCount(5);
+
+  expect(await catalog.evaluateAll((cards) => cards.map((card) => card.getAttribute("data-provider-id")))).toEqual([
+    "provider-026",
+    "provider-034",
+    "provider-035",
+    "provider-038",
+    "provider-073",
+  ]);
 
   const search = page.getByRole("textbox", { name: "搜索 Provider Preset" });
   await search.fill("Cursor");
-  await expect(catalog).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Cursor 不可添加" })).toBeDisabled();
+  await expect(catalog).toHaveCount(0);
+  await expect(page.getByText("没有匹配的 Provider")).toBeVisible();
   await search.fill("");
 
   const filter = page.getByRole("group", { name: "Provider 能力筛选" });

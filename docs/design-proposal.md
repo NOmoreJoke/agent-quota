@@ -2044,7 +2044,7 @@ Desktop GUI 是统一观察与本地配置台，也是 MVP 主入口。React/Typ
 
 1. **首次启动**：验证 app/sidecar 签名与 installation registry，显示本地数据/Provider 网络披露说明；用户选择“开始配置”或“离线浏览示例”。权限失败进入可恢复诊断页，不静默放宽目录或凭据权限。
 2. **凭据引用**：macOS MVP 的 `system-credential` backend 固定为 Keychain。renderer 只能请求 `credential_dialog_open`；Rust host 在 WebView 之外打开 host-owned native secure dialog，由原生 secure field 接收 keystroke/paste 或选择既有 Keychain item，完成导入和缓冲区清零后只把 opaque reference/status 返回 renderer。React/DOM/Tauri command payload 永远没有 secret input/value/length/SecretBuffer 路径；也可选择不含秘密输入的已批准 official-cli profile。
-3. **账户与 Subject 配置**：向导按 Adapter profile 创建 principal，调用 discovery 后由用户明确确认 subject/capability；未确认前不落入 active registry。OpenRouter 展示 current-key 范围；Codex 卡片固定 `Experimental / Incompatible / Disabled`，解释缺 stable identity，不提供“立即启用”或正式刷新按钮。
+3. **账户与 Subject 配置**：向导按 Adapter profile 创建 principal，调用 discovery 后由用户明确确认 subject/capability；未确认前不落入 active registry。Desktop Provider Preset 只渲染 DeepSeek、Kimi、Kimi For Coding、MiniMax、Zhipu GLM 五张当前接入卡片；其他机器目录行继续用于合同/审计，但不生成卡片或搜索结果。Codex 保持 `Experimental / Incompatible / Disabled` 且不进入 Preset，不提供“立即启用”或正式刷新按钮。
 4. **额度总览**：显示 principal/subject、能力分区、值、unit、source、`fetched_at`、fresh/stale/expired、health 与 safe error。窗口/计数/余额/状态按 kind 分区；多币种不求和，跨类型只按 severity 排序。周额度与 5 小时额度遵循第 13.3 节的状态联动、隔离与固定排序规则。
 5. **手动刷新**：可按授权 scope 刷新全部、subject 或 capability；进入 running 后禁用同幂等键重复动作，显示排队/进行/部分完成/失败。取消只请求取消，不能伪造 Provider 未调用；结束后从 core 重新读取投影。
 6. **离线模式**：显式切换后 application service 使用 `network_mode=offline`，Credential Source/Provider/network/subprocess 计数为 0；展示缓存/LKG 的真实 freshness，不能把 stale 改写为 current。

@@ -103,6 +103,19 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert 'event.charactersIgnoringModifiers?.lowercased() == "v"' in swift
     assert "editor.paste(nil)" in swift
     assert "secure.menu = secureMenu" in swift
+    assert 'private let creatableProviderIDs = [' in swift
+    assert 'creatableProviders.map(\\.id) == creatableProviderIDs' in swift
+    assert 'Set(creatableProviderIDs).count == 5' in swift
+    assert 'for item in creatableProviders' in swift
+    assert 'creatableProviders[selector.indexOfSelectedItem].id' in swift
+    create_ids = swift.split('private let creatableProviderIDs = [', 1)[1].split(']', 1)[0]
+    assert {value.strip().strip('"') for value in create_ids.split(',') if value.strip()} == {
+        "deepseek", "glm-cn", "kimi-cn", "kimi-code", "minimax-cn",
+    }
+    assert all(provider not in create_ids for provider in (
+        "bailian-wallet", "glm-global", "kimi-global", "minimax-global",
+        "volc-wallet", "volc-plan",
+    ))
     assert "NSText.copy" not in swift
     assert 'let reference = "credential-\\(UUID()' not in swift
     assert '["action", "dialogPurpose", "opaqueReference"]' in swift

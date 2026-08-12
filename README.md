@@ -13,17 +13,24 @@ Agent Quota Desktop 是一个本地优先的独立桌面额度聚合产品。mac
 
 ## Provider 支持
 
-- Provider Preset 目录覆盖 78 项：截图原始 73 项，以及 Claude Code、WorkBuddy、
-  QoderWork/QwenWork、Trae、Cursor。完整机器清单见
-  [`provider_catalog_v1.json`](src/agent_quota/resources/provider_catalog_v1.json)。
-- 已接入固定官方只读查询：DeepSeek Wallet、Kimi 中国/国际 Wallet、Kimi Code
-  Window/Extra Usage、MiniMax 中国/国际 Token Plan、GLM 中国/国际 Coding Plan。
-- Codex、Claude Code、Cursor、Trae、WorkBuddy、QoderWork/QwenWork 等保留为
-  Experimental；无公开稳定机器额度合同或未进入固定 host allowlist 时不可添加。
-- `Catalog-only` 只代表可发现，不代表可以查询；`Custom Configuration` 明确不支持
-  任意 base URL。静态 RPM/价格页/控制台 UI/第三方宣称不计作可查询额度。
+Desktop Provider Preset 当前只展示以下 5 张卡片：
+
+| Provider | Window View | Wallet View | 接入模式 |
+| --- | --- | --- | --- |
+| DeepSeek | — | API 可用余额 | API Key，只读官方余额接口 |
+| Kimi | — | API 可用/现金/代金券余额 | API Key，区域固定官方接口 |
+| Kimi For Coding | 周额度、5 小时额度 | Extra Usage | OAuth device code，官方 usage 接口 |
+| MiniMax | general/video 周额度、5 小时额度 | — | Token Plan Key，固定官方接口 |
+| Zhipu GLM | 月度额度、5 小时额度 | — | Coding Plan Auth Token，固定官方接口 |
+
 - Window View 只显示 Coding Plan/订阅窗口；Wallet View 只显示 API 余额、credit 或
   Extra Usage，不跨类型、Provider 或币种求和。
+- 周额度为 0 时，该行显示“已用尽”，同账户/模型的 5 小时额度显示“不可用”。
+- 底层机器目录仍保留 78 行作为合同与审计输入；除上表 5 项外，其他供应商不生成
+  Desktop 卡片、搜索结果或能力筛选结果。完整清单见
+  [`provider_catalog_v1.json`](src/agent_quota/resources/provider_catalog_v1.json)。
+- 目录保留不代表实时查询支持；静态 RPM、价格页、控制台 UI 或第三方宣称不计作
+  可查询额度。
 
 使用方式见 [`USER_GUIDE.md`](docs/USER_GUIDE.md)，能力矩阵与验证层级见
 [`PROVIDER_CATALOG.md`](docs/PROVIDER_CATALOG.md)。
@@ -76,7 +83,7 @@ Agent Quota Desktop 是一个本地优先的独立桌面额度聚合产品。mac
 
 1. 核心模型采用 `AccountPrincipal → QuotaSubject → QuotaCapability → CapabilitySnapshot`
 2. 阶段 1A 同时实现 Tauri 2/Rust trusted host、React/TypeScript renderer、Python core sidecar、共享 application service、辅助 CLI、版本化配置和 FakeAdapter；不安装 Hermes、不开放网络监听
-3. 阶段 1B 的两个 Supported 目标是 DeepSeek 与 OpenRouter：OpenRouter 先为 supported candidate，只有真实 opt-in 合同门禁通过并升为 Supported 后才计数。Codex 已确定降为 `experimental/incompatible`、默认关闭，不新增 `account/read`，不计 MVP；Kimi/MiniMax/GLM 在 schema v1 为 `planned/no-contract`
+3. Desktop Provider Preset 固定展示 DeepSeek、Kimi、Kimi For Coding、MiniMax、Zhipu GLM；其余机器目录项不生成卡片。支持状态仍以机器目录、真实账户证据和 release gate 为准，不因 UI 展示自动升级为正式发布支持
 4. 所有发行单元均构建 wheel/sdist；Supported/GA Provider 只由独立 hash-pinned installer 从内嵌 genesis anchor 验证 trust chain、signed plan、wheel/sidecar 后在 staging 生成依赖 lock，sdist 只进入隔离 source-review 路径
 5. 只有 Supported/GA Adapter 计入 MVP，Experimental 默认关闭且不计数
 6. core 使用渠道无关 AccessContext 与 `(principal, subject, capability)` 绑定式 AccountScope，并在 Adapter 返回边界整批校验
