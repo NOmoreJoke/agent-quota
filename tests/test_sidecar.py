@@ -448,3 +448,81 @@ def test_internal_provider_response_is_fenced_persisted_and_renderer_safe(tmp_pa
         )
     )["response"]
     assert "USD 7" in json.dumps(cached)
+
+
+def test_deep_provider_json_fails_without_losing_sidecar_session(tmp_path: Path) -> None:
+    secret = b"j" * 32
+    native = NativeControlPlane((tmp_path / "private-deep-json").absolute())
+    session = SidecarSession(secret, RendererContract(), native)
+    reference = "credential-00000000-0000-4000-8000-000000000019"
+    session.dispatch(
+        envelope(
+            secret,
+            request_id=1,
+            command_id="host_internal.credential_prepare",
+            payload={"credential_reference": reference},
+        )
+    )
+    created = session.dispatch(
+        envelope(
+            secret,
+            request_id=2,
+            command_id="host_internal.credential_commit",
+            payload={
+                "credential_reference": reference,
+                "expected_generation": None,
+                "principal_ref": None,
+                "provider_id": "deepseek",
+                "purpose": "create-credential-reference",
+            },
+        )
+    )["response"]
+    principal = created["principal_ref"]
+    context = session.dispatch(
+        envelope(
+            secret,
+            request_id=3,
+            command_id="host_internal.credential_context",
+            payload={"principal_ref": principal},
+        )
+    )["response"]
+    deep_body = base64.b64encode(b"[" * 1_000 + b"0" + b"]" * 1_000).decode()
+    rejected = session.dispatch(
+        envelope(
+            secret,
+            request_id=4,
+            command_id="host_internal.provider_response_commit",
+            payload={
+                "body_base64": deep_body,
+                "expected_generation": context["generation"],
+                "http_status": 200,
+                "principal_ref": principal,
+                "provider_id": context["provider_id"],
+            },
+        )
+    )["response"]
+    assert rejected == {
+        "retryable": False,
+        "safe_error_code": "contract-error",
+        "status": "rejected",
+    }
+    good_body = base64.b64encode(
+        json.dumps(
+            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": 1}]}
+        ).encode()
+    ).decode()
+    accepted = session.dispatch(
+        envelope(
+            secret,
+            request_id=5,
+            command_id="host_internal.provider_response_commit",
+            payload={
+                "body_base64": good_body,
+                "expected_generation": context["generation"],
+                "http_status": 200,
+                "principal_ref": principal,
+                "provider_id": context["provider_id"],
+            },
+        )
+    )["response"]
+    assert accepted == {"retryable": False, "safe_error_code": None, "status": "committed"}

@@ -10,6 +10,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Final
 
 MAX_PROVIDER_BODY_BYTES: Final = 256 * 1024
+MAX_PROVIDER_JSON_DEPTH: Final = 64
 PROVIDER_IDS: Final = frozenset(
     {
         "deepseek",
@@ -201,9 +202,30 @@ def _decode_json(body_base64: str) -> dict[str, object]:
         raise ValueError("provider body encoding mismatch") from error
     if not 1 <= len(raw) <= MAX_PROVIDER_BODY_BYTES:
         raise ValueError("provider body size mismatch")
+    depth = 0
+    in_string = False
+    escaped = False
+    for byte in raw:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif byte == 0x5C:
+                escaped = True
+            elif byte == 0x22:
+                in_string = False
+        elif byte == 0x22:
+            in_string = True
+        elif byte in {0x5B, 0x7B}:
+            depth += 1
+            if depth > MAX_PROVIDER_JSON_DEPTH:
+                raise ValueError("provider JSON nesting mismatch")
+        elif byte in {0x5D, 0x7D}:
+            depth -= 1
+            if depth < 0:
+                raise ValueError("provider JSON nesting mismatch")
     try:
         document = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as error:
         raise ValueError("provider JSON mismatch") from error
     if not isinstance(document, dict):
         raise ValueError("provider JSON shape mismatch")

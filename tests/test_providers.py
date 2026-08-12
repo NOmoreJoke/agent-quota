@@ -14,6 +14,10 @@ def encoded(document: object) -> str:
     return base64.b64encode(json.dumps(document).encode()).decode()
 
 
+def encoded_raw(raw: bytes) -> str:
+    return base64.b64encode(raw).decode()
+
+
 def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
     fixture_root = Path(__file__).parent / "fixtures/providers"
     recordings = [json.loads(path.read_text()) for path in sorted(fixture_root.glob("*.json"))]
@@ -45,6 +49,29 @@ def test_manifests_are_fixed_https_official_endpoints() -> None:
     assert all("example" not in item.endpoint for item in MANIFESTS.values())
     with pytest.raises(ValueError, match="unsupported"):
         manifest("attacker-controlled")
+
+
+def test_deep_json_nesting_fails_closed_before_json_parser_recursion() -> None:
+    deeply_nested = b"[" * 1_000 + b"0" + b"]" * 1_000
+    result = parse_provider_response("deepseek", 200, encoded_raw(deeply_nested))
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
+
+
+def test_json_nesting_scan_ignores_brackets_inside_escaped_strings() -> None:
+    result = parse_provider_response(
+        "deepseek",
+        200,
+        encoded(
+            {
+                "is_available": True,
+                "metadata": '[{}]\\"',
+                "balance_infos": [{"currency": "CNY", "total_balance": "1"}],
+            }
+        ),
+    )
+    assert result.ok
+    assert result.rows[0]["value_display"] == "CNY 1 可用"
 
 
 def test_deepseek_balance_projection() -> None:

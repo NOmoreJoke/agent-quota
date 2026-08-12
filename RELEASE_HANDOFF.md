@@ -22,7 +22,7 @@
 | Gate | Result | Evidence |
 |---|---|---|
 | TypeScript | PASS | lint, typecheck, 6 unit tests, 4 E2E tests, production build |
-| Python | PASS | lint, format, mypy; 230 tests; 90.03% coverage |
+| Python | PASS | lint, format, mypy; 233 tests; 90.19% coverage |
 | Rust | PASS | fmt; clippy `-D warnings`; 33 tests in each production/development feature set |
 | Contract | PASS | 50-case exact mutation match; deterministic validator/projection replay; result SHA-256 `8579704000211908d497a8e035d86d83cd0454b345755e8fef3ed8cb6b9d6a6f` |
 | Error/fail-closed | PASS | 401/403, 429, 5xx, schema drift, stale LKG, pre-helper journal, credential/destructive transaction fence, outcome-unknown and mutation negative tests |
