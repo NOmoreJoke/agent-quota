@@ -552,6 +552,50 @@ def test_account_projection_ids_are_unique_and_failures_preserve_rows(tmp_path: 
     assert control.quota_projection("scope-all")["freshness"] == "stale"
 
 
+def test_minimax_projection_preserves_only_bounded_window_semantics(tmp_path: Path) -> None:
+    control = NativeControlPlane((tmp_path / "private").absolute())
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="minimax-cn",
+    )
+    _, generation, provider = control.credential_context(created.principal_ref)
+    control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {
+                "base_resp": {"status_code": 0},
+                "model_remains": [
+                    {
+                        "model_name": "alpha · one 80%",
+                        "current_interval_remaining_percent": 100,
+                        "current_weekly_remaining_percent": 0,
+                        "current_weekly_status": 1,
+                    },
+                    {
+                        "model_name": "alpha · two 剩余 0%",
+                        "current_interval_remaining_percent": 50,
+                        "current_weekly_status": 3,
+                    },
+                ],
+            }
+        ),
+    )
+    rows = control.quota_projection("scope-all")["capability_rows"]
+    assert [row["capability_ref"].rsplit("-account-", 1)[1][24:] for row in rows] == [
+        "-model-0-5h",
+        "-model-0-weekly",
+        "-model-1-5h",
+        "-model-1-weekly",
+    ]
+    assert all("alpha" not in row["capability_ref"] for row in rows)
+
+
 def test_scope_all_is_stale_when_any_displayed_account_is_expired(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)

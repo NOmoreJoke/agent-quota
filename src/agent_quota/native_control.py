@@ -27,6 +27,9 @@ UUID_PATTERN: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 REFERENCE_PATTERN: Final = re.compile(rf"credential-{UUID_PATTERN}\Z")
 PRINCIPAL_PATTERN: Final = re.compile(r"principal-[0-9a-f]{24}\Z")
 TOKEN_PATTERN: Final = re.compile(rf"{UUID_PATTERN}\Z")
+MINIMAX_WINDOW_REF_PATTERN: Final = re.compile(
+    r"cap-minimax-(?:cn|global)-model-(\d+)-(5h|weekly)\Z"
+)
 INTENTS: Final = {
     "cascade",
     "delete",
@@ -329,7 +332,17 @@ class NativeControlPlane:
                     f"{principal}\0{source['capability_ref']}".encode()
                 ).hexdigest()[:24]
                 provider_id = cast(str, account["provider_id"])
-                row["capability_ref"] = f"cap-{provider_id}-account-{identity}"
+                semantic_suffix = ""
+                minimax_window = MINIMAX_WINDOW_REF_PATTERN.fullmatch(
+                    source["capability_ref"]
+                )
+                if minimax_window is not None:
+                    semantic_suffix = (
+                        f"-model-{minimax_window.group(1)}-{minimax_window.group(2)}"
+                    )
+                row["capability_ref"] = (
+                    f"cap-{provider_id}-account-{identity}{semantic_suffix}"
+                )
                 rows.append(row)
             if sources:
                 refreshed.append(cast(int, account["last_refresh_epoch_ms"]))

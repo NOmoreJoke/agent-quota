@@ -96,8 +96,10 @@ function isFiveHourWindow(row: Capability): boolean {
 }
 
 function windowFamily(row: Capability): string {
-  const model = row.capability_ref.match(/^(cap-minimax-(?:cn|global)-model-\d+)-/u);
-  return model?.[1] ?? providerName(row.capability_ref);
+  const model = row.capability_ref.match(
+    /^cap-minimax-(?:cn|global)-account-[0-9a-f]{24}-model-(\d+)-(?:5h|weekly)$/u,
+  );
+  return model ? `MiniMax:model-${model[1]}` : providerName(row.capability_ref);
 }
 
 function windowOrder(row: Capability, sourceIndex: number): [string, number, number] {
