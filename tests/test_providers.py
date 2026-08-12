@@ -361,10 +361,30 @@ def test_kimi_code_normalizes_signed_zero_as_depleted(remaining: object) -> None
     result = parse_provider_response(
         "kimi-code",
         200,
-        encoded({"usage": {"remaining": remaining, "limit": 100}, "limits": []}),
+        encoded(
+            {
+                "usage": {"remaining": remaining, "limit": 100},
+                "limits": [
+                    {
+                        "window": {"duration": 5, "timeUnit": "TIME_UNIT_HOUR"},
+                        "detail": {"remaining": 100, "limit": 100},
+                    }
+                ],
+            }
+        ),
     )
     assert result.ok
     assert result.rows[0]["value_display"] == "周剩余 0%"
+
+
+def test_kimi_code_missing_five_hour_usage_fails_closed() -> None:
+    result = parse_provider_response(
+        "kimi-code",
+        200,
+        encoded({"usage": {"remaining": 100, "limit": 100}, "limits": []}),
+    )
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
 
 
 @pytest.mark.parametrize(

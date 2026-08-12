@@ -317,6 +317,7 @@ def _kimi_code(document: dict[str, object]) -> tuple[dict[str, str], ...]:
         "TIME_UNIT_DAY": "天",
         "TIME_UNIT_WEEK": "周",
     }
+    has_five_hour = False
     for index, item in enumerate(limits[:16]):
         if not isinstance(item, dict):
             raise ValueError("Kimi Code limit mismatch")
@@ -336,6 +337,7 @@ def _kimi_code(document: dict[str, object]) -> tuple[dict[str, str], ...]:
             raise ValueError("Kimi Code limit name mismatch")
         label = name or f"{_number_display(duration)}{unit_labels[unit]}"
         period = "-5h" if unit == "TIME_UNIT_HOUR" and duration == 5 else ""
+        has_five_hour = has_five_hour or period == "-5h"
         rows.append(
             _row(
                 "kimi-code",
@@ -344,6 +346,9 @@ def _kimi_code(document: dict[str, object]) -> tuple[dict[str, str], ...]:
                 f"{label}剩余 {_usage_remaining_percentage(detail)}",
             )
         )
+
+    if not has_five_hour:
+        raise ValueError("Kimi Code 5-hour usage mismatch")
 
     wallet = document.get("boosterWallet")
     if wallet is not None:
