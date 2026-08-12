@@ -204,7 +204,9 @@ main { min-width: 0; padding: 24px 32px 56px; }
   .contract-link { display: none; }
   .quota-panel { padding: 14px; }
   .quota-row { grid-template-columns: 28px minmax(0, 1fr) 64px; gap: 8px; }
-  .quota-row .scope-kind, .quota-row .meter, .quota-row .status { display: none; }
+  .quota-row .scope-kind, .quota-row .meter { display: none; }
+  .quota-row .status { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .quota-row .status i { display: none; }
   .balance-value { grid-column: auto; }
   .provider-actions { grid-template-columns: 1fr 1fr; }
   .provider-actions .text-button { grid-column: 1 / -1; }

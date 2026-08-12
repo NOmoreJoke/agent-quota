@@ -33,10 +33,10 @@ vi.mock("../host/transport", () => ({
             { capability_ref: "cap-glm-limit", display_kind: "window", health: "ok", value_display: "5小时已用 100%" },
             { capability_ref: "cap-glm-mcp", display_kind: "window", health: "ok", value_display: "MCP月度已用 0%" },
             { capability_ref: "cap-glm-error", display_kind: "window", health: "error", value_display: "5小时已用 100%" },
-            { capability_ref: "cap-minimax-cn-general-5h", display_kind: "window", health: "ok", value_display: "general · 5小时剩余 100%" },
-            { capability_ref: "cap-minimax-cn-video-5h", display_kind: "window", health: "ok", value_display: "video · 5小时剩余 50%" },
-            { capability_ref: "cap-minimax-cn-video-weekly", display_kind: "window", health: "ok", value_display: "video · 周剩余 不限量" },
-            { capability_ref: "cap-minimax-cn-general-weekly", display_kind: "window", health: "ok", value_display: "general · 周剩余 0%" },
+            { capability_ref: "cap-minimax-cn-model-0-5h", display_kind: "window", health: "ok", value_display: "general · tier 80% · 5小时剩余 100%" },
+            { capability_ref: "cap-minimax-cn-model-1-5h", display_kind: "window", health: "ok", value_display: "general · bonus剩余 0% · 5小时剩余 50%" },
+            { capability_ref: "cap-minimax-cn-model-1-weekly", display_kind: "window", health: "ok", value_display: "general · bonus剩余 0% · 周剩余 不限量" },
+            { capability_ref: "cap-minimax-cn-model-0-weekly", display_kind: "window", health: "ok", value_display: "general · tier 80% · 周剩余 0%" },
           ],
           freshness: "fresh",
           scope_ref: "scope-all",
@@ -79,14 +79,16 @@ describe("App", () => {
     expect([...kimiRows ?? []]
       .find((node) => node.querySelector(".subject")?.textContent === "5小时剩余 100%")
       ?.querySelector(".status")?.textContent).toContain("不可用");
+    expect(host.querySelector('[aria-label="周剩余 0% · 已用尽"]')).not.toBeNull();
+    expect(host.querySelector('[aria-label="5小时剩余 100% · 不可用"]')).not.toBeNull();
     const minimaxRows = [...host.querySelectorAll(".provider-group")]
       .find((node) => node.querySelector(".provider-heading")?.textContent === "MiniMax")
       ?.querySelectorAll<HTMLElement>(".quota-row");
     expect([...minimaxRows ?? []].map((node) => node.querySelector(".subject")?.textContent)).toEqual([
-      "general · 周剩余 0%",
-      "general · 5小时剩余 100%",
-      "video · 周剩余 不限量",
-      "video · 5小时剩余 50%",
+      "general · tier 80% · 周剩余 0%",
+      "general · tier 80% · 5小时剩余 100%",
+      "general · bonus剩余 0% · 周剩余 不限量",
+      "general · bonus剩余 0% · 5小时剩余 50%",
     ]);
     expect([...minimaxRows ?? []][1]?.querySelector(".status")?.textContent).toContain("不可用");
     expect([...minimaxRows ?? []][3]?.querySelector(".status")?.textContent).toContain("可用");

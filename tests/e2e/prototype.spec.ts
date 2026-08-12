@@ -68,6 +68,9 @@ test("failure, empty, offline and responsive states remain operable", async ({ p
   expect(await page.evaluate(() => [...document.querySelectorAll(".provider-card")].every((card) => card.scrollWidth <= card.clientWidth))).toBe(true);
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.getByRole("article", { name: /5 小时窗口 · 72% · 可用/u })).toBeVisible();
+  await expect(page.locator(".quota-row .status")).toHaveText("可用");
   await expect(page.getByRole("button", { name: "设置" })).toBeVisible();
   await page.getByRole("button", { name: "设置" }).focus();
   await page.keyboard.press("Enter");

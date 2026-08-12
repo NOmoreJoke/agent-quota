@@ -95,24 +95,14 @@ function isFiveHourWindow(row: Capability): boolean {
     (row.capability_ref.endsWith("-5h") || /5小时(?:剩余|已用)/u.test(row.value_display));
 }
 
-function minimaxSubject(row: Capability): string | null {
-  if (providerName(row.capability_ref) !== "MiniMax") return null;
-  const separator = row.value_display.indexOf(" · ");
-  if (separator < 1) return null;
-  return row.value_display.slice(0, separator).trim().toLowerCase();
-}
-
 function windowFamily(row: Capability): string {
-  const subject = minimaxSubject(row);
-  return subject ? `MiniMax:${subject}` : providerName(row.capability_ref);
+  const model = row.capability_ref.match(/^(cap-minimax-(?:cn|global)-model-\d+)-/u);
+  return model?.[1] ?? providerName(row.capability_ref);
 }
 
 function windowOrder(row: Capability, sourceIndex: number): [string, number, number] {
-  const subject = minimaxSubject(row);
   const model = row.capability_ref.match(/-model-(\d+)-/u);
-  const familyOrder = subject === "general"
-    ? "0-general"
-    : model ? `1-${model[1].padStart(6, "0")}` : subject ? `2-${subject}` : "0";
+  const familyOrder = model ? model[1].padStart(6, "0") : "0";
   const periodOrder = isWeeklyWindow(row) ? 0 : isFiveHourWindow(row) ? 1 : 2;
   return [familyOrder, periodOrder, sourceIndex];
 }
@@ -155,8 +145,7 @@ function Icon({ name }: { name: string }) {
   );
 }
 
-function StatusPill({ value }: { value: string }) {
-  const label: Record<string, string> = {
+const STATUS_LABELS: Readonly<Record<string, string>> = {
     active: "已配置",
     disabled: "已停用",
     "needs-reauth": "需重新认证",
@@ -170,8 +159,14 @@ function StatusPill({ value }: { value: string }) {
     done: "完成",
     queued: "等待中",
     idle: "等待中",
-  };
-  return <span className={`status status-${value}`}><i />{label[value] ?? value}</span>;
+};
+
+function statusLabel(value: string): string {
+  return STATUS_LABELS[value] ?? value;
+}
+
+function StatusPill({ value }: { value: string }) {
+  return <span className={`status status-${value}`}><i />{statusLabel(value)}</span>;
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
@@ -403,7 +398,11 @@ export function App() {
                       const progress = windowMetric(row.value_display)?.percentage ?? null;
                       const displayHealth = effectiveHealth(row, exhaustedWeeklyFamilies);
                       return (
-                        <article className={`quota-row ${displayHealth !== "ok" ? `row-${displayHealth}` : ""}`} key={row.capability_ref}>
+                        <article
+                          aria-label={`${row.value_display} · ${statusLabel(displayHealth)}`}
+                          className={`quota-row ${displayHealth !== "ok" ? `row-${displayHealth}` : ""}`}
+                          key={row.capability_ref}
+                        >
                           <span className="rank">{row.display_kind === "window" ? `#${index + 1}` : "—"}</span>
                           <span className="scope-kind">{row.display_kind === "window" ? "窗口" : "余额"}<small>{row.display_kind === "window" ? "官方周期" : "钱包"}</small></span>
                           <span className="subject">{row.value_display}</span>
