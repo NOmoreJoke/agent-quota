@@ -334,10 +334,11 @@ def _kimi_code(document: dict[str, object]) -> tuple[dict[str, str], ...]:
         if name is not None and (not isinstance(name, str) or not 1 <= len(name.encode()) <= 32):
             raise ValueError("Kimi Code limit name mismatch")
         label = name or f"{_number_display(duration)}{unit_labels[unit]}"
+        period = "-5h" if unit == "TIME_UNIT_HOUR" and duration == 5 else ""
         rows.append(
             _row(
                 "kimi-code",
-                f"limit-{index}",
+                f"limit-{index}{period}",
                 "window",
                 f"{label}剩余 {_usage_remaining_percentage(detail)}",
             )

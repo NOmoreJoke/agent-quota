@@ -100,13 +100,17 @@ function windowFamily(row: Capability): string {
     /^cap-minimax-(?:cn|global)-row-[0-9a-f]{24}-account-([0-9a-f]{24})-model-(\d+)-(?:5h|weekly)$/u,
   );
   if (model) return `MiniMax:${model[1]}:model-${model[2]}`;
-  const account = row.capability_ref.match(/-row-[0-9a-f]{24}-account-([0-9a-f]{24})$/u);
+  const account = row.capability_ref.match(
+    /-row-[0-9a-f]{24}-account-([0-9a-f]{24})(?:-(?:5h|weekly))?$/u,
+  );
   return account ? `${providerName(row.capability_ref)}:${account[1]}` : providerName(row.capability_ref);
 }
 
 function windowOrder(row: Capability, sourceIndex: number): [string, number, number] {
   const model = row.capability_ref.match(/-account-([0-9a-f]{24})-model-(\d+)-/u);
-  const account = row.capability_ref.match(/-row-[0-9a-f]{24}-account-([0-9a-f]{24})$/u);
+  const account = row.capability_ref.match(
+    /-row-[0-9a-f]{24}-account-([0-9a-f]{24})(?:-(?:5h|weekly))?$/u,
+  );
   const familyOrder = model
     ? `${model[2].padStart(6, "0")}-${model[1]}`
     : account ? `000000-${account[1]}` : "0";

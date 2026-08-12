@@ -342,8 +342,17 @@ class NativeControlPlane:
                         f"model-{minimax_window.group(1)}-{minimax_window.group(2)}"
                     )
                 elif source["display_kind"] == "window":
+                    period = next(
+                        (
+                            suffix
+                            for suffix in ("5h", "weekly")
+                            if source["capability_ref"].endswith(f"-{suffix}")
+                        ),
+                        None,
+                    )
                     row["capability_ref"] = (
                         f"cap-{provider_id}-row-{identity}-account-{account_identity}"
+                        + (f"-{period}" if period is not None else "")
                     )
                 else:
                     row["capability_ref"] = f"cap-{provider_id}-account-{identity}"

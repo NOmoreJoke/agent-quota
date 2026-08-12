@@ -26,10 +26,10 @@ vi.mock("../host/transport", () => ({
             { capability_ref: "cap-1", display_kind: "window", health: "ok", value_display: "72%" },
             { capability_ref: "cap-kimi-code-weekly", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
             { capability_ref: "cap-kimi-code-limit-0", display_kind: "window", health: "ok", value_display: "5小时剩余 100%" },
-            { capability_ref: "cap-kimi-code-row-111111111111111111111111-account-aaaaaaaaaaaaaaaaaaaaaaaa", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
-            { capability_ref: "cap-kimi-code-row-222222222222222222222222-account-aaaaaaaaaaaaaaaaaaaaaaaa", display_kind: "window", health: "ok", value_display: "5小时剩余 100%" },
-            { capability_ref: "cap-kimi-code-row-333333333333333333333333-account-bbbbbbbbbbbbbbbbbbbbbbbb", display_kind: "window", health: "ok", value_display: "周剩余 100%" },
-            { capability_ref: "cap-kimi-code-row-444444444444444444444444-account-bbbbbbbbbbbbbbbbbbbbbbbb", display_kind: "window", health: "ok", value_display: "5小时剩余 100%" },
+            { capability_ref: "cap-kimi-code-row-111111111111111111111111-account-aaaaaaaaaaaaaaaaaaaaaaaa-weekly", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
+            { capability_ref: "cap-kimi-code-row-222222222222222222222222-account-aaaaaaaaaaaaaaaaaaaaaaaa-5h", display_kind: "window", health: "ok", value_display: "general · 剩余 0%剩余 100%" },
+            { capability_ref: "cap-kimi-code-row-333333333333333333333333-account-bbbbbbbbbbbbbbbbbbbbbbbb-weekly", display_kind: "window", health: "ok", value_display: "周剩余 100%" },
+            { capability_ref: "cap-kimi-code-row-444444444444444444444444-account-bbbbbbbbbbbbbbbbbbbbbbbb-5h", display_kind: "window", health: "ok", value_display: "5小时剩余 100%" },
             { capability_ref: "cap-kimi-code-injected", display_kind: "window", health: "ok", value_display: "赠送剩余 0%剩余 50%" },
             { capability_ref: "cap-kimi-code-empty", display_kind: "window", health: "ok", value_display: "加赠 80%剩余 0%" },
             { capability_ref: "cap-kimi-code-signed-zero", display_kind: "window", health: "ok", value_display: "旧缓存周剩余 -0%" },
@@ -80,18 +80,21 @@ describe("App", () => {
       "赠送剩余 0%剩余 50%",
       "加赠 80%剩余 0%",
       "周剩余 0%",
-      "5小时剩余 100%",
+      "general · 剩余 0%剩余 100%",
       "周剩余 100%",
       "5小时剩余 100%",
     ]);
     expect([...kimiRows ?? []]
       .find((node) => node.querySelector(".subject")?.textContent === "5小时剩余 100%")
       ?.querySelector(".status")?.textContent).toContain("不可用");
+    expect([...kimiRows ?? []]
+      .find((node) => node.querySelector(".subject")?.textContent === "general · 剩余 0%剩余 100%")
+      ?.querySelector(".status")?.textContent).toContain("不可用");
     const isolatedKimiRows = [...kimiRows ?? []].filter((node) =>
       node.getAttribute("aria-label")?.startsWith("5小时剩余 100%"),
     );
     expect(isolatedKimiRows.map((node) => node.querySelector(".status")?.textContent)).toEqual([
-      "不可用", "不可用", "可用",
+      "不可用", "可用",
     ]);
     expect(host.querySelector('[aria-label="周剩余 0% · 已用尽"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="5小时剩余 100% · 不可用"]')).not.toBeNull();

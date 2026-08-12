@@ -593,7 +593,10 @@ def test_minimax_projection_preserves_only_bounded_window_semantics(tmp_path: Pa
     assert [ref.rsplit("-model-", 1)[1] for ref in refs] == [
         "0-5h", "0-weekly", "1-5h", "1-weekly",
     ]
-    assert all("-row-" in ref and len(ref.split("-row-", 1)[1].split("-", 1)[0]) == 24 for ref in refs)
+    assert all(
+        "-row-" in ref and len(ref.split("-row-", 1)[1].split("-", 1)[0]) == 24
+        for ref in refs
+    )
     assert all("alpha" not in row["capability_ref"] for row in rows)
 
 
@@ -619,7 +622,7 @@ def test_kimi_code_window_projection_isolates_account_families(tmp_path: Path) -
                     "usage": {"limit": 100, "remaining": weekly_remaining},
                     "limits": [
                         {
-                            "name": "5小时",
+                            "name": "general · 剩余 0%",
                             "window": {"duration": 5, "timeUnit": "TIME_UNIT_HOUR"},
                             "detail": {"limit": 100, "remaining": 100},
                         }
@@ -632,8 +635,10 @@ def test_kimi_code_window_projection_isolates_account_families(tmp_path: Path) -
             for row in control.quota_projection(created.principal_ref)["capability_rows"]
         ]
         markers = {ref.rsplit("-account-", 1)[1] for ref in refs}
-        assert len(markers) == 1
-        account_markers.extend(markers)
+        account_ids = {marker.split("-", 1)[0] for marker in markers}
+        assert len(account_ids) == 1
+        assert {ref.rsplit("-", 1)[1] for ref in refs} == {"weekly", "5h"}
+        account_markers.extend(account_ids)
     assert len(set(account_markers)) == 2
 
 
