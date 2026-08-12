@@ -329,6 +329,10 @@ export function App() {
       .map(({ row }) => row),
   })).filter((group) => group.rows.length > 0), [filteredCapabilities]);
 
+  const exhaustedWeeklyFamilies = useMemo(() => new Set(capabilities
+    .filter((row) => isWeeklyWindow(row) && displayedHealth(row) === "exhausted")
+    .map(windowFamily)), [capabilities]);
+
   const filteredProviders = useMemo(() => {
     const normalized = providerQuery.trim().toLowerCase();
     return providerCatalog.rows.filter((provider) => {
@@ -398,9 +402,6 @@ export function App() {
                 {groupedCapabilities.length === 0 ? (
                   <div className="inline-empty">当前视图暂无可展示额度</div>
                 ) : groupedCapabilities.map((group) => {
-                  const exhaustedWeeklyFamilies = new Set(group.rows
-                    .filter((row) => isWeeklyWindow(row) && displayedHealth(row) === "exhausted")
-                    .map(windowFamily));
                   return <div className="provider-group" key={group.provider}>
                     <div className="provider-heading"><strong>{group.provider}</strong><span/></div>
                     {group.rows.map((row, index) => {

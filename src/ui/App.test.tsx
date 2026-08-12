@@ -102,6 +102,23 @@ describe("App", () => {
     ]);
     expect(host.querySelector('[aria-label="周剩余 0% · 已用尽"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="5小时剩余 100% · 不可用"]')).not.toBeNull();
+    const quotaSearch = host.querySelector<HTMLInputElement>('[aria-label="搜索 Provider / Subject"]');
+    await act(async () => {
+      if (quotaSearch) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+        setter?.call(quotaSearch, "5小时");
+        quotaSearch.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+      }
+    });
+    expect(host.querySelector('[aria-label="周剩余 0% · 已用尽"]')).toBeNull();
+    expect(host.querySelector('[aria-label="5小时剩余 100% · 不可用"]')).not.toBeNull();
+    await act(async () => {
+      if (quotaSearch) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+        setter?.call(quotaSearch, "");
+        quotaSearch.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+      }
+    });
     const minimaxRows = [...host.querySelectorAll(".provider-group")]
       .find((node) => node.querySelector(".provider-heading")?.textContent === "MiniMax")
       ?.querySelectorAll<HTMLElement>(".quota-row");
