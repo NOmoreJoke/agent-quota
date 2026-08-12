@@ -2045,7 +2045,7 @@ Desktop GUI 是统一观察与本地配置台，也是 MVP 主入口。React/Typ
 1. **首次启动**：验证 app/sidecar 签名与 installation registry，显示本地数据/Provider 网络披露说明；用户选择“开始配置”或“离线浏览示例”。权限失败进入可恢复诊断页，不静默放宽目录或凭据权限。
 2. **凭据引用**：macOS MVP 的 `system-credential` backend 固定为 Keychain。renderer 只能请求 `credential_dialog_open`；Rust host 在 WebView 之外打开 host-owned native secure dialog，由原生 secure field 接收 keystroke/paste 或选择既有 Keychain item，完成导入和缓冲区清零后只把 opaque reference/status 返回 renderer。React/DOM/Tauri command payload 永远没有 secret input/value/length/SecretBuffer 路径；也可选择不含秘密输入的已批准 official-cli profile。
 3. **账户与 Subject 配置**：向导按 Adapter profile 创建 principal，调用 discovery 后由用户明确确认 subject/capability；未确认前不落入 active registry。OpenRouter 展示 current-key 范围；Codex 卡片固定 `Experimental / Incompatible / Disabled`，解释缺 stable identity，不提供“立即启用”或正式刷新按钮。
-4. **额度总览**：显示 principal/subject、能力分区、值、unit、source、`fetched_at`、fresh/stale/expired、health 与 safe error。窗口/计数/余额/状态按 kind 分区；多币种不求和，跨类型只按 severity 排序。
+4. **额度总览**：显示 principal/subject、能力分区、值、unit、source、`fetched_at`、fresh/stale/expired、health 与 safe error。窗口/计数/余额/状态按 kind 分区；多币种不求和，跨类型只按 severity 排序。周额度与 5 小时额度遵循第 13.3 节的状态联动、隔离与固定排序规则。
 5. **手动刷新**：可按授权 scope 刷新全部、subject 或 capability；进入 running 后禁用同幂等键重复动作，显示排队/进行/部分完成/失败。取消只请求取消，不能伪造 Provider 未调用；结束后从 core 重新读取投影。
 6. **离线模式**：显式切换后 application service 使用 `network_mode=offline`，Credential Source/Provider/network/subprocess 计数为 0；展示缓存/LKG 的真实 freshness，不能把 stale 改写为 current。
 7. **后台刷新状态**：只有 SchedulerHost 已安装且 heartbeat/lease 健康才显示最近/下次后台运行；否则固定显示“仅按需刷新”，关闭后台告警承诺。失联立即降级，不沿用旧绿色状态。
@@ -2062,6 +2062,23 @@ Desktop GUI 是统一观察与本地配置台，也是 MVP 主入口。React/Typ
 - **键盘与读屏**：全部流程只用键盘可达；焦点顺序确定，刷新后焦点不丢失；状态变化使用受控 `aria-live`，图表有等价文本/表格，颜色不是唯一信号，目标 WCAG 2.2 AA。
 - **显示与隐私**：支持 200% zoom、reduce motion、高对比度和本地 IANA timezone；默认遮蔽邮箱/外部 ID，复制按钮只复制当前授权投影，不复制隐藏字段。
 - **E2E**：在全新 macOS 用户、无网络、Keychain locked、sidecar crash、upgrade rollback、slow/partial Provider 和 Scheduler absent/unhealthy 场景逐项截图+accessibility tree+core trace 验收；trace 只能含安全枚举/假名化 ID。
+
+### 13.3 周额度与 5 小时额度
+
+| 输入/上下文 | 周额度状态 | 同 family 的 5 小时状态 |
+| --- | --- | --- |
+| 周剩余 `> 0%`，5 小时剩余 `> 0%` | 可用 | 可用 |
+| 周剩余 `> 0%`，5 小时剩余 `= 0%` | 可用 | 已用尽 |
+| 周剩余 `= 0%` | 已用尽 | 不可用，即使 5 小时仍有余量 |
+| 周证据或 5 小时证据缺失/非法 | 不生成 fresh partial projection | 不生成 fresh 5 小时投影；首次失败为空且 stale，已有 LKG 时保留完整 LKG 且 stale |
+| capability 非 `ok` 或额度不限量 | 保留原 health/不限量语义 | 不由百分比规则覆盖 |
+
+- `已用尽` 表示该窗口自身余量为 0；`不可用` 表示受上级周额度约束。两者必须使用不同文本、视觉状态和 accessibility 状态，颜色不得作为唯一区分。
+- 周/5 小时身份只读取 core 投影中受信任、行尾锚定的 `-weekly` / `-5h` 结构化 source ref；Provider 可控名称仅用于展示，包含 `%`、`周`、`5小时` 等文本也不得升级为周期语义。旧 LKG 无结构化后缀时联动 fail closed，成功刷新后恢复结构化周期。
+- 联动 family 至少绑定 Provider + opaque account identity；MiniMax 继续绑定 model identity。一个账户或模型的周耗尽不得影响其他账户、模型或 Provider。
+- 同 Provider 内按产品顺序展示：`general 周额度 → general 5小时额度 → 下一模型周额度 → 下一模型5小时额度`；相同周期保持稳定输入顺序。所有窗口均不按百分比排序，不限量、错误和非窗口能力也不改变该产品顺序。
+- 搜索与视图筛选只改变可见行；周耗尽集合必须从未过滤的完整 capability projection 计算。隐藏周额度行后，同 family 的 5 小时额度仍保持“不可用”。
+- Kimi Code fresh 成功投影必须同时具备合法 weekly usage 与前 16 个有界 limit 中至少一个结构化 5 小时窗口；缺任一证据按 contract error 处理，不允许以 partial 200 响应生成 fresh 总览。
 
 ## 14. 告警设计
 
