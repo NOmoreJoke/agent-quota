@@ -1,132 +1,176 @@
 # Agent Quota
 
+<p align="center">
+  <img src="src-tauri/icons/icon.png" width="72" height="72" alt="Agent Quota icon">
+</p>
+
+<p align="center">
+  <strong>本地优先的 AI Provider 额度控制台</strong><br>
+  在一个 macOS 桌面应用中查看订阅窗口、API 余额、刷新状态与健康度。
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/architecture-Apple%20Silicon-lightgrey" alt="Apple Silicon">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="#核心能力">核心能力</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#provider-支持">Provider</a> ·
+  <a href="#架构">架构</a> ·
+  <a href="#开发与验证">开发</a> ·
+  <a href="#文档">文档</a>
+</p>
+
+---
+
+![Agent Quota 账户与 Provider 页面](docs/assets/agent-quota-providers.png)
+
+<p align="center"><sub>界面 Fixture · 合成数据，仅用于展示布局与状态语义</sub></p>
+
+Agent Quota 将不同 Provider 的额度投影到统一桌面视图：窗口额度保持各自周期，钱包余额保持各自币种，跨类型不求和。凭据生命周期由 macOS 原生安全窗口与 Keychain 管理；Renderer 不接触秘密，Provider 查询只访问固定官方接口。
+
+> [!IMPORTANT]
+> 当前仓库提供源码与 Apple Silicon 本地未签名开发包构建能力，尚无可公开分发的正式 Release。正式发布仍需 Developer ID 签名、Apple notarization/stapling 与发布校验和。
+
+## 核心能力
+
+| 能力 | 行为 |
+| --- | --- |
+| Window View | 展示 5 小时、周、月等订阅/Coding Plan 窗口 |
+| Wallet View | 展示 API 余额、现金、代金券或 Extra Usage，不跨币种合计 |
+| 状态语义 | 同时呈现 freshness、health、可用/已用尽/需重认证等状态 |
+| 本地凭据 | 原生安全窗口接收秘密，由 macOS Keychain 托管 |
+| 失败保护 | 上游响应不符合固定合同即 fail closed，并保留 stale LKG |
+| 主动刷新 | 默认按需刷新；无健康 SchedulerHost 时不宣称实时监控 |
+| 安全清理 | Purge 只删除已登记状态与精确 Keychain 引用 |
+
+## 快速开始
+
+### 运行界面 Fixture
+
+适合 UI 开发与无真实账户预览：
+
+前置：Node.js `^22.22.2 || ^24.15.0 || >=26.0.0` 与 `pnpm@9.0.0`。
+
+```bash
+git clone https://github.com/NOmoreJoke/agent-quota.git
+cd agent-quota
+pnpm install --frozen-lockfile
+VITE_AQ_FIXTURE_MODE=1 pnpm dev
+```
+
+打开 `http://127.0.0.1:1420`。该模式使用合成数据，不读取 Keychain，也不证明真实 Provider 可用。
+
+### 构建 macOS 本地开发包
+
+| 前置条件 | 版本/范围 |
+| --- | --- |
+| macOS | 13.0+，Apple Silicon |
+| Python | 3.11 |
+| Node.js / pnpm | `^22.22.2 || ^24.15.0 || >=26.0.0` / `pnpm@9.0.0` |
+| Rust | `rust-toolchain.toml` 固定的 1.97.1 |
+| 其他 | Xcode Command Line Tools、uv |
+
+```bash
+uv sync --all-groups --locked
+pnpm install --frozen-lockfile
+AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin \
+  ./tools/build_macos_package.sh
+```
+
+构建输出位于 `artifacts/iteration-4/`。完整的工具链、签名等级、安装、升级、回滚与 Purge 规则见[安装指南](docs/INSTALLATION.md)。
+
+## Provider 支持
+
+Desktop 只展示存在固定官方查询合同的 5 个 Provider Preset：
+
+| Provider | Window View | Wallet View | 认证方式 | 当前验证证据 |
+| --- | --- | --- | --- | --- |
+| DeepSeek | — | API 可用余额 | API Key | 官方 schema + 脱敏录制 |
+| Kimi | — | API 可用/现金/代金券余额 | API Key | 官方 schema；区域隔离 |
+| Kimi For Coding | 周额度、5 小时额度 | Extra Usage | OAuth device code | 官方 OAuth/usage schema |
+| MiniMax | general/video 周额度、5 小时额度 | — | Token Plan Key | 官方 schema + fixture |
+| Zhipu GLM | 月度额度、5 小时额度 | — | Coding Plan Auth Token | 官方 schema + fixture |
+
+底层 78 行目录用于合同与审计输入，不代表 Desktop 支持或实时查询能力。静态价格页、RPM、控制台 UI 和第三方宣称不会升级 Provider 支持等级。详见 [Provider 能力矩阵](docs/PROVIDER_CATALOG.md)。
+
+## 使用流程
+
+1. 在“账户与 Provider”中选择支持的 Provider。
+2. 通过 macOS 原生安全窗口完成凭据配置。
+3. 手动刷新，在 Window/Wallet View 中查看额度、freshness 与 health。
+
+遇到 `needs-reauth`、`provider-unavailable` 或 `contract-error` 时，应用保留最后可信快照但标记为 stale，不把失败响应展示为新鲜数据。详见[用户指南](docs/USER_GUIDE.md)。
+
+## 架构
+
+```mermaid
+flowchart LR
+    UI["React Renderer"] -->|"typed Tauri IPC"| HOST["Rust Trusted Host"]
+    HOST --> NATIVE["macOS Native Helper"]
+    NATIVE --> KEYCHAIN["macOS Keychain"]
+    HOST -->|"authenticated stdio"| CORE["Python Sidecar / Core"]
+    NATIVE -->|"fixed HTTPS contracts"| PROVIDERS["Official Provider APIs"]
+    CORE --> STATE["Redacted local state + LKG"]
+```
+
+| 层 | 目录 | 职责 |
+| --- | --- | --- |
+| Renderer | `src/ui/` | 额度投影、Provider 管理、刷新队列与状态页 |
+| Trusted host | `src-tauri/` | IPC allowlist、进程边界、超时与原生确认 |
+| Native helper | `native/` | Keychain、host-owned 安全窗口与固定 Provider HTTPS 请求 |
+| Core / sidecar | `src/agent_quota/` | Provider 响应合同、快照、LKG、本机脱敏状态与 CLI |
+| Verification | `tests/`、`tools/` | Python/Rust/Renderer/E2E、包审计与发布门禁 |
+| Contracts | `docs/contracts/` | 安全、操作、留存、lease 与 registry 机器合同 |
+
+Agent Quota 不包含 Web 后端，不开放 loopback 业务服务；Hermes、飞书、SchedulerHost 为可选集成，不是 Desktop MVP 依赖。
+
+## 安全边界
+
+- Renderer 只调用机器登记的 Tauri command，不接收凭据、确认 nonce 或原始 Provider 错误体。
+- Host 通过匿名 stdio 启动 hash-pinned sidecar，不监听 TCP/UDP。
+- Provider endpoint、认证方式与必需响应结构固定；非法币种、数值语法或金额组合 fail closed。
+- 普通卸载保留本机状态；破坏性删除必须通过应用内原生确认和 journal 精确执行。
+
+漏洞请通过 GitHub Security Advisories 私下报告，不要在公开 Issue 中提交凭据或真实账户响应。详见[安全策略](SECURITY.md)与[安全模型](docs/security-model.md)。
+
+## 开发与验证
+
+本地开发覆盖 Python core、React renderer、Rust trusted host 与 Playwright E2E。完整命令、覆盖率要求和合同文档 clean-install gate 见[贡献指南](CONTRIBUTING.md)；修改前先确认其中记录的仓库基线。
+
+## 文档
+
+| 文档 | 内容 |
+| --- | --- |
+| [安装指南](docs/INSTALLATION.md) | 构建、安装、升级、回滚、卸载与 Purge |
+| [用户指南](docs/USER_GUIDE.md) | 账户配置、刷新与错误处理 |
+| [Provider Catalog](docs/PROVIDER_CATALOG.md) | 支持等级、能力矩阵与验证边界 |
+| [产品需求](docs/PRD.md) | MVP 范围与产品规则 |
+| [设计方案](docs/design-proposal.md) | 完整领域与运行时设计 |
+| [Provider 合同](docs/provider-contract.md) | 身份、请求、响应与错误契约 |
+| [安全模型](docs/security-model.md) | 信任边界、威胁与门禁 |
+| [性能目标](docs/PERFORMANCE.md) | 性能预算与测量方法 |
+| [审计历史](docs/contracts/history-manifest-v1.json) | 第 1–20 轮审计索引 |
+
+<!-- AQ-NORMATIVE-DECISION-LINK-V1:docs/audits/gui-product-decision-resolution.md -->
+Desktop GUI 与 Codex/OpenRouter 的规范决策见 [`gui-product-decision-resolution.md`](docs/audits/gui-product-decision-resolution.md)。
+
+<details>
+<summary>机器审计状态</summary>
+
 <!-- AQ-GENERATED-CURRENT-STATUS-V1:BEGIN -->
 ```json
 {"design_version":"v2.5","gate_status":"ZERO_ISSUES_AUDIT_CONFIRMED","latest_audit_path":"docs/audits/round-20-audit.md","latest_audit_verdict":"PASS_ZERO_ISSUES","latest_issue_ids":[],"revision_round":20,"status_kind":"ZERO_ISSUES"}
 ```
 <!-- AQ-GENERATED-CURRENT-STATUS-V1:END -->
-<!-- AQ-NORMATIVE-DECISION-LINK-V1:docs/audits/gui-product-decision-resolution.md -->
 
-> 上述 marker 是第 20 轮零问题终态，必须与 history manifest 保持一致；第 1–19 轮历史保持不可改写，审计后的用户产品决策仍见 [`gui-product-decision-resolution.md`](docs/audits/gui-product-decision-resolution.md)。`ZERO_ISSUES_AUDIT_CONFIRMED` 表示可进入后续 Gate 0A 工作，不等于实现完成或生产发布授权。
+该 marker 必须与 history manifest 保持一致。`ZERO_ISSUES_AUDIT_CONFIRMED` 仅表示可进入后续 Gate 0A，不等于实现完成、真实 Provider 验收或生产发布授权。
 
-Agent Quota Desktop 是一个本地优先的独立桌面额度聚合产品。macOS 桌面 GUI 是 MVP 主入口；用户可配置自己拥有的认证身份、订阅、工作区、组织或钱包，并查看各主体真实存在的窗口、余额、计数、freshness、health 与安全错误。CLI 只承担维护、诊断、无障碍和自动化辅助；Hermes、飞书与 SchedulerHost 是可选集成，远期 Web 不是 Desktop GUI 的同义词，也不是 MVP 依赖。
+</details>
 
-## Provider 支持
+## License
 
-Desktop Provider Preset 当前只展示以下 5 张卡片：
-
-| Provider | Window View | Wallet View | 接入模式 |
-| --- | --- | --- | --- |
-| DeepSeek | — | API 可用余额 | API Key，只读官方余额接口 |
-| Kimi | — | API 可用/现金/代金券余额 | API Key，区域固定官方接口 |
-| Kimi For Coding | 周额度、5 小时额度 | Extra Usage | OAuth device code，官方 usage 接口 |
-| MiniMax | general/video 周额度、5 小时额度 | — | Token Plan Key，固定官方接口 |
-| Zhipu GLM | 月度额度、5 小时额度 | — | Coding Plan Auth Token，固定官方接口 |
-
-- Window View 只显示 Coding Plan/订阅窗口；Wallet View 只显示 API 余额、credit 或
-  Extra Usage，不跨类型、Provider 或币种求和。
-- 周额度为 0 时，该行显示“已用尽”，同账户/模型的 5 小时额度显示“不可用”。
-- 底层机器目录仍保留 78 行作为合同与审计输入；除上表 5 项外，其他供应商不生成
-  Desktop 卡片、搜索结果或能力筛选结果。完整清单见
-  [`provider_catalog_v1.json`](src/agent_quota/resources/provider_catalog_v1.json)。
-- 目录保留不代表实时查询支持；静态 RPM、价格页、控制台 UI 或第三方宣称不计作
-  可查询额度。
-
-使用方式见 [`USER_GUIDE.md`](docs/USER_GUIDE.md)，能力矩阵与验证层级见
-[`PROVIDER_CATALOG.md`](docs/PROVIDER_CATALOG.md)。
-
-## 当前内容
-
-- [完整设计方案](docs/design-proposal.md)
-- [Provider 与凭据契约](docs/provider-contract.md)
-- [安全模型与分层门禁](docs/security-model.md)
-- [Desktop GUI 与 Codex/OpenRouter 当前决策记录](docs/audits/gui-product-decision-resolution.md)
-- [core safety 权威合同](docs/contracts/core-safety-contract-v1.json)
-- [operation 权威合同](docs/contracts/operation-contract-v1.json)
-- [LocalKey purpose 权威合同](docs/contracts/local-key-purpose-registry-v1.json)
-- [lease 权威合同](docs/contracts/lease-policy-v1.json)
-- [retention lint 权威合同](docs/contracts/retention-lint-v1.json)
-- [合同与 JSON Schema 摘要注册表](docs/contracts/contract-registry-v1.json)
-- [第 1–20 轮审计历史清单](docs/contracts/history-manifest-v1.json)与[固定离线 npm 包](docs/contracts/offline-npm-bundle-v1/)
-- [完整只读合同 validator](docs/contracts/validate-contracts-v1.py)、[只读投影/pin verifier](docs/contracts/canonicalize-registry-v1.py)与[clean-install 发布门禁](docs/contracts/run-release-gate-v1.py)
-- [第 1 轮审计](docs/audits/round-01-audit.md)与[处置记录](docs/audits/round-01-resolution.md)
-- [第 2 轮审计](docs/audits/round-02-audit.md)与[处置记录](docs/audits/round-02-resolution.md)
-- [第 3 轮审计](docs/audits/round-03-audit.md)与[处置记录](docs/audits/round-03-resolution.md)
-- [第 4 轮审计](docs/audits/round-04-audit.md)与[处置记录](docs/audits/round-04-resolution.md)
-- [第 5 轮审计](docs/audits/round-05-audit.md)与[处置记录](docs/audits/round-05-resolution.md)
-- [第 6 轮审计](docs/audits/round-06-audit.md)与[处置记录](docs/audits/round-06-resolution.md)
-- [第 7 轮审计](docs/audits/round-07-audit.md)与[处置记录](docs/audits/round-07-resolution.md)
-- [第 8 轮审计](docs/audits/round-08-audit.md)与[处置记录](docs/audits/round-08-resolution.md)
-- [第 9 轮审计](docs/audits/round-09-audit.md)与[处置记录](docs/audits/round-09-resolution.md)
-- [第 10 轮审计](docs/audits/round-10-audit.md)与[处置记录](docs/audits/round-10-resolution.md)
-- [第 11 轮审计](docs/audits/round-11-audit.md)与[处置记录](docs/audits/round-11-resolution.md)
-- [第 12 轮审计](docs/audits/round-12-audit.md)与[处置记录](docs/audits/round-12-resolution.md)
-- [第 13 轮审计](docs/audits/round-13-audit.md)与[处置记录](docs/audits/round-13-resolution.md)
-- [第 14 轮审计](docs/audits/round-14-audit.md)与[处置记录](docs/audits/round-14-resolution.md)
-- [第 15 轮审计](docs/audits/round-15-audit.md)与[处置记录](docs/audits/round-15-resolution.md)
-- [第 16 轮审计](docs/audits/round-16-audit.md)与[处置记录](docs/audits/round-16-resolution.md)
-- [第 17 轮审计](docs/audits/round-17-audit.md)与[处置记录](docs/audits/round-17-resolution.md)
-- [第 18 轮审计](docs/audits/round-18-audit.md)与[处置记录](docs/audits/round-18-resolution.md)
-- [第 19 轮审计](docs/audits/round-19-audit.md)与[处置记录](docs/audits/round-19-resolution.md)
-- [第 20 轮零问题审计](docs/audits/round-20-audit.md)（终态无处置记录）
-- 本地 Git 仓库，默认分支为 `main`
-- 最小化的敏感信息忽略规则
-
-## 当前边界
-
-- 应用依赖 exact pin；本地 `node_modules/`、构建产物和运行状态不入库
-- 已实现 Desktop host、renderer、Python sidecar 与 macOS native helper；不含服务端或 Web 后端
-- 未接入任何真实 API Key、登录凭据或飞书应用
-- 已完成初始 Git commit 并推送至远程 GitHub 仓库（NOmoreJoke/agent-quota）；建立 `main`/`dev`/`feature/*` 三层分支，并对 `main` 启用分支保护（要求 PR、禁止直推与强推）
-
-## 已确定的实施基线
-
-1. 核心模型采用 `AccountPrincipal → QuotaSubject → QuotaCapability → CapabilitySnapshot`
-2. 阶段 1A 同时实现 Tauri 2/Rust trusted host、React/TypeScript renderer、Python core sidecar、共享 application service、辅助 CLI、版本化配置和 FakeAdapter；不安装 Hermes、不开放网络监听
-3. Desktop Provider Preset 固定展示 DeepSeek、Kimi、Kimi For Coding、MiniMax、Zhipu GLM；其余机器目录项不生成卡片。支持状态仍以机器目录、真实账户证据和 release gate 为准，不因 UI 展示自动升级为正式发布支持
-4. 所有发行单元均构建 wheel/sdist；Supported/GA Provider 只由独立 hash-pinned installer 从内嵌 genesis anchor 验证 trust chain、signed plan、wheel/sidecar 后在 staging 生成依赖 lock，sdist 只进入隔离 source-review 路径
-5. 只有 Supported/GA Adapter 计入 MVP，Experimental 默认关闭且不计数
-6. core 使用渠道无关 AccessContext 与 `(principal, subject, capability)` 绑定式 AccountScope，并在 Adapter 返回边界整批校验
-7. Desktop GUI 是 MVP 必需表面；默认只按需刷新。未安装且健康的 SchedulerHost 时必须显示“仅按需刷新”，不得暗示实时监控；Hermes、飞书、远期 Web 和 `quota_recommend` 都不是 MVP 必需项
-8. 异构额度按 capability kind/unit 分区，跨类型只比较 severity，多币种不求和
-9. 所有 `/刷新` 都使用绑定 actor/scope 的持久化 at-most-once 幂等；各渠道期限只引用安全模型的唯一保存期限表
-10. 命名 view 可组合已启用的 subject/capability；DeepSeek-only、OpenRouter-only 或混合配置复用同一构建产物；Codex 实验配置必须显著显示不兼容且不能正式 fetch
-11. 目标许可证为 MIT，内部独立 MVP 稳定后再公开 GitHub 仓库
-12. 缓存/LKG 绑定 query contract generation；endpoint、selector、unit/scale、语义或 Adapter 版本变化不得复用旧值
-13. purge、HTTP URL、Codex local-stdio、对象生命周期、失败恢复、聚合告警 episode 与性能基准均使用可执行状态机/反例门禁
-14. TOML 为权威配置；SQLite migration journal 使用独占 writer lease、单调 `fencing_token` 与运行时 drift 门禁，以崩溃可恢复的 roll-forward 协调文件替换和 generation 切换
-15. Adapter manifest 使用判别式 profile/selector/binding schema；每个 fetch request key 恰好产生一个快照，发现缺失按 subject+capability 绑定
-16. 发行 assurance、受信任 wheel attestation、Codex schema bundle、LocalKeyRing、初始化根登记和保存期限均有非循环、可复现、可撤销且可离线验证的唯一规范源
-17. 官方 discovery/fetch 只接收不可变的 `IdentityAndDiscoveryContext` / `IdentityAndFetchContext`；身份 evidence、request digest、endpoint、deadline 和 reservation 由 core 一次绑定，Adapter 返回同一 evidence 与 digest 后才可接受 payload
-18. 外部 TOML drift 先做类型化 diff；任何破坏性变化都必须复用 planner 的 plan digest 与一次确认 nonce，未确认时配置/运行数据库零变化且 Provider 不被调用；Desktop 的脱敏 plan 只显示在 Rust host-owned native confirmation surface，nonce/user-presence token 不返回 renderer
-19. Adapter 只返回 observation/failure；core 在完整 key 校验后读取同 generation LKG并原子生成 snapshot。每个 capability 使用精确 freshness policy，本地授权失败只返回 OperationError
-20. manifest 原子绑定 endpoint/auth/response/frame/deadline 与 undocumented StructureContract；Supported/GA 只通过 hash-pinned bootstrap 的 stage→verify→hashed-pip 安装
-21. release/trust 与 registry/keyring 使用版本化字节级 envelope；告警和 LLM consent 使用唯一 retention 条目
-22. installation binding material、active reservation rate ledger、签名 install plan/release attestation、Codex stdio/version 与全局并发使用冻结机器合同；全部持久 lease/claim 时序只引用 `lease-policy-v1`
-23. Credential Source 只能返回 `CredentialResolution`；授权、访问代际和可选稳定上游主体 evidence 分离，AccessIdentity 与 CredentialLease 只由 core 构造。OpenRouter 的 access/cache identity 只来自已验证 API key binding 与 credential generation；required nullable `creator_user_id` 为 null 时没有 metadata，非 null 也不得进入 stable domain/cohort/cache identity。`expires_at` optional nullable；只有 `limit=null && limit_remaining=null` 表示 per-key unlimited，finite pair 必须满足 `0 <= remaining <= limit`，nullability mismatch fail closed。Codex 没有批准的稳定 identity source，保持实验性 fail closed
-24. operation/stage/error 由唯一执行矩阵生成 design/provider 合同；表外入口返回零副作用 contract failure，内部表外转移进入固定 fatal
-25. Codex app-server 专用 wire 明确省略 JSON-RPC header，并冻结 exact argv、握手、notification opt-out、请求与 error map 到 schema bundle
-26. destructive dry-run/confirm/journal 只使用同一个 migration plan envelope/digest；journal 前临时文件也有 fenced claim、no-follow orphan 恢复与保留期
-27. same-plan metadata、migration temp、freshness 常量与 retention lint 进入机器 data inventory；release/trust/migration 输入统一先 bound，再 parse/JCS/crypto/hash/pip
-28. identity source/domain/endpoint budget group 在 manifest 中形成闭包；任何 outbound HTTP 或业务 RPC 先以 request kind 进入同一 rate ledger，身份未知时只用唯一部署级保守 cohort
-29. migration action graph、temp claim、per-request refresh result、LocalKey purpose 与 keyring nonce 都有确定性、可恢复且有界的机器合同
-30. `docs/contracts/*.json` 是相应主题的唯一机器权威源；正文表格仅为投影。合同摘要统一为 `SHA256("agent-quota:contract-artifact:v1\\0" || aq-jcs-nfc-v1(document))`，加载时必须与正文登记摘要相等
-31. 五份权威 artifact 分别绑定 Draft 2020-12 exact JSON Schema，schema/artifact raw 与 canonical digest、bounds、严格路径解析、逐数组顺序策略和跨 artifact semantic closure 统一由 `contract-registry-v1` 登记
-32. 所有 Provider I/O 只消费 reserve/commit 后构造的 final context；预计算只进入不含 receipt/credential/access identity 的 immutable `*RequestPlan`
-33. 统一 `aq-array-order-v1`、全局 canonical `RepoPath`、自含 owner 的结构化 `persist:v1:<surface_id>:<operation>:<owner_id>` record、可执行 core/retention fixture 与正文投影均由完整只读 validator 和只读 projection/pin verifier 门禁；record 绝不授权同 leaf 的普通持久化 prose
-34. 文档验证工具不写文件，也不是发行信任根；当前未提交 checkout 只提供审计证据，生产/0A 必须从外部固定的签名 release 或 VCS commit、tool raw SHA-256 与旧根授权建立 tool identity，工具不能自更新自己的授权 pin
-35. live/fixture retention 共用判定核心；provider 成功计数由 path steps 推导；lease 表达式闭包携带 type/unit/clock domain；所有成功摘要与投影均绑定同一 immutable byte/stat snapshot
-36. 发布门禁固定 Node/npm/Pandoc/Ajv 版本、可执行摘要、完整 npm package 实现树摘要、依赖实现树摘要与 manifest/lock closure；入口要求显式根目录、cwd/入口/根身份闭包和逐段 no-follow，在隔离 clean install 中双次重放 validator/projection。50 条 mutation recipe 固定 RepoPath、封闭 locator、exact before/after state、failure class、executor ID、顶层实现摘要及完整传递 helper call graph；runner 只提供执行结果，gate 保留每个隔离 case root，自己 no-follow 读取 locator、重算 source/mutated digest 与 failure class。仅修改任一共享 helper、executor 重定向、locator 漂移或结果伪造都必须拒绝；当前未跟踪 checkout 仍只产生审计证据
-37. Desktop renderer 只能调用机器登记的 10 个 Tauri command；每个 request/response reference 都解析到同源、封闭、有类型、有界、脱敏的 29 个 DTO schema，nested ref 与 non-destructive config change-set 也不能成为任意字段入口。Rust host 以匿名管道/stdio 启动 hash-pinned、同签名 sidecar，并使用每 session 从 1 开始的 unsigned 64-bit 严格单调 request ID，响应原样回显，溢出即终止会话。跨进程只传 `1..9_000_000_000` 的 `remaining_budget_ns`；sidecar 收完合法 frame 后按本地 monotonic clock checked-add 重建 deadline，同时受 host 9 秒 hard cap 约束。dispatch 前过期/越界/overflow 才能声称 Provider I/O/写入为 0；dispatch 后 host 超时必须 outcome unknown、禁止自动重放并 TERM→KILL→reap 至 orphan 为 0。生产 sidecar stderr 直接连接 OS null sink，原始 stderr 不进入日志、renderer 或 IPC，结构化错误只走 IPC。秘密只能由 host-owned native secure dialog 接收或选择既有 Keychain item；dialog 只在前台 key window 打开、全安装同时最多一个且由 host 执行 cooldown。purge、disable/delete/cascade 及 destructive endpoint/auth/binding/capability/manifest diff 的 core 脱敏 plan 只在 host-owned native confirmation surface 展示，nonce/user-presence token 只在 host↔core，renderer 仅收到 cancelled/committed/status；MVP 不启动 loopback HTTP
-
-## 文档合同验证
-
-固定命令调用仓库内 bootstrap，但这个 bootstrap 只提供本机审计证据，永远输出 `external_launch_attestation=absent`，不能证明生产固定启动。生产或 Gate 0A 的固定启动必须由仓库外既有信任根绑定实际解释器、同一已打开 bootstrap/entry 字节、运行时身份与工具摘要后出具 attestation。仓库内 checker 仍拒绝替代 shell和四项 exact allowlist 之外的 entry，逐段拒绝 symlink，并从两个已核对 inode/stat/长度的 fd 摘要和执行同一 entry 字节。它在 Python 前固定 macOS build、关键非系统动态 image 与依赖边，并用封闭环境启动；随后 guard/validator 从实际 file-backed image 全量发现后分类，只有 exact build 下 canonical `/System` 或 `/usr/lib` 归系统，其他 Python/Pandoc/Node image 不按安装前缀过滤，必须逐项 no-follow/regular/raw-pin 匹配。离线 npm 安装只读取仓库 tarball/lock，不读取主机 cache，也不调用动态 `npx latest`：
-
-```bash
-/bin/sh docs/contracts/runtime-bootstrap-v1.sh docs/contracts/run-release-gate-v1.py --root .
-/bin/sh docs/contracts/runtime-bootstrap-v1.sh docs/contracts/run-validation-mutations-v1.py --root .
-npm run validate --prefix docs/contracts
-```
-
-`validate` 是必须通过的 clean-install 发布门禁：它拒绝隐式根目录或替换入口，冻结 root identity 与完整输入摘要，核验固定 Node/npm/Pandoc/Ajv、完整 npm package tree 与 dependency-tree 摘要，在隔离目录执行两次 validator、两次 projection verifier，并只接受机器合同登记的 exact mutation case 集、顺序、数量、预期 verdict 和结果摘要。历史输入由 manifest 在固定 1..20 路径宇宙中动态派生；`ISSUES_OPEN` 要求 FAIL audit 与 resolution，`ZERO_ISSUES` 只允许 `PASS_ZERO_ISSUES`、空 issue set 且无本轮 resolution。R20 零问题态是可重复验证的终态固定点；R20 仍有问题则明确 `round-budget-exhausted`，R21 一律拒绝。推进到下一轮只更新 audit/resolution、manifest、current-status marker 与摘要 pin，不修改 validator/release-gate 字节。内部 validator 严格按 registry `validation_order` 执行全部门禁，并在成功前复核所有输入的 inode/stat/长度与字节。只有整条链通过才输出最终 `status=ok`。当前未提交 checkout 的结果仍只是审计证据，不是 core/CLI/Provider 实现、运行时安全证明或生产发布授权。
+[MIT](LICENSE) © Agent Quota contributors
