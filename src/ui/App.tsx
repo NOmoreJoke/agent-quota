@@ -85,10 +85,45 @@ function displayedHealth(row: Capability): string {
   return row.health;
 }
 
-function windowSortValue(row: Capability): number {
-  if (row.health !== "ok") return -2;
-  if (/剩余\s*不限量\s*$/u.test(row.value_display)) return 101;
-  return windowMetric(row.value_display)?.percentage ?? -1;
+function isWeeklyWindow(row: Capability): boolean {
+  return row.display_kind === "window" &&
+    (row.capability_ref.includes("weekly") || /周剩余\s*(?:[+-]?\d+(?:\.\d+)?%|不限量)\s*$/u.test(row.value_display));
+}
+
+function isFiveHourWindow(row: Capability): boolean {
+  return row.display_kind === "window" &&
+    (row.capability_ref.endsWith("-5h") || /5小时(?:剩余|已用)/u.test(row.value_display));
+}
+
+function windowFamily(row: Capability): string {
+  const model = row.capability_ref.match(/^(cap-minimax-(?:cn|global)-model-\d+)-/u);
+  return model?.[1] ?? providerName(row.capability_ref);
+}
+
+function windowOrder(row: Capability, sourceIndex: number): [number, number, number] {
+  const model = row.capability_ref.match(/-model-(\d+)-/u);
+  const familyOrder = /^general\s*·/iu.test(row.value_display)
+    ? 0
+    : model ? Number(model[1]) + 1 : 0;
+  const periodOrder = isWeeklyWindow(row) ? 0 : isFiveHourWindow(row) ? 1 : 2;
+  return [familyOrder, periodOrder, sourceIndex];
+}
+
+function compareWindowOrder(
+  left: { row: Capability; sourceIndex: number },
+  right: { row: Capability; sourceIndex: number },
+): number {
+  const a = windowOrder(left.row, left.sourceIndex);
+  const b = windowOrder(right.row, right.sourceIndex);
+  return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+}
+
+function effectiveHealth(row: Capability, exhaustedWeeklyFamilies: ReadonlySet<string>): string {
+  const health = displayedHealth(row);
+  if (health === "ok" && isFiveHourWindow(row) && exhaustedWeeklyFamilies.has(windowFamily(row))) {
+    return "unavailable";
+  }
+  return health;
 }
 
 function Icon({ name }: { name: string }) {
@@ -119,6 +154,7 @@ function StatusPill({ value }: { value: string }) {
     "needs-reauth": "需重新认证",
     ok: "可用",
     exhausted: "已用尽",
+    unavailable: "不可用",
     error: "异常",
     incompatible: "不兼容",
     unsupported: "不支持",
@@ -277,9 +313,7 @@ export function App() {
     rows: filteredCapabilities
       .filter((row) => providerName(row.capability_ref) === provider)
       .map((row, sourceIndex) => ({ row, sourceIndex }))
-      .sort((left, right) =>
-        windowSortValue(right.row) - windowSortValue(left.row) ||
-        left.sourceIndex - right.sourceIndex)
+      .sort(compareWindowOrder)
       .map(({ row }) => row),
   })).filter((group) => group.rows.length > 0), [filteredCapabilities]);
 
@@ -347,28 +381,31 @@ export function App() {
                 <button type="button" className={overviewMode === "wallet" ? "active" : ""} onClick={() => setOverviewMode("wallet")}>Wallet View</button>
               </div>
               <section className="panel quota-panel">
-                <h2>{overviewMode === "window" ? "窗口额度 · 百分比降序" : "Wallet 余额"}</h2>
-                <p className="panel-copy">按 Provider 分组 · 展示官方只读查询投影 · 不跨 Provider 加总</p>
+                <h2>{overviewMode === "window" ? "窗口额度 · 周 → 5小时" : "Wallet 余额"}</h2>
+                <p className="panel-copy">按 Provider 分组 · general 优先 · 展示官方只读查询投影 · 不跨 Provider 加总</p>
                 {groupedCapabilities.length === 0 ? (
                   <div className="inline-empty">当前视图暂无可展示额度</div>
-                ) : groupedCapabilities.map((group) => (
-                  <div className="provider-group" key={group.provider}>
+                ) : groupedCapabilities.map((group) => {
+                  const exhaustedWeeklyFamilies = new Set(group.rows
+                    .filter((row) => isWeeklyWindow(row) && displayedHealth(row) === "exhausted")
+                    .map(windowFamily));
+                  return <div className="provider-group" key={group.provider}>
                     <div className="provider-heading"><strong>{group.provider}</strong><span/></div>
                     {group.rows.map((row, index) => {
                       const progress = windowMetric(row.value_display)?.percentage ?? null;
-                      const displayHealth = displayedHealth(row);
+                      const displayHealth = effectiveHealth(row, exhaustedWeeklyFamilies);
                       return (
-                        <article className={`quota-row ${displayHealth !== "ok" ? "row-error" : ""}`} key={row.capability_ref}>
+                        <article className={`quota-row ${displayHealth !== "ok" ? `row-${displayHealth}` : ""}`} key={row.capability_ref}>
                           <span className="rank">{row.display_kind === "window" ? `#${index + 1}` : "—"}</span>
                           <span className="scope-kind">{row.display_kind === "window" ? "窗口" : "余额"}<small>{row.display_kind === "window" ? "官方周期" : "钱包"}</small></span>
                           <span className="subject">{row.value_display}</span>
-                          {progress === null ? <span className="balance-value">{row.value_display}</span> : <><span className="meter"><i style={{ width: `${progress}%` }}/></span><strong className={`remaining ${displayHealth === "exhausted" ? "depleted" : ""}`}>{progress}%</strong></>}
+                          {progress === null ? <span className="balance-value">{row.value_display}</span> : <><span className="meter"><i style={{ width: `${progress}%` }}/></span><strong className={`remaining ${displayHealth === "exhausted" ? "depleted" : displayHealth === "unavailable" ? "unavailable" : ""}`}>{progress}%</strong></>}
                           <StatusPill value={displayHealth}/>
                         </article>
                       );
                     })}
-                  </div>
-                ))}
+                  </div>;
+                })}
               </section>
             </section>
           )

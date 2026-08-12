@@ -25,6 +25,7 @@ vi.mock("../host/transport", () => ({
           capability_rows: [
             { capability_ref: "cap-1", display_kind: "window", health: "ok", value_display: "72%" },
             { capability_ref: "cap-kimi-code-weekly", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
+            { capability_ref: "cap-kimi-code-limit-0", display_kind: "window", health: "ok", value_display: "5小时剩余 100%" },
             { capability_ref: "cap-kimi-code-injected", display_kind: "window", health: "ok", value_display: "赠送剩余 0%剩余 50%" },
             { capability_ref: "cap-kimi-code-empty", display_kind: "window", health: "ok", value_display: "加赠 80%剩余 0%" },
             { capability_ref: "cap-kimi-code-signed-zero", display_kind: "window", health: "ok", value_display: "旧缓存周剩余 -0%" },
@@ -32,6 +33,10 @@ vi.mock("../host/transport", () => ({
             { capability_ref: "cap-glm-limit", display_kind: "window", health: "ok", value_display: "5小时已用 100%" },
             { capability_ref: "cap-glm-mcp", display_kind: "window", health: "ok", value_display: "MCP月度已用 0%" },
             { capability_ref: "cap-glm-error", display_kind: "window", health: "error", value_display: "5小时已用 100%" },
+            { capability_ref: "cap-minimax-cn-model-0-5h", display_kind: "window", health: "ok", value_display: "general · 5小时剩余 100%" },
+            { capability_ref: "cap-minimax-cn-model-1-5h", display_kind: "window", health: "ok", value_display: "video · 5小时剩余 50%" },
+            { capability_ref: "cap-minimax-cn-model-1-weekly", display_kind: "window", health: "ok", value_display: "video · 周剩余 不限量" },
+            { capability_ref: "cap-minimax-cn-model-0-weekly", display_kind: "window", health: "ok", value_display: "general · 周剩余 0%" },
           ],
           freshness: "fresh",
           scope_ref: "scope-all",
@@ -57,21 +62,34 @@ describe("App", () => {
     const root = createRoot(host);
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(host.textContent).toContain("窗口额度 · 百分比降序");
-    expect(host.querySelectorAll(".status-exhausted")).toHaveLength(4);
-    expect(host.querySelectorAll(".remaining.depleted")).toHaveLength(4);
-    expect(host.querySelectorAll(".status-ok")).toHaveLength(4);
+    expect(host.textContent).toContain("窗口额度 · 周 → 5小时");
+    expect(host.querySelectorAll(".status-unavailable")).toHaveLength(2);
     expect(host.querySelectorAll(".status-error")).toHaveLength(1);
     const kimiRows = [...host.querySelectorAll(".provider-group")]
       .find((node) => node.querySelector(".provider-heading")?.textContent === "Kimi Code")
       ?.querySelectorAll<HTMLElement>(".quota-row");
     expect([...kimiRows ?? []].map((node) => node.querySelector(".subject")?.textContent)).toEqual([
-      "旗舰剩余 0% · 周剩余 不限量",
-      "赠送剩余 0%剩余 50%",
       "周剩余 0%",
-      "加赠 80%剩余 0%",
       "旧缓存周剩余 -0%",
+      "旗舰剩余 0% · 周剩余 不限量",
+      "5小时剩余 100%",
+      "赠送剩余 0%剩余 50%",
+      "加赠 80%剩余 0%",
     ]);
+    expect([...kimiRows ?? []]
+      .find((node) => node.querySelector(".subject")?.textContent === "5小时剩余 100%")
+      ?.querySelector(".status")?.textContent).toContain("不可用");
+    const minimaxRows = [...host.querySelectorAll(".provider-group")]
+      .find((node) => node.querySelector(".provider-heading")?.textContent === "MiniMax")
+      ?.querySelectorAll<HTMLElement>(".quota-row");
+    expect([...minimaxRows ?? []].map((node) => node.querySelector(".subject")?.textContent)).toEqual([
+      "general · 周剩余 0%",
+      "general · 5小时剩余 100%",
+      "video · 周剩余 不限量",
+      "video · 5小时剩余 50%",
+    ]);
+    expect([...minimaxRows ?? []][1]?.querySelector(".status")?.textContent).toContain("不可用");
+    expect([...minimaxRows ?? []][3]?.querySelector(".status")?.textContent).toContain("可用");
     expect(host.querySelectorAll(".nav-item")).toHaveLength(5);
 
     const accounts = [...host.querySelectorAll("button")].find((node) =>

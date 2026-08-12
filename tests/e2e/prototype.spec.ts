@@ -18,7 +18,7 @@ async function expectDesktopSidebar(page: Page) {
 test("prototype covers primary navigation and host-owned actions", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "额度总览", level: 1 })).toBeVisible();
-  await expect(page.getByText("窗口额度 · 百分比降序")).toBeVisible();
+  await expect(page.getByText("窗口额度 · 周 → 5小时")).toBeVisible();
   await expect(page.locator("[data-transport=fixture]")).toBeVisible();
 
   await page.getByRole("button", { name: "账户与 Provider" }).click();
