@@ -313,6 +313,7 @@ class NativeControlPlane:
             if account["lifecycle"] == "disabled":
                 continue
             principal = cast(str, account["principal_ref"])
+            account_identity = hashlib.sha256(principal.encode()).hexdigest()[:24]
             sources = cast(list[dict[str, str]], account["quota_projection"])
             if (
                 not sources
@@ -332,17 +333,16 @@ class NativeControlPlane:
                     f"{principal}\0{source['capability_ref']}".encode()
                 ).hexdigest()[:24]
                 provider_id = cast(str, account["provider_id"])
-                semantic_suffix = ""
                 minimax_window = MINIMAX_WINDOW_REF_PATTERN.fullmatch(
                     source["capability_ref"]
                 )
                 if minimax_window is not None:
-                    semantic_suffix = (
-                        f"-model-{minimax_window.group(1)}-{minimax_window.group(2)}"
+                    row["capability_ref"] = (
+                        f"cap-{provider_id}-row-{identity}-account-{account_identity}-"
+                        f"model-{minimax_window.group(1)}-{minimax_window.group(2)}"
                     )
-                row["capability_ref"] = (
-                    f"cap-{provider_id}-account-{identity}{semantic_suffix}"
-                )
+                else:
+                    row["capability_ref"] = f"cap-{provider_id}-account-{identity}"
                 rows.append(row)
             if sources:
                 refreshed.append(cast(int, account["last_refresh_epoch_ms"]))

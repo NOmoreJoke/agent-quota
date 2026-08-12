@@ -587,12 +587,13 @@ def test_minimax_projection_preserves_only_bounded_window_semantics(tmp_path: Pa
         ),
     )
     rows = control.quota_projection("scope-all")["capability_rows"]
-    assert [row["capability_ref"].rsplit("-account-", 1)[1][24:] for row in rows] == [
-        "-model-0-5h",
-        "-model-0-weekly",
-        "-model-1-5h",
-        "-model-1-weekly",
+    refs = [row["capability_ref"] for row in rows]
+    account_markers = [ref.split("-account-", 1)[1].split("-model-", 1)[0] for ref in refs]
+    assert len(set(account_markers)) == 1
+    assert [ref.rsplit("-model-", 1)[1] for ref in refs] == [
+        "0-5h", "0-weekly", "1-5h", "1-weekly",
     ]
+    assert all("-row-" in ref and len(ref.split("-row-", 1)[1].split("-", 1)[0]) == 24 for ref in refs)
     assert all("alpha" not in row["capability_ref"] for row in rows)
 
 
