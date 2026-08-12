@@ -25,7 +25,9 @@ vi.mock("../host/transport", () => ({
           capability_rows: [
             { capability_ref: "cap-1", display_kind: "window", health: "ok", value_display: "72%" },
             { capability_ref: "cap-kimi-code-weekly", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
-            { capability_ref: "cap-kimi-code-limit-0", display_kind: "window", health: "ok", value_display: "5小时剩余 100%" },
+            { capability_ref: "cap-kimi-code-limit-0-5h", display_kind: "window", health: "ok", value_display: "5小时剩余 100%" },
+            { capability_ref: "cap-kimi-code-row-555555555555555555555555-account-aaaaaaaaaaaaaaaaaaaaaaaa", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
+            { capability_ref: "cap-kimi-code-row-666666666666666666666666-account-aaaaaaaaaaaaaaaaaaaaaaaa", display_kind: "window", health: "ok", value_display: "5小时剩余 0%" },
             { capability_ref: "cap-kimi-code-row-111111111111111111111111-account-aaaaaaaaaaaaaaaaaaaaaaaa-weekly", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
             { capability_ref: "cap-kimi-code-row-222222222222222222222222-account-aaaaaaaaaaaaaaaaaaaaaaaa-5h", display_kind: "window", health: "ok", value_display: "general · 剩余 0%剩余 100%" },
             { capability_ref: "cap-kimi-code-row-333333333333333333333333-account-bbbbbbbbbbbbbbbbbbbbbbbb-weekly", display_kind: "window", health: "ok", value_display: "周剩余 100%" },
@@ -74,13 +76,15 @@ describe("App", () => {
       ?.querySelectorAll<HTMLElement>(".quota-row");
     expect([...kimiRows ?? []].map((node) => node.querySelector(".subject")?.textContent)).toEqual([
       "周剩余 0%",
-      "旧缓存周剩余 -0%",
-      "旗舰剩余 0% · 周剩余 不限量",
       "5小时剩余 100%",
       "赠送剩余 0%剩余 50%",
       "加赠 80%剩余 0%",
+      "旧缓存周剩余 -0%",
+      "旗舰剩余 0% · 周剩余 不限量",
       "周剩余 0%",
       "general · 剩余 0%剩余 100%",
+      "周剩余 0%",
+      "5小时剩余 0%",
       "周剩余 100%",
       "5小时剩余 100%",
     ]);

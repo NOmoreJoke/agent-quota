@@ -441,7 +441,7 @@ def _glm(document: dict[str, object], provider_id: str) -> tuple[dict[str, str],
         rows.append(
             _row(
                 provider_id,
-                f"limit-{index}",
+                f"limit-{index}" + ("-5h" if kind == "TOKENS_LIMIT" else ""),
                 "window",
                 f"{label} {_percentage(item.get('percentage'))}",
             )

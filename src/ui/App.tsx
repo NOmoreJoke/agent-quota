@@ -86,13 +86,11 @@ function displayedHealth(row: Capability): string {
 }
 
 function isWeeklyWindow(row: Capability): boolean {
-  return row.display_kind === "window" &&
-    (row.capability_ref.includes("weekly") || /周剩余\s*(?:[+-]?\d+(?:\.\d+)?%|不限量)\s*$/u.test(row.value_display));
+  return row.display_kind === "window" && row.capability_ref.endsWith("-weekly");
 }
 
 function isFiveHourWindow(row: Capability): boolean {
-  return row.display_kind === "window" &&
-    (row.capability_ref.endsWith("-5h") || /5小时(?:剩余|已用)/u.test(row.value_display));
+  return row.display_kind === "window" && row.capability_ref.endsWith("-5h");
 }
 
 function windowFamily(row: Capability): string {
