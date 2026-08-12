@@ -336,7 +336,7 @@ def test_kimi_code_token_plan_projection() -> None:
     ]
 
 
-def test_kimi_code_named_window_without_summary_or_wallet() -> None:
+def test_kimi_code_named_window_without_weekly_summary_fails_closed() -> None:
     result = parse_provider_response(
         "kimi-code",
         200,
@@ -352,8 +352,8 @@ def test_kimi_code_named_window_without_summary_or_wallet() -> None:
             }
         ),
     )
-    assert result.ok
-    assert result.rows[0]["value_display"] == "短窗口剩余 0%"
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
 
 
 @pytest.mark.parametrize("remaining", [-0.0, "-0", "-0.0"])
@@ -402,6 +402,26 @@ def test_kimi_code_normalizes_signed_zero_as_depleted(remaining: object) -> None
 )
 def test_kimi_code_malformed_shapes_fail_closed(document: object) -> None:
     result = parse_provider_response("kimi-code", 200, encoded(document))
+    assert result.safe_error_code == "contract-error"
+
+
+def test_kimi_code_missing_weekly_usage_fails_closed() -> None:
+    result = parse_provider_response(
+        "kimi-code",
+        200,
+        encoded(
+            {
+                "limits": [
+                    {
+                        "name": "general",
+                        "window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"},
+                        "detail": {"limit": 100, "remaining": 100},
+                    }
+                ]
+            }
+        ),
+    )
+    assert not result.ok
     assert result.safe_error_code == "contract-error"
 
 

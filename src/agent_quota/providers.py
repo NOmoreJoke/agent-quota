@@ -297,15 +297,16 @@ def _usage_remaining_percentage(detail: dict[str, object]) -> str:
 def _kimi_code(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     rows: list[dict[str, str]] = []
     summary = document.get("usage")
-    if isinstance(summary, dict):
-        rows.append(
-            _row(
-                "kimi-code",
-                "weekly",
-                "window",
-                f"周剩余 {_usage_remaining_percentage(summary)}",
-            )
+    if not isinstance(summary, dict):
+        raise ValueError("Kimi Code weekly usage mismatch")
+    rows.append(
+        _row(
+            "kimi-code",
+            "weekly",
+            "window",
+            f"周剩余 {_usage_remaining_percentage(summary)}",
         )
+    )
 
     limits = document.get("limits")
     if not isinstance(limits, list):

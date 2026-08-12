@@ -642,6 +642,72 @@ def test_kimi_code_window_projection_isolates_account_families(tmp_path: Path) -
     assert len(set(account_markers)) == 2
 
 
+def test_kimi_code_missing_weekly_is_stale_and_preserves_lkg(tmp_path: Path) -> None:
+    root = (tmp_path / "private").absolute()
+    control = NativeControlPlane(root)
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="kimi-code",
+    )
+    _, generation, provider = control.credential_context(created.principal_ref)
+    missing_weekly = provider_body(
+        {
+            "limits": [
+                {
+                    "name": "general",
+                    "window": {"duration": 5, "timeUnit": "TIME_UNIT_HOUR"},
+                    "detail": {"limit": 100, "remaining": 100},
+                }
+            ]
+        }
+    )
+    assert control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=missing_weekly,
+    ) == ("contract-error", False)
+    assert control.quota_projection("scope-all") == {
+        "capability_rows": [], "freshness": "stale", "scope_ref": "scope-all",
+    }
+    control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {
+                "usage": {"limit": 100, "remaining": 0},
+                "limits": [
+                    {
+                        "name": "general",
+                        "window": {"duration": 5, "timeUnit": "TIME_UNIT_HOUR"},
+                        "detail": {"limit": 100, "remaining": 100},
+                    }
+                ],
+            }
+        ),
+    )
+    lkg = control.quota_projection("scope-all")["capability_rows"]
+    assert len(lkg) == 2
+    assert control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=missing_weekly,
+    ) == ("contract-error", False)
+    assert control.quota_projection("scope-all")["capability_rows"] == lkg
+    assert control.quota_projection("scope-all")["freshness"] == "stale"
+    restored = NativeControlPlane(root)
+    assert restored.quota_projection("scope-all")["capability_rows"] == lkg
+    assert restored.quota_projection("scope-all")["freshness"] == "stale"
+
+
 def test_scope_all_is_stale_when_any_displayed_account_is_expired(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)
