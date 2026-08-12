@@ -395,6 +395,45 @@ def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_pa
     assert restored.renderer_accounts()[0]["lifecycle"] == "needs-reauth"
 
 
+def test_huge_decimal_exponent_fails_without_losing_control_session(tmp_path: Path) -> None:
+    control = NativeControlPlane((tmp_path / "private").absolute())
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="deepseek",
+    )
+    _, generation, provider = control.credential_context(created.principal_ref)
+    error, retryable = control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "CNY", "total_balance": "1e20000000"}],
+            }
+        ),
+    )
+    assert (error, retryable) == ("contract-error", False)
+    error, retryable = control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}],
+            }
+        ),
+    )
+    assert (error, retryable) == (None, False)
+    assert control.quota_projection(created.principal_ref)["freshness"] == "fresh"
+
+
 def test_reauth_failure_is_sticky_across_restart_and_queued_failures(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)

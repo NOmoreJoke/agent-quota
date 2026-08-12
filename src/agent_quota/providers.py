@@ -154,12 +154,14 @@ def _decimal(value: object) -> Decimal:
         number = Decimal(str(value))
     except InvalidOperation as error:
         raise ValueError("invalid decimal") from error
-    if not number.is_finite() or abs(number) > Decimal("1e30"):
+    if not number.is_finite():
         raise ValueError("invalid decimal")
-    if number == 0:
+    if number.is_zero():
         return Decimal(0)
     _, digits, exponent = number.as_tuple()
     if not isinstance(exponent, int) or len(digits) > 128 or exponent < -128 or exponent > 30:
+        raise ValueError("invalid decimal")
+    if number.copy_abs() > Decimal("1e30"):
         raise ValueError("invalid decimal")
     return number
 

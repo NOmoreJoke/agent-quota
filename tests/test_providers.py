@@ -69,7 +69,10 @@ def test_deepseek_balance_projection() -> None:
     assert result.rows[0]["value_display"] == "CNY 110 可用"
 
 
-@pytest.mark.parametrize("amount", ["1e-129", "1e-20000000", "-1e-20000000"])
+@pytest.mark.parametrize(
+    "amount",
+    ["1e-129", "1e-20000000", "-1e-20000000", "1e20000000", "-1e20000000"],
+)
 def test_decimal_exponent_is_rejected_before_fixed_point_expansion(amount: str) -> None:
     result = parse_provider_response(
         "deepseek",
@@ -81,6 +84,76 @@ def test_decimal_exponent_is_rejected_before_fixed_point_expansion(amount: str) 
             }
         ),
     )
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
+
+
+@pytest.mark.parametrize("amount", ["0e20000000", "-0e20000000", "0e-20000000"])
+def test_zero_with_huge_exponent_is_normalized_without_context_overflow(amount: str) -> None:
+    result = parse_provider_response(
+        "deepseek",
+        200,
+        encoded(
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "CNY", "total_balance": amount}],
+            }
+        ),
+    )
+    assert result.ok
+    assert result.rows[0]["value_display"] == "CNY 0 可用"
+
+
+@pytest.mark.parametrize(
+    ("provider", "document"),
+    [
+        (
+            "deepseek",
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "CNY", "total_balance": "1e20000000"}],
+            },
+        ),
+        ("kimi-cn", {"code": 0, "data": {"available_balance": "1e20000000"}}),
+        (
+            "bailian-wallet",
+            {
+                "Code": "200",
+                "Success": True,
+                "Data": {"Currency": "CNY", "AvailableAmount": "1e20000000"},
+            },
+        ),
+        ("volc-wallet", {"Result": {"AvailableBalance": "1e20000000"}}),
+        ("kimi-code", {"usage": {"remaining": 1, "limit": "1e20000000"}, "limits": []}),
+        (
+            "minimax-cn",
+            {
+                "base_resp": {"status_code": 0},
+                "model_remains": [
+                    {
+                        "model_name": "general",
+                        "current_interval_remaining_percent": "1e20000000",
+                        "current_weekly_status": 3,
+                    }
+                ],
+            },
+        ),
+        ("glm-cn", {"data": {"limits": [{"type": "TOKENS_LIMIT", "percentage": "1e20000000"}]}}),
+        (
+            "volc-plan",
+            {
+                "Result": {
+                    "AFPFiveHour": {"Used": 0, "Quota": "1e20000000"},
+                    "AFPWeekly": {"Used": 0, "Quota": 1},
+                }
+            },
+        ),
+    ],
+)
+def test_all_numeric_provider_paths_fail_closed_on_huge_exponent(
+    provider: str, document: object
+) -> None:
+    result = parse_provider_response(provider, 200, encoded(document))
     assert not result.ok
     assert result.safe_error_code == "contract-error"
 
