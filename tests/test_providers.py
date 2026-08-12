@@ -69,6 +69,22 @@ def test_deepseek_balance_projection() -> None:
     assert result.rows[0]["value_display"] == "CNY 110 可用"
 
 
+@pytest.mark.parametrize("amount", ["1e-129", "1e-20000000", "-1e-20000000"])
+def test_decimal_exponent_is_rejected_before_fixed_point_expansion(amount: str) -> None:
+    result = parse_provider_response(
+        "deepseek",
+        200,
+        encoded(
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "CNY", "total_balance": amount}],
+            }
+        ),
+    )
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
+
+
 def test_volcengine_wallet_projection() -> None:
     result = parse_provider_response(
         "volc-wallet",
