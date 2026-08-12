@@ -341,6 +341,10 @@ class NativeControlPlane:
                         f"cap-{provider_id}-row-{identity}-account-{account_identity}-"
                         f"model-{minimax_window.group(1)}-{minimax_window.group(2)}"
                     )
+                elif source["display_kind"] == "window":
+                    row["capability_ref"] = (
+                        f"cap-{provider_id}-row-{identity}-account-{account_identity}"
+                    )
                 else:
                     row["capability_ref"] = f"cap-{provider_id}-account-{identity}"
                 rows.append(row)

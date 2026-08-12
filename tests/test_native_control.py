@@ -597,6 +597,46 @@ def test_minimax_projection_preserves_only_bounded_window_semantics(tmp_path: Pa
     assert all("alpha" not in row["capability_ref"] for row in rows)
 
 
+def test_kimi_code_window_projection_isolates_account_families(tmp_path: Path) -> None:
+    control = NativeControlPlane((tmp_path / "private").absolute())
+    account_markers: list[str] = []
+    for seed, weekly_remaining in ((1, 0), (2, 100)):
+        created = control.commit_credential(
+            purpose="create-credential-reference",
+            credential_reference=reference(seed),
+            principal_ref=None,
+            expected_generation=None,
+            provider_id="kimi-code",
+        )
+        _, generation, provider = control.credential_context(created.principal_ref)
+        control.commit_provider_response(
+            principal_ref=created.principal_ref,
+            expected_generation=generation,
+            provider_id=provider,
+            http_status=200,
+            body_base64=provider_body(
+                {
+                    "usage": {"limit": 100, "remaining": weekly_remaining},
+                    "limits": [
+                        {
+                            "name": "5小时",
+                            "window": {"duration": 5, "timeUnit": "TIME_UNIT_HOUR"},
+                            "detail": {"limit": 100, "remaining": 100},
+                        }
+                    ],
+                }
+            ),
+        )
+        refs = [
+            row["capability_ref"]
+            for row in control.quota_projection(created.principal_ref)["capability_rows"]
+        ]
+        markers = {ref.rsplit("-account-", 1)[1] for ref in refs}
+        assert len(markers) == 1
+        account_markers.extend(markers)
+    assert len(set(account_markers)) == 2
+
+
 def test_scope_all_is_stale_when_any_displayed_account_is_expired(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)
