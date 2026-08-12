@@ -169,6 +169,8 @@ def _percentage(value: object) -> str:
     number = _decimal(value)
     if not Decimal(0) <= number <= Decimal(100):
         raise ValueError("invalid percentage")
+    if number == 0:
+        number = Decimal(0)
     return f"{_number_display(number)}%"
 
 

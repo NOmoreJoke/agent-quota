@@ -70,7 +70,7 @@ function providerFromAccount(label: string): string {
 type WindowMetric = { mode: "remaining" | "used"; percentage: number };
 
 function windowMetric(value: string): WindowMetric | null {
-  const match = value.match(/(剩余|已用)\s*(\d+(?:\.\d+)?)%\s*$/u);
+  const match = value.match(/(剩余|已用)\s*([+-]?\d+(?:\.\d+)?)%\s*$/u);
   if (!match) return null;
   const number = Number(match[2]);
   if (!Number.isFinite(number) || number < 0 || number > 100) return null;

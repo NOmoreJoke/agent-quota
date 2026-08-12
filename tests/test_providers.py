@@ -240,6 +240,17 @@ def test_kimi_code_named_window_without_summary_or_wallet() -> None:
     assert result.rows[0]["value_display"] == "短窗口剩余 0%"
 
 
+@pytest.mark.parametrize("remaining", [-0.0, "-0", "-0.0"])
+def test_kimi_code_normalizes_signed_zero_as_depleted(remaining: object) -> None:
+    result = parse_provider_response(
+        "kimi-code",
+        200,
+        encoded({"usage": {"remaining": remaining, "limit": 100}, "limits": []}),
+    )
+    assert result.ok
+    assert result.rows[0]["value_display"] == "周剩余 0%"
+
+
 @pytest.mark.parametrize(
     "document",
     [
@@ -304,6 +315,27 @@ def test_minimax_token_plan_projection(provider: str) -> None:
         "MiniMax-M2.7 · 5小时剩余 80%",
         "MiniMax-M2.7 · 周剩余 70%",
     ]
+
+
+def test_minimax_normalizes_signed_zero_as_depleted() -> None:
+    result = parse_provider_response(
+        "minimax-cn",
+        200,
+        encoded(
+            {
+                "base_resp": {"status_code": 0},
+                "model_remains": [
+                    {
+                        "model_name": "general",
+                        "current_interval_remaining_percent": "-0",
+                        "current_weekly_status": 3,
+                    }
+                ],
+            }
+        ),
+    )
+    assert result.ok
+    assert result.rows[0]["value_display"] == "general · 5小时剩余 0%"
 
 
 @pytest.mark.parametrize("provider", ["glm-cn", "glm-global"])

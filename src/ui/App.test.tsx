@@ -27,6 +27,7 @@ vi.mock("../host/transport", () => ({
             { capability_ref: "cap-kimi-code-weekly", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
             { capability_ref: "cap-kimi-code-injected", display_kind: "window", health: "ok", value_display: "赠送剩余 0%剩余 50%" },
             { capability_ref: "cap-kimi-code-empty", display_kind: "window", health: "ok", value_display: "加赠 80%剩余 0%" },
+            { capability_ref: "cap-kimi-code-signed-zero", display_kind: "window", health: "ok", value_display: "旧缓存周剩余 -0%" },
             { capability_ref: "cap-kimi-code-unlimited", display_kind: "window", health: "ok", value_display: "旗舰剩余 0% · 周剩余 不限量" },
             { capability_ref: "cap-glm-limit", display_kind: "window", health: "ok", value_display: "5小时已用 100%" },
             { capability_ref: "cap-glm-mcp", display_kind: "window", health: "ok", value_display: "MCP月度已用 0%" },
@@ -57,8 +58,8 @@ describe("App", () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(host.textContent).toContain("窗口额度 · 百分比降序");
-    expect(host.querySelectorAll(".status-exhausted")).toHaveLength(3);
-    expect(host.querySelectorAll(".remaining.depleted")).toHaveLength(3);
+    expect(host.querySelectorAll(".status-exhausted")).toHaveLength(4);
+    expect(host.querySelectorAll(".remaining.depleted")).toHaveLength(4);
     expect(host.querySelectorAll(".status-ok")).toHaveLength(4);
     expect(host.querySelectorAll(".status-error")).toHaveLength(1);
     const kimiRows = [...host.querySelectorAll(".provider-group")]
@@ -69,6 +70,7 @@ describe("App", () => {
       "赠送剩余 0%剩余 50%",
       "周剩余 0%",
       "加赠 80%剩余 0%",
+      "旧缓存周剩余 -0%",
     ]);
     expect(host.querySelectorAll(".nav-item")).toHaveLength(5);
 
