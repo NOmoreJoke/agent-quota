@@ -18,6 +18,27 @@ def encoded_raw(raw: bytes) -> str:
     return base64.b64encode(raw).decode()
 
 
+def deepseek_document(
+    total: str = "1",
+    *,
+    available: bool = True,
+    currency: str = "CNY",
+    granted: str = "0",
+    topped_up: str | None = None,
+) -> dict[str, object]:
+    return {
+        "is_available": available,
+        "balance_infos": [
+            {
+                "currency": currency,
+                "total_balance": total,
+                "granted_balance": granted,
+                "topped_up_balance": total if topped_up is None else topped_up,
+            }
+        ],
+    }
+
+
 def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
     fixture_root = Path(__file__).parent / "fixtures/providers"
     recordings = [json.loads(path.read_text()) for path in sorted(fixture_root.glob("*.json"))]
@@ -62,13 +83,7 @@ def test_json_nesting_scan_ignores_brackets_inside_escaped_strings() -> None:
     result = parse_provider_response(
         "deepseek",
         200,
-        encoded(
-            {
-                "is_available": True,
-                "metadata": '[{}]\\"',
-                "balance_infos": [{"currency": "CNY", "total_balance": "1"}],
-            }
-        ),
+        encoded({**deepseek_document(), "metadata": '[{}]\\"'}),
     )
     assert result.ok
     assert result.rows[0]["value_display"] == "CNY 1 可用"
@@ -97,6 +112,102 @@ def test_deepseek_balance_projection() -> None:
 
 
 @pytest.mark.parametrize(
+    "document",
+    [
+        deepseek_document("-1"),
+        deepseek_document("1e2"),
+        deepseek_document("01"),
+        deepseek_document("1."),
+        deepseek_document("1." + "0" * 19),
+        deepseek_document("1" * 39),
+        deepseek_document("1", currency="BTC"),
+        {
+            "is_available": True,
+            "balance_infos": [
+                {
+                    "currency": [],
+                    "total_balance": "1",
+                    "granted_balance": "0",
+                    "topped_up_balance": "1",
+                }
+            ],
+        },
+        {
+            "is_available": True,
+            "balance_infos": [
+                {
+                    "currency": {},
+                    "total_balance": "1",
+                    "granted_balance": "0",
+                    "topped_up_balance": "1",
+                }
+            ],
+        },
+        deepseek_document("1", topped_up="2"),
+        {
+            "is_available": True,
+            "balance_infos": [
+                {
+                    "currency": "CNY",
+                    "total_balance": "1",
+                    "granted_balance": "0",
+                    "topped_up_balance": "1",
+                },
+                {
+                    "currency": "CNY",
+                    "total_balance": "1",
+                    "granted_balance": "0",
+                    "topped_up_balance": "1",
+                },
+            ],
+        },
+        {
+            "is_available": True,
+            "balance_infos": [
+                {
+                    "currency": currency,
+                    "total_balance": "1",
+                    "granted_balance": "0",
+                    "topped_up_balance": "1",
+                }
+                for currency in ("CNY", "USD", "CNY")
+            ],
+        },
+        {
+            "is_available": True,
+            "balance_infos": [{"currency": "CNY", "total_balance": "1", "topped_up_balance": "1"}],
+        },
+        {
+            "is_available": True,
+            "balance_infos": [
+                {
+                    "currency": "CNY",
+                    "total_balance": 1,
+                    "granted_balance": "0",
+                    "topped_up_balance": "1",
+                }
+            ],
+        },
+    ],
+)
+def test_deepseek_semantic_schema_fails_closed(document: object) -> None:
+    result = parse_provider_response("deepseek", 200, encoded(document))
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
+
+
+def test_deepseek_supports_38_significant_digits_without_rounding() -> None:
+    total = "99999999999999999999.999999999999999999"
+    result = parse_provider_response(
+        "deepseek",
+        200,
+        encoded(deepseek_document(total, granted=total, topped_up="0")),
+    )
+    assert result.ok
+    assert result.rows[0]["value_display"] == f"CNY {total} 可用"
+
+
+@pytest.mark.parametrize(
     "amount",
     ["1e-129", "1e-20000000", "-1e-20000000", "1e20000000", "-1e20000000"],
 )
@@ -116,7 +227,7 @@ def test_decimal_exponent_is_rejected_before_fixed_point_expansion(amount: str) 
 
 
 @pytest.mark.parametrize("amount", ["0e20000000", "-0e20000000", "0e-20000000"])
-def test_zero_with_huge_exponent_is_normalized_without_context_overflow(amount: str) -> None:
+def test_deepseek_zero_with_exponent_is_rejected(amount: str) -> None:
     result = parse_provider_response(
         "deepseek",
         200,
@@ -127,8 +238,8 @@ def test_zero_with_huge_exponent_is_normalized_without_context_overflow(amount: 
             }
         ),
     )
-    assert result.ok
-    assert result.rows[0]["value_display"] == "CNY 0 可用"
+    assert not result.ok
+    assert result.safe_error_code == "contract-error"
 
 
 @pytest.mark.parametrize(
@@ -582,12 +693,7 @@ def test_deepseek_unavailable_marks_row_error() -> None:
     result = parse_provider_response(
         "deepseek",
         200,
-        encoded(
-            {
-                "is_available": False,
-                "balance_infos": [{"currency": "USD", "total_balance": "0"}],
-            }
-        ),
+        encoded(deepseek_document("0", available=False, currency="USD")),
     )
     assert result.rows[0]["health"] == "error"
 

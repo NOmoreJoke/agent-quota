@@ -257,9 +257,10 @@ def _validate_internal_request(command_id: str, payload: dict[str, object]) -> N
     elif command_id == "host_internal.credential_context":
         _exact(payload, {"principal_ref"})
         _bounded_string(payload["principal_ref"])
-    elif command_id == "host_internal.credential_candidate_create":
-        _exact(payload, set())
-    elif command_id == "host_internal.credential_prepare":
+    elif command_id in {
+        "host_internal.credential_candidate_create",
+        "host_internal.credential_prepare",
+    }:
         _exact(payload, {"credential_reference"})
         _bounded_string(payload["credential_reference"])
     elif command_id == "host_internal.credential_commit":
@@ -423,8 +424,9 @@ def _internal_dispatch(
                 "status": "ok",
             }
         if command_id == "host_internal.credential_candidate_create":
+            candidate = native.create_credential_candidate(str(payload["credential_reference"]))
             return {
-                "credential_reference": native.create_credential_candidate(),
+                "credential_reference": candidate,
                 "status": "prepared",
             }
         if command_id == "host_internal.credential_prepare":

@@ -333,9 +333,7 @@ class NativeControlPlane:
                     f"{principal}\0{source['capability_ref']}".encode()
                 ).hexdigest()[:24]
                 provider_id = cast(str, account["provider_id"])
-                minimax_window = MINIMAX_WINDOW_REF_PATTERN.fullmatch(
-                    source["capability_ref"]
-                )
+                minimax_window = MINIMAX_WINDOW_REF_PATTERN.fullmatch(source["capability_ref"])
                 if minimax_window is not None:
                     row["capability_ref"] = (
                         f"cap-{provider_id}-row-{identity}-account-{account_identity}-"
@@ -462,22 +460,17 @@ class NativeControlPlane:
         self._state["generation"] = next_generation
         self._persist()
 
-    def create_credential_candidate(self) -> str:
-        for _ in range(128):
-            token = secrets.token_hex(16)
-            candidate = (
-                f"credential-{token[:8]}-{token[8:12]}-{token[12:16]}-{token[16:20]}-{token[20:]}"
-            )
-            if candidate in self.pending_keychain_deletions or any(
-                account["credential_reference"] == candidate for account in self.accounts
-            ):
-                continue
-            next_generation = self._next_generation()
-            self._queue_keychain_deletion(candidate)
-            self._state["generation"] = next_generation
-            self._persist()
-            return candidate
-        raise RuntimeError("credential candidate generation exhausted")
+    def create_credential_candidate(self, credential_reference: str) -> str:
+        self._validate_reference(credential_reference)
+        if credential_reference in self.pending_keychain_deletions or any(
+            account["credential_reference"] == credential_reference for account in self.accounts
+        ):
+            raise ValueError("credential candidate already tracked")
+        next_generation = self._next_generation()
+        self._queue_keychain_deletion(credential_reference)
+        self._state["generation"] = next_generation
+        self._persist()
+        return credential_reference
 
     def commit_prepared_credential(
         self,

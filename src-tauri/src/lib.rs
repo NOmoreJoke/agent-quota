@@ -22,6 +22,8 @@ use native::{NativeError, NativeHost};
 #[cfg(feature = "production")]
 use resource::ValidatedResources;
 use serde_json::{Value, json};
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -199,19 +201,51 @@ fn cleanup_references(state: &State<'_, HostState>, references: &Value) -> bool 
     .is_ok()
 }
 
+fn format_credential_candidate(mut bytes: [u8; 16]) -> String {
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    let hex = bytes
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!(
+        "credential-{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    )
+}
+
+fn host_credential_candidate() -> Result<String, SupervisorError> {
+    let mut bytes = [0_u8; 16];
+    File::open("/dev/urandom")
+        .and_then(|mut source| source.read_exact(&mut bytes))
+        .map_err(|_| SupervisorError::Protocol)?;
+    Ok(format_credential_candidate(bytes))
+}
+
+fn bind_credential_candidate(reference: &str, result: &Value) -> Result<(), SupervisorError> {
+    if result["status"] != "prepared" || result["credential_reference"].as_str() != Some(reference)
+    {
+        return Err(SupervisorError::Protocol);
+    }
+    Ok(())
+}
+
 fn create_credential_candidate(state: &State<'_, HostState>) -> Result<String, SupervisorError> {
+    let reference = host_credential_candidate()?;
     let result = call_internal(
         state,
         "host_internal.credential_candidate_create",
-        json!({}),
+        json!({"credential_reference": reference}),
     )?;
-    if result["status"] != "prepared" {
-        return Err(SupervisorError::Protocol);
+    if let Err(error) = bind_credential_candidate(&reference, &result) {
+        let _ = cleanup_credential_candidate(state, &reference);
+        return Err(error);
     }
-    result["credential_reference"]
-        .as_str()
-        .map(str::to_owned)
-        .ok_or(SupervisorError::Protocol)
+    Ok(reference)
 }
 
 fn cleanup_credential_candidate(state: &State<'_, HostState>, reference: &str) -> bool {
@@ -979,6 +1013,32 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn credential_candidate_format_is_host_owned_uuid_v4() {
+        let reference = format_credential_candidate([0xff; 16]);
+        assert_eq!(reference, "credential-ffffffff-ffff-4fff-bfff-ffffffffffff");
+    }
+
+    #[test]
+    fn credential_candidate_binding_rejects_sidecar_selected_reference() {
+        let host_reference = "credential-00000000-0000-4000-8000-000000000001";
+        let active_reference = "credential-00000000-0000-4000-8000-000000000002";
+        assert!(
+            bind_credential_candidate(
+                host_reference,
+                &json!({"credential_reference": host_reference, "status": "prepared"})
+            )
+            .is_ok()
+        );
+        assert!(matches!(
+            bind_credential_candidate(
+                host_reference,
+                &json!({"credential_reference": active_reference, "status": "prepared"})
+            ),
+            Err(SupervisorError::Protocol)
+        ));
+    }
 
     #[test]
     fn unavailable_responses_remain_inside_all_command_contracts() {

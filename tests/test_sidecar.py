@@ -193,14 +193,18 @@ def test_internal_credential_and_destructive_commands_are_host_only(tmp_path: Pa
     secret = b"i" * 32
     native = NativeControlPlane((tmp_path / "private").absolute())
     session = SidecarSession(secret, RendererContract(), native)
-    session.dispatch(
+    candidate = session.dispatch(
         envelope(
             secret,
             request_id=1,
-            command_id="host_internal.credential_prepare",
+            command_id="host_internal.credential_candidate_create",
             payload={"credential_reference": "credential-00000000-0000-4000-8000-000000000001"},
         )
-    )
+    )["response"]
+    assert candidate == {
+        "credential_reference": "credential-00000000-0000-4000-8000-000000000001",
+        "status": "prepared",
+    }
     created = session.dispatch(
         envelope(
             secret,
@@ -385,7 +389,14 @@ def test_internal_provider_response_is_fenced_persisted_and_renderer_safe(tmp_pa
         json.dumps(
             {
                 "is_available": True,
-                "balance_infos": [{"currency": "USD", "total_balance": "7"}],
+                "balance_infos": [
+                    {
+                        "currency": "USD",
+                        "total_balance": "7",
+                        "granted_balance": "0",
+                        "topped_up_balance": "7",
+                    }
+                ],
             }
         ).encode()
     ).decode()
@@ -508,7 +519,17 @@ def test_deep_provider_json_fails_without_losing_sidecar_session(tmp_path: Path)
     }
     good_body = base64.b64encode(
         json.dumps(
-            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": 1}]}
+            {
+                "is_available": True,
+                "balance_infos": [
+                    {
+                        "currency": "CNY",
+                        "total_balance": "1",
+                        "granted_balance": "0",
+                        "topped_up_balance": "1",
+                    }
+                ],
+            }
         ).encode()
     ).decode()
     accepted = session.dispatch(

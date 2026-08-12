@@ -5,12 +5,14 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import re
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 from typing import Final
 
 MAX_PROVIDER_BODY_BYTES: Final = 256 * 1024
 MAX_PROVIDER_JSON_DEPTH: Final = 64
+DEEPSEEK_DECIMAL_PATTERN: Final = re.compile(r"^(0|[1-9][0-9]{0,37})(\.[0-9]{1,18})?$")
 PROVIDER_IDS: Final = frozenset(
     {
         "deepseek",
@@ -167,10 +169,24 @@ def _decimal(value: object) -> Decimal:
     return number
 
 
-def _number_display(value: object) -> str:
-    number = _decimal(value)
+def _decimal_display(number: Decimal) -> str:
     rendered = format(number, "f")
     return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
+
+
+def _number_display(value: object) -> str:
+    return _decimal_display(_decimal(value))
+
+
+def _deepseek_decimal(value: object) -> Decimal:
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value) <= 58
+        or not DEEPSEEK_DECIMAL_PATTERN.fullmatch(value)
+        or len(value.replace(".", "").lstrip("0")) > 38
+    ):
+        raise ValueError("DeepSeek amount mismatch")
+    return Decimal(value)
 
 
 def _percentage(value: object) -> str:
@@ -235,17 +251,38 @@ def _decode_json(body_base64: str) -> dict[str, object]:
 def _deepseek(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     available = document.get("is_available")
     balances = document.get("balance_infos")
-    if not isinstance(available, bool) or not isinstance(balances, list) or not balances:
+    if (
+        not isinstance(available, bool)
+        or not isinstance(balances, list)
+        or not 1 <= len(balances) <= 2
+    ):
         raise ValueError("DeepSeek response mismatch")
     rows: list[dict[str, str]] = []
-    for index, item in enumerate(balances[:16]):
+    currencies: set[str] = set()
+    for index, item in enumerate(balances):
         if not isinstance(item, dict):
             raise ValueError("DeepSeek balance mismatch")
         currency = item.get("currency")
-        if not isinstance(currency, str) or not 1 <= len(currency) <= 8:
+        if (
+            not isinstance(currency, str)
+            or currency not in {"CNY", "USD"}
+            or currency in currencies
+        ):
             raise ValueError("DeepSeek currency mismatch")
-        total = _number_display(item.get("total_balance"))
-        row = _row("deepseek", f"balance-{index}", "balance", f"{currency} {total} 可用")
+        currencies.add(currency)
+        total = _deepseek_decimal(item.get("total_balance"))
+        granted = _deepseek_decimal(item.get("granted_balance"))
+        topped_up = _deepseek_decimal(item.get("topped_up_balance"))
+        with localcontext() as context:
+            context.prec = 60
+            if total != granted + topped_up:
+                raise ValueError("DeepSeek amount composition mismatch")
+        row = _row(
+            "deepseek",
+            f"balance-{index}",
+            "balance",
+            f"{currency} {_decimal_display(total)} 可用",
+        )
         if not available:
             row["health"] = "error"
         rows.append(row)

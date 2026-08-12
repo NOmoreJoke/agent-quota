@@ -18,6 +18,22 @@ def provider_body(document: object) -> str:
     return base64.b64encode(json.dumps(document).encode()).decode()
 
 
+def deepseek_body(total: str = "1", *, available: bool = True, currency: str = "CNY") -> str:
+    return provider_body(
+        {
+            "is_available": available,
+            "balance_infos": [
+                {
+                    "currency": currency,
+                    "total_balance": total,
+                    "granted_balance": "0",
+                    "topped_up_balance": total,
+                }
+            ],
+        }
+    )
+
+
 def test_create_persists_renderer_safe_account_and_permissions(tmp_path: Path) -> None:
     root = (tmp_path / "private").absolute()
     control = NativeControlPlane(root)
@@ -140,7 +156,8 @@ def test_core_generated_candidate_is_durable_before_native_helper(tmp_path: Path
         opaque_selection_handle="selection-all-local-data",
     )
     generation_before = control.generation
-    candidate = control.create_credential_candidate()
+    candidate = reference(99)
+    assert control.create_credential_candidate(candidate) == candidate
     assert candidate.startswith("credential-")
     assert len(candidate) == 47
     assert control.generation == generation_before + 1
@@ -157,6 +174,23 @@ def test_core_generated_candidate_is_durable_before_native_helper(tmp_path: Path
     assert restored.cleanup_pending() == [candidate]
     restored.acknowledge_cleanup([candidate])
     assert restored.cleanup_pending() == []
+
+
+def test_candidate_creation_rejects_active_or_pending_reference(tmp_path: Path) -> None:
+    control = NativeControlPlane((tmp_path / "private-candidate-binding").absolute())
+    active = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+    )
+    with pytest.raises(ValueError, match="already tracked"):
+        control.create_credential_candidate(reference(1))
+    pending = reference(2)
+    assert control.create_credential_candidate(pending) == pending
+    with pytest.raises(ValueError, match="already tracked"):
+        control.create_credential_candidate(pending)
+    assert control.renderer_accounts()[0]["principal_ref"] == active.principal_ref
 
 
 @pytest.mark.parametrize(("active_count", "pending_count"), [(1, 128), (64, 65)])
@@ -205,9 +239,14 @@ def test_max_operational_provider_rows_persist_restart_and_fail_closed_aggregate
     control = NativeControlPlane(root)
     body = provider_body(
         {
-            "is_available": True,
-            "balance_infos": [
-                {"currency": f"C{index}", "total_balance": str(index)} for index in range(16)
+            "base_resp": {"status_code": 0},
+            "model_remains": [
+                {
+                    "model_name": f"model-{index}",
+                    "current_interval_remaining_percent": "50",
+                    "current_weekly_status": 3,
+                }
+                for index in range(16)
             ],
         }
     )
@@ -218,7 +257,7 @@ def test_max_operational_provider_rows_persist_restart_and_fail_closed_aggregate
             credential_reference=reference(seed),
             principal_ref=None,
             expected_generation=None,
-            provider_id="deepseek",
+            provider_id="minimax-cn",
         )
         principals.append(created.principal_ref)
         _, generation, provider = control.credential_context(created.principal_ref)
@@ -232,7 +271,7 @@ def test_max_operational_provider_rows_persist_restart_and_fail_closed_aggregate
     assert control.path.stat().st_size > 64 * 1024
     restored = NativeControlPlane(root)
     assert len(restored.renderer_accounts()) == 64
-    assert len(restored.quota_projection(principals[0])["capability_rows"]) == 16
+    assert len(restored.quota_projection(principals[0])["capability_rows"]) == 32
     assert restored.quota_projection("scope-all") == {
         "capability_rows": [],
         "freshness": "stale",
@@ -333,12 +372,7 @@ def test_provider_projection_persists_and_rotation_fences_old_observation(tmp_pa
         expected_generation=generation,
         provider_id=provider,
         http_status=200,
-        body_base64=provider_body(
-            {
-                "is_available": True,
-                "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}],
-            }
-        ),
+        body_base64=deepseek_body("9.5"),
     )
     assert (error, retryable) == (None, False)
     assert "CNY 9.5" in control.quota_projection("scope-all")["capability_rows"][0]["value_display"]
@@ -423,15 +457,49 @@ def test_huge_decimal_exponent_fails_without_losing_control_session(tmp_path: Pa
         expected_generation=generation,
         provider_id=provider,
         http_status=200,
-        body_base64=provider_body(
-            {
-                "is_available": True,
-                "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}],
-            }
-        ),
+        body_base64=deepseek_body("9.5"),
     )
     assert (error, retryable) == (None, False)
     assert control.quota_projection(created.principal_ref)["freshness"] == "fresh"
+
+
+def test_deepseek_schema_drift_preserves_lkg_and_marks_projection_stale(tmp_path: Path) -> None:
+    control = NativeControlPlane((tmp_path / "private-schema-drift").absolute())
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="deepseek",
+    )
+    _, generation, provider = control.credential_context(created.principal_ref)
+    assert control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=deepseek_body("9.5"),
+    ) == (None, False)
+    lkg = control.quota_projection(created.principal_ref)["capability_rows"]
+
+    error = control.commit_provider_response(
+        principal_ref=created.principal_ref,
+        expected_generation=generation,
+        provider_id=provider,
+        http_status=200,
+        body_base64=provider_body(
+            {
+                "is_available": True,
+                "balance_infos": [{"currency": "BTC", "total_balance": "-1e2"}],
+            }
+        ),
+    )
+
+    projection = control.quota_projection(created.principal_ref)
+    assert error == ("contract-error", False)
+    assert projection["capability_rows"] == lkg
+    assert projection["freshness"] == "stale"
+    assert control.renderer_accounts()[0]["last_error_code"] == "contract-error"
 
 
 def test_reauth_failure_is_sticky_across_restart_and_queued_failures(tmp_path: Path) -> None:
@@ -450,9 +518,7 @@ def test_reauth_failure_is_sticky_across_restart_and_queued_failures(tmp_path: P
         expected_generation=generation,
         provider_id=provider,
         http_status=200,
-        body_base64=provider_body(
-            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}]}
-        ),
+        body_base64=deepseek_body("9.5"),
     )
     assert control.quota_projection("scope-all")["freshness"] == "fresh"
     control.commit_provider_response(
@@ -473,9 +539,7 @@ def test_reauth_failure_is_sticky_across_restart_and_queued_failures(tmp_path: P
         expected_generation=generation,
         provider_id=provider,
         http_status=200,
-        body_base64=provider_body(
-            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "8.5"}]}
-        ),
+        body_base64=deepseek_body("8.5"),
     )
     assert (error, retryable) == ("reauth-required", False)
     assert restored.renderer_accounts()[0]["lifecycle"] == "needs-reauth"
@@ -532,9 +596,7 @@ def test_account_projection_ids_are_unique_and_failures_preserve_rows(tmp_path: 
             expected_generation=generation,
             provider_id=provider,
             http_status=200,
-            body_base64=provider_body(
-                {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "1"}]}
-            ),
+            body_base64=deepseek_body(),
         )
     rows = control.quota_projection("scope-all")["capability_rows"]
     assert len(rows) == 2
@@ -591,11 +653,13 @@ def test_minimax_projection_preserves_only_bounded_window_semantics(tmp_path: Pa
     account_markers = [ref.split("-account-", 1)[1].split("-model-", 1)[0] for ref in refs]
     assert len(set(account_markers)) == 1
     assert [ref.rsplit("-model-", 1)[1] for ref in refs] == [
-        "0-5h", "0-weekly", "1-5h", "1-weekly",
+        "0-5h",
+        "0-weekly",
+        "1-5h",
+        "1-weekly",
     ]
     assert all(
-        "-row-" in ref and len(ref.split("-row-", 1)[1].split("-", 1)[0]) == 24
-        for ref in refs
+        "-row-" in ref and len(ref.split("-row-", 1)[1].split("-", 1)[0]) == 24 for ref in refs
     )
     assert all("alpha" not in row["capability_ref"] for row in rows)
 
@@ -672,7 +736,9 @@ def test_kimi_code_missing_weekly_is_stale_and_preserves_lkg(tmp_path: Path) -> 
         body_base64=missing_weekly,
     ) == ("contract-error", False)
     assert control.quota_projection("scope-all") == {
-        "capability_rows": [], "freshness": "stale", "scope_ref": "scope-all",
+        "capability_rows": [],
+        "freshness": "stale",
+        "scope_ref": "scope-all",
     }
     control.commit_provider_response(
         principal_ref=created.principal_ref,
@@ -719,9 +785,7 @@ def test_kimi_code_missing_five_hour_is_stale_and_preserves_lkg(tmp_path: Path) 
         provider_id="kimi-code",
     )
     _, generation, provider = control.credential_context(created.principal_ref)
-    missing_five_hour = provider_body(
-        {"usage": {"limit": 100, "remaining": 100}, "limits": []}
-    )
+    missing_five_hour = provider_body({"usage": {"limit": 100, "remaining": 100}, "limits": []})
     assert control.commit_provider_response(
         principal_ref=created.principal_ref,
         expected_generation=generation,
@@ -784,9 +848,7 @@ def test_scope_all_is_stale_when_any_displayed_account_is_expired(tmp_path: Path
             expected_generation=generation,
             provider_id=provider,
             http_status=200,
-            body_base64=provider_body(
-                {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "1"}]}
-            ),
+            body_base64=deepseek_body(),
         )
     control.accounts[0]["last_refresh_epoch_ms"] = (
         int(control.accounts[0]["last_refresh_epoch_ms"]) - 16 * 60 * 1000
@@ -823,9 +885,7 @@ def test_scope_all_is_stale_when_an_account_fails_before_first_projection(tmp_pa
         expected_generation=successful_generation,
         provider_id=provider,
         http_status=200,
-        body_base64=provider_body(
-            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "1"}]}
-        ),
+        body_base64=deepseek_body(),
     )
     projection = control.quota_projection("scope-all")
     assert len(projection["capability_rows"]) == 1
@@ -1035,9 +1095,7 @@ def test_destructive_intents_require_exact_scope_and_apply(tmp_path: Path) -> No
         expected_generation=account_generation,
         provider_id=provider,
         http_status=200,
-        body_base64=provider_body(
-            {"is_available": True, "balance_infos": [{"currency": "CNY", "total_balance": "9.5"}]}
-        ),
+        body_base64=deepseek_body("9.5"),
     )
     assert control.quota_projection("scope-all")["freshness"] == "fresh"
     with pytest.raises(ValueError, match="unknown destructive"):
