@@ -74,6 +74,13 @@ function percentage(value: string): number | null {
   return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : null;
 }
 
+function displayedHealth(row: Capability): string {
+  if (row.health !== "ok" || row.display_kind !== "window") return row.health;
+  if (/剩余\s*0(?:\.0+)?%/.test(row.value_display)) return "exhausted";
+  if (/已用\s*100(?:\.0+)?%/.test(row.value_display)) return "exhausted";
+  return row.health;
+}
+
 function Icon({ name }: { name: string }) {
   const common = {
     fill: "none",
@@ -101,6 +108,7 @@ function StatusPill({ value }: { value: string }) {
     disabled: "已停用",
     "needs-reauth": "需重新认证",
     ok: "可用",
+    exhausted: "已用尽",
     error: "异常",
     incompatible: "不兼容",
     unsupported: "不支持",
@@ -332,13 +340,14 @@ export function App() {
                     <div className="provider-heading"><strong>{group.provider}</strong><span/></div>
                     {group.rows.map((row, index) => {
                       const progress = percentage(row.value_display);
+                      const displayHealth = displayedHealth(row);
                       return (
-                        <article className={`quota-row ${row.health !== "ok" ? "row-error" : ""}`} key={row.capability_ref}>
+                        <article className={`quota-row ${displayHealth !== "ok" ? "row-error" : ""}`} key={row.capability_ref}>
                           <span className="rank">{row.display_kind === "window" ? `#${index + 1}` : "—"}</span>
                           <span className="scope-kind">{row.display_kind === "window" ? "窗口" : "余额"}<small>{row.display_kind === "window" ? "官方周期" : "钱包"}</small></span>
                           <span className="subject">{row.value_display}</span>
-                          {progress === null ? <span className="balance-value">{row.value_display}</span> : <><span className="meter"><i style={{ width: `${progress}%` }}/></span><strong className="remaining">{progress}%</strong></>}
-                          <StatusPill value={row.health}/>
+                          {progress === null ? <span className="balance-value">{row.value_display}</span> : <><span className="meter"><i style={{ width: `${progress}%` }}/></span><strong className={`remaining ${displayHealth === "exhausted" ? "depleted" : ""}`}>{progress}%</strong></>}
+                          <StatusPill value={displayHealth}/>
                         </article>
                       );
                     })}

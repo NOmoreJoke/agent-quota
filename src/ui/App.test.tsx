@@ -24,6 +24,9 @@ vi.mock("../host/transport", () => ({
         projection: {
           capability_rows: [
             { capability_ref: "cap-1", display_kind: "window", health: "ok", value_display: "72%" },
+            { capability_ref: "cap-kimi-code-weekly", display_kind: "window", health: "ok", value_display: "周剩余 0%" },
+            { capability_ref: "cap-glm-limit", display_kind: "window", health: "ok", value_display: "5小时已用 100%" },
+            { capability_ref: "cap-glm-mcp", display_kind: "window", health: "ok", value_display: "MCP月度已用 0%" },
           ],
           freshness: "fresh",
           scope_ref: "scope-all",
@@ -50,6 +53,9 @@ describe("App", () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(host.textContent).toContain("窗口使用率 · 降序");
+    expect(host.querySelectorAll(".status-exhausted")).toHaveLength(2);
+    expect(host.querySelectorAll(".remaining.depleted")).toHaveLength(2);
+    expect(host.querySelectorAll(".status-ok")).toHaveLength(2);
     expect(host.querySelectorAll(".nav-item")).toHaveLength(5);
 
     const accounts = [...host.querySelectorAll("button")].find((node) =>
