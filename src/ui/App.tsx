@@ -67,18 +67,28 @@ function providerFromAccount(label: string): string {
   return label;
 }
 
-function percentage(value: string): number | null {
-  const match = value.match(/(\d+(?:\.\d+)?)%/);
+type WindowMetric = { mode: "remaining" | "used"; percentage: number };
+
+function windowMetric(value: string): WindowMetric | null {
+  const match = value.match(/(剩余|已用)\s*(\d+(?:\.\d+)?)%\s*$/u);
   if (!match) return null;
-  const number = Number(match[1]);
-  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : null;
+  const number = Number(match[2]);
+  if (!Number.isFinite(number) || number < 0 || number > 100) return null;
+  return { mode: match[1] === "剩余" ? "remaining" : "used", percentage: number };
 }
 
 function displayedHealth(row: Capability): string {
   if (row.health !== "ok" || row.display_kind !== "window") return row.health;
-  if (/剩余\s*0(?:\.0+)?%/.test(row.value_display)) return "exhausted";
-  if (/已用\s*100(?:\.0+)?%/.test(row.value_display)) return "exhausted";
+  const metric = windowMetric(row.value_display);
+  if (metric?.mode === "remaining" && metric.percentage === 0) return "exhausted";
+  if (metric?.mode === "used" && metric.percentage === 100) return "exhausted";
   return row.health;
+}
+
+function windowSortValue(row: Capability): number {
+  if (row.health !== "ok") return -2;
+  if (/剩余\s*不限量\s*$/u.test(row.value_display)) return 101;
+  return windowMetric(row.value_display)?.percentage ?? -1;
 }
 
 function Icon({ name }: { name: string }) {
@@ -264,7 +274,13 @@ export function App() {
 
   const groupedCapabilities = useMemo(() => providerOrder.map((provider) => ({
     provider,
-    rows: filteredCapabilities.filter((row) => providerName(row.capability_ref) === provider),
+    rows: filteredCapabilities
+      .filter((row) => providerName(row.capability_ref) === provider)
+      .map((row, sourceIndex) => ({ row, sourceIndex }))
+      .sort((left, right) =>
+        windowSortValue(right.row) - windowSortValue(left.row) ||
+        left.sourceIndex - right.sourceIndex)
+      .map(({ row }) => row),
   })).filter((group) => group.rows.length > 0), [filteredCapabilities]);
 
   const filteredProviders = useMemo(() => {
@@ -331,7 +347,7 @@ export function App() {
                 <button type="button" className={overviewMode === "wallet" ? "active" : ""} onClick={() => setOverviewMode("wallet")}>Wallet View</button>
               </div>
               <section className="panel quota-panel">
-                <h2>{overviewMode === "window" ? "窗口使用率 · 降序" : "Wallet 余额"}</h2>
+                <h2>{overviewMode === "window" ? "窗口额度 · 百分比降序" : "Wallet 余额"}</h2>
                 <p className="panel-copy">按 Provider 分组 · 展示官方只读查询投影 · 不跨 Provider 加总</p>
                 {groupedCapabilities.length === 0 ? (
                   <div className="inline-empty">当前视图暂无可展示额度</div>
@@ -339,7 +355,7 @@ export function App() {
                   <div className="provider-group" key={group.provider}>
                     <div className="provider-heading"><strong>{group.provider}</strong><span/></div>
                     {group.rows.map((row, index) => {
-                      const progress = percentage(row.value_display);
+                      const progress = windowMetric(row.value_display)?.percentage ?? null;
                       const displayHealth = displayedHealth(row);
                       return (
                         <article className={`quota-row ${displayHealth !== "ok" ? "row-error" : ""}`} key={row.capability_ref}>
