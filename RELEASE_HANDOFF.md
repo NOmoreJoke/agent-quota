@@ -2,41 +2,47 @@
 
 ## Baseline
 
-- Source branch: `codex/open-source-rc-20260811`
-- Base commit: `eaa7db5f82a0b669de74002ceb292df9968588b3`
-- Dirty `dev` owner changes are excluded from this worktree and package.
-- Target: macOS Apple Silicon local unsigned DMG.
+- Scope decision branch: `main`.
+- Scope decision base: `4590bd1a7ca96d225a90922f479e86214a2d2bee`.
+- Exact formal release commit: not selected.
+- Dirty `dev` owner changes remain outside this clean worktree.
+- Last built artifact class: macOS Apple Silicon local unsigned development package.
+
+## Scope status
+
+- Machine authority: `docs/acceptance-matrix-v2.json`.
+- Target: 10 product cards / 7 brands.
+- Target actionable candidates: 7; currently creatable: 5.
+- Implementation-blocked candidates: 火山 Agent Plan and 火山账户余额.
+- Disabled information cards: 百炼 Coding Plan、百炼 Token Plan、MiMo Token Plan.
+- Current scope commit records decisions only; it does not implement the 10-card UI,
+  expand native create allowlists, or prove any live Provider capability.
 
 ## Required holder-controlled acceptance
 
-1. Install the final DMG without disabling macOS security controls.
+1. Install the final signed/notarized DMG without disabling macOS security controls.
 2. Enter credentials only in native secure dialogs.
-3. For each non-blocked product, run add -> refresh -> restart -> refresh.
-4. Verify subject, currency/unit, window, remaining/limit, reset time/timezone,
-   server timestamp, and `last_success_at`.
+3. For every claimed product, run add -> refresh -> restart -> refresh.
+4. Verify subject, unit, window, remaining/limit, reset semantics, server timestamp and
+   `last_success_at`.
 5. Exercise 401 reauthentication and confirm stale LKG is never fresh.
-6. Verify uninstall retention, reinstall recovery, and native-confirmed purge.
+6. Verify upgrade/rollback, uninstall retention, reinstall recovery and native-confirmed purge.
 
-## Release gate status
+## Formal release gates
 
-| Gate | Result | Evidence |
-|---|---|---|
-| TypeScript | PASS | lint, typecheck, 6 unit tests, 4 E2E tests, production build |
-| Python | PASS | lint, format, mypy; 233 tests; 90.19% coverage |
-| Rust | PASS | fmt; clippy `-D warnings`; 33 tests in each production/development feature set |
-| Contract | PASS | 50-case exact mutation match; deterministic validator/projection replay; result SHA-256 `8579704000211908d497a8e035d86d83cd0454b345755e8fef3ed8cb6b9d6a6f` |
-| Error/fail-closed | PASS | 401/403, 429, 5xx, schema drift, stale LKG, pre-helper journal, credential/destructive transaction fence, outcome-unknown and mutation negative tests |
-| Package/bundle | PASS | Final `bundle-audit.json`, DMG verification and size gate |
-| Clean install/lifecycle | BLOCKED_ACCOUNT | Empty-sidecar clean install and no-network install/upgrade/rollback/uninstall/reinstall retention PASS; real refresh, 401 recovery and native purge remain holder-controlled |
-| License/SBOM | PASS | 442 inventoried components; 245 distributed components bound to 454 hashed license/notice texts; 16 unpackaged repo-level notices bound to exact VCS commits; contract-only dependencies marked `source-validation-only` |
-| SHA-256/provenance | PASS | Final `artifact-sha256.txt` and clean-source `build-provenance.json` |
-
-Machine-readable exact results are delivered as
-`artifacts/iteration-4/release-gates-v1.json`. Overall Goal remains blocked:
-the acceptance matrix is `0/21 PASS` and the holder-controlled lifecycle is
-incomplete.
+| Gate | Current result |
+|---|---|
+| Scope machine contract | Recorded; implementation pending |
+| Claimed Provider live acceptance | BLOCKED_ACCOUNT |
+| 火山 Agent Plan enablement | BLOCKED_IMPLEMENTATION |
+| 火山 wallet contract hardening | BLOCKED_IMPLEMENTATION |
+| Ten-card launch UI invariants | BLOCKED_IMPLEMENTATION |
+| Developer ID signing/notarization | BLOCKED_IDENTITY |
+| Package/checksum/SBOM/provenance | Must be regenerated from final clean release commit |
+| Release gate machine summary | Not generated |
 
 ## Publishing boundary
 
-Local release-ready assets may be generated. Push, PR, or GitHub Release is not
-performed without explicit existing authorization for that external write.
+Do not create a tag or GitHub Release until every formal release gate passes. Public
+assets must include the notarized/stapled DMG, checksums, provenance/audits, SBOM,
+license evidence and source archive. GitHub Packages is not the DMG distribution path.
