@@ -41,6 +41,12 @@ FORBIDDEN_RUNTIME_STATE_DIRECTORIES = {
     "Session Storage",
 }
 MAXIMUM_DEPLOYMENT_TARGET = (13, 0, 0)
+REQUIRED_MINIMUM_SYSTEM_VERSION = "13.0"
+FORBIDDEN_BUILD_PATH_FRAGMENTS = (
+    b"/Users/",
+    b"/private/var/folders/",
+    b"/private/var/tmp/",
+)
 
 
 def output(*command: str) -> str:
@@ -154,6 +160,11 @@ def deployment_target_supported(value: str) -> bool:
     return normalized <= MAXIMUM_DEPLOYMENT_TARGET
 
 
+def contains_local_build_path(path: Path) -> bool:
+    data = path.read_bytes()
+    return any(fragment in data for fragment in FORBIDDEN_BUILD_PATH_FRAGMENTS)
+
+
 def is_runtime_state_path(relative: PurePosixPath) -> bool:
     return relative.name in FORBIDDEN_RUNTIME_STATE_NAMES or any(
         part in FORBIDDEN_RUNTIME_STATE_DIRECTORIES for part in relative.parts
@@ -172,6 +183,12 @@ def main() -> int:
     executable = contents / "MacOS" / str(plist["CFBundleExecutable"])
     resources = contents / "Resources"
     errors: list[str] = []
+    minimum_system_version = plist.get("LSMinimumSystemVersion")
+    if minimum_system_version != REQUIRED_MINIMUM_SYSTEM_VERSION:
+        errors.append(
+            "LSMinimumSystemVersion must be "
+            f"{REQUIRED_MINIMUM_SYSTEM_VERSION}: {minimum_system_version!r}"
+        )
     manifest_digest, manifest_entries = verify_resource_manifest(resources, errors)
     runtime_state_files = sorted(
         path.relative_to(app).as_posix()
@@ -214,6 +231,8 @@ def main() -> int:
         ]
         if architecture != ["arm64"]:
             errors.append(f"architecture must be arm64 only: {path.relative_to(app)}")
+        if contains_local_build_path(path):
+            errors.append(f"local build path embedded: {path.relative_to(app)}")
         if len(targets) != 1 or not deployment_target_supported(targets[0]):
             errors.append(
                 f"unsupported deployment target: {path.relative_to(app)}: "

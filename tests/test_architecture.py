@@ -174,6 +174,8 @@ def test_macos_package_script_has_ordered_resource_gates() -> None:
     root = Path(__file__).parents[1]
     script = (root / "tools/build_macos_package.sh").read_text()
     assert 'MACOSX_DEPLOYMENT_TARGET_REQUIRED="13.0"' in script
+    assert "--remap-path-prefix=$real_home=/build/home" in script
+    assert "--remap-path-prefix=$repo_root=/build/src" in script
     assert "SWIFT_MACOSX_DEPLOYMENT_TARGET must be exactly" in script
     assert '"$repo_root/tools/audit_package_size.py"' in script
     assert "verify_clean_install_sidecar.py" in script

@@ -70,6 +70,9 @@ NODE=$(command -v node)
 RUSTC="$AQ_RUST_BIN/rustc"
 CARGO="$AQ_RUST_BIN/cargo"
 export RUSTC CARGO
+unit_separator=$(/usr/bin/printf '\037')
+CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$real_home=/build/home${unit_separator}--remap-path-prefix=$repo_root=/build/src"
+export CARGO_ENCODED_RUSTFLAGS
 
 /bin/rm -rf "$generated" "$pyi_root" "$artifact_dir"
 /bin/mkdir -p "$generated" "$pyi_root/work" "$pyi_root/spec" "$artifact_dir"

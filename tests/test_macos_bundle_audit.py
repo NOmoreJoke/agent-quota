@@ -4,6 +4,9 @@ from pathlib import Path
 deployment_target_supported = runpy.run_path(
     Path(__file__).parents[1] / "tools" / "audit_macos_bundle.py"
 )["deployment_target_supported"]
+contains_local_build_path = runpy.run_path(
+    Path(__file__).parents[1] / "tools" / "audit_macos_bundle.py"
+)["contains_local_build_path"]
 is_runtime_state_path = runpy.run_path(
     Path(__file__).parents[1] / "tools" / "audit_macos_bundle.py"
 )["is_runtime_state_path"]
@@ -33,3 +36,11 @@ def test_runtime_account_state_paths_are_rejected_from_bundle() -> None:
     assert not is_runtime_state_path(
         PurePosixPath("Contents/Resources/_internal/agent_quota/resources/provider_catalog_v1.json")
     )
+
+
+def test_local_build_paths_are_rejected(tmp_path: Path) -> None:
+    binary = tmp_path / "binary"
+    binary.write_bytes(b"prefix/Users/example/.cargo/registry/src/suffix")
+    assert contains_local_build_path(binary)
+    binary.write_bytes(b"/build/home/.cargo/registry/src")
+    assert not contains_local_build_path(binary)

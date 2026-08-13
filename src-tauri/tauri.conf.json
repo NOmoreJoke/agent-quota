@@ -28,6 +28,9 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
     "resources": {
       "generated-resources/AgentQuotaNative.app": "native-helper/AgentQuotaNative.app",
       "generated-resources/agent-quota-sidecar": "sidecar",
