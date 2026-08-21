@@ -1,4 +1,7 @@
 artifact_manifest_version=4
+evidence_status=historical-superseded
+evidence_scope=local-unsigned-baseline-03ecdd0-only-not-current-release
+superseded_by=commit-versioned-artifact-directories-and-source-preview-policy
 generated_at=2026-08-02T13:58:38+08:00
 iteration=5
 branch=detached-isolated-worktree

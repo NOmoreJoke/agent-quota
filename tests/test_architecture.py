@@ -164,6 +164,7 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     helper = (root / "tools/build_native_helper.sh").read_text()
     assert "-strict-concurrency=complete" in helper
     assert "-target arm64-apple-macosx13.0" in helper
+    assert "install_name_tool -delete_rpath /usr/lib/swift" in helper
     assert '"$app_binary" --self-test-provider-minimization' in helper
     renderer_contract = (root / "src/agent_quota/resources/renderer_contract_v1.json").read_text()
     assert "body_base64" not in renderer_contract
@@ -194,6 +195,12 @@ def test_macos_package_script_has_ordered_resource_gates() -> None:
     assert "status --porcelain" in script
     assert "generate_build_provenance.py" in script
     assert '"build-provenance.json"' in script
+    assert 'mktemp -d "$artifact_parent/.iteration-4.stage.XXXXXX"' in script
+    assert "publish_artifact_directory.py" in script
+    assert '--target "$artifact_dir"' in script
+    assert '/bin/rm -rf "$generated" "$pyi_root" "$artifact_dir"' not in script
+    historical_manifest = (root / "artifact-manifest.txt").read_text()
+    assert "evidence_status=historical-superseded" in historical_manifest
 
 
 def test_clean_install_verifier_matches_host_fd_and_canonical_path_boundary() -> None:

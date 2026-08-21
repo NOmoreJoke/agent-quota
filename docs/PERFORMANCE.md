@@ -32,7 +32,9 @@ Intel/universal、Developer ID、公证与干净 VM 不在当前证据范围。
 ## 可复现门禁
 
 ```bash
-uv run python tools/audit_package_size.py --root "artifacts/iteration-4/Agent Quota.app" --max-mib 40
+uv run python tools/audit_package_size.py \
+  --root "artifacts/iteration-4-<source_commit>/Agent Quota.app" \
+  --max-mib 40
 ```
 
 构建脚本同时要求 DMG 不超过 20 MiB。真实资源验收仍需在目标 Mac 上记录 10 分钟

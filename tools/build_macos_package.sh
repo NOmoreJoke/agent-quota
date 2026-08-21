@@ -16,10 +16,19 @@ export SWIFT_MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET_REQUIRED"
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 generated="$repo_root/src-tauri/generated-resources"
 pyi_root="$repo_root/build/pyinstaller"
-artifact_dir="$repo_root/artifacts/iteration-4"
+artifact_parent="$repo_root/artifacts"
 dmg_root="$pyi_root/dmg-root"
 
 source_commit=$(git -C "$repo_root" rev-parse HEAD)
+artifact_dir="$artifact_parent/iteration-4-$source_commit"
+/bin/mkdir -p "$artifact_parent"
+artifact_stage=$(/usr/bin/mktemp -d "$artifact_parent/.iteration-4.stage.XXXXXX")
+cleanup_stage() {
+  if [ -n "${artifact_stage:-}" ] && [ -d "$artifact_stage" ]; then
+    /bin/rm -rf -- "$artifact_stage"
+  fi
+}
+trap cleanup_stage EXIT HUP INT TERM
 verify_source_lock() {
   if [ "$(git -C "$repo_root" rev-parse HEAD)" != "$source_commit" ] || \
      [ -n "$(git -C "$repo_root" status --porcelain)" ]; then
@@ -74,8 +83,8 @@ unit_separator=$(/usr/bin/printf '\037')
 CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$real_home=/build/home${unit_separator}--remap-path-prefix=$repo_root=/build/src"
 export CARGO_ENCODED_RUSTFLAGS
 
-/bin/rm -rf "$generated" "$pyi_root" "$artifact_dir"
-/bin/mkdir -p "$generated" "$pyi_root/work" "$pyi_root/spec" "$artifact_dir"
+/bin/rm -rf "$generated" "$pyi_root"
+/bin/mkdir -p "$generated" "$pyi_root/work" "$pyi_root/spec"
 
 cd "$repo_root"
 uv run --group package pyinstaller \
@@ -129,30 +138,30 @@ fi
 /usr/bin/codesign --force --sign - "$app"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
 
-/usr/bin/ditto "$app" "$artifact_dir/Agent Quota.app"
+/usr/bin/ditto "$app" "$artifact_stage/Agent Quota.app"
 uv run python tools/audit_macos_bundle.py \
-  --app "$artifact_dir/Agent Quota.app" \
-  --output "$artifact_dir/bundle-audit.json"
+  --app "$artifact_stage/Agent Quota.app" \
+  --output "$artifact_stage/bundle-audit.json"
 uv run python tools/verify_clean_install_sidecar.py \
-  --sidecar "$artifact_dir/Agent Quota.app/Contents/Resources/sidecar/agent-quota-sidecar" \
-  --output "$artifact_dir/clean-install-audit.json"
+  --sidecar "$artifact_stage/Agent Quota.app/Contents/Resources/sidecar/agent-quota-sidecar" \
+  --output "$artifact_stage/clean-install-audit.json"
 uv run python "$repo_root/tools/audit_package_size.py" \
-  --root "$artifact_dir/Agent Quota.app" \
+  --root "$artifact_stage/Agent Quota.app" \
   --max-mib 40
 uv run python tools/generate_package_sbom.py \
-  --output "$artifact_dir/sbom.cdx.json"
+  --output "$artifact_stage/sbom.cdx.json"
 uv run python tools/generate_third_party_licenses.py \
-  --sbom "$artifact_dir/sbom.cdx.json" \
+  --sbom "$artifact_stage/sbom.cdx.json" \
   --check "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json"
 uv run python tools/audit_sbom_licenses.py \
-  --sbom "$artifact_dir/sbom.cdx.json" \
+  --sbom "$artifact_stage/sbom.cdx.json" \
   --corpus "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" \
   --upstream-sources "$repo_root/THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json" \
-  > "$artifact_dir/license-audit.txt"
+  > "$artifact_stage/license-audit.txt"
 /bin/cp "$repo_root/THIRD_PARTY_LICENSE_CORPUS.json" \
-  "$artifact_dir/third-party-license-corpus.json"
+  "$artifact_stage/third-party-license-corpus.json"
 /bin/cp "$repo_root/THIRD_PARTY_UPSTREAM_LICENSE_SOURCES.json" \
-  "$artifact_dir/upstream-license-sources.json"
+  "$artifact_stage/upstream-license-sources.json"
 /bin/mkdir -p "$dmg_root"
 /usr/bin/ditto "$app" "$dmg_root/Agent Quota.app"
 /bin/cp "$repo_root/LICENSE" "$dmg_root/LICENSE.txt"
@@ -168,32 +177,32 @@ uv run python tools/audit_sbom_licenses.py \
   -srcfolder "$dmg_root" \
   -ov \
   -format UDZO \
-  "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
-/usr/bin/hdiutil verify "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
+  "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
+/usr/bin/hdiutil verify "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
 
-dmg_bytes=$(/usr/bin/stat -f%z "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg")
+dmg_bytes=$(/usr/bin/stat -f%z "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg")
 if [ "$dmg_bytes" -gt 20971520 ]; then
   echo "DMG exceeds 20MiB budget: $dmg_bytes bytes" >&2
   exit 1
 fi
 
 uv run python tools/generate_bundle_manifest.py \
-  --root "$artifact_dir/Agent Quota.app" \
-  --output "$artifact_dir/bundle-manifest.txt"
+  --root "$artifact_stage/Agent Quota.app" \
+  --output "$artifact_stage/bundle-manifest.txt"
 git -C "$repo_root" archive \
   --format=tar.gz \
   --prefix=agent-quota-0.1.0/ \
-  --output="$artifact_dir/agent-quota-0.1.0-source.tar.gz" \
+  --output="$artifact_stage/agent-quota-0.1.0-source.tar.gz" \
   "$source_commit"
 verify_source_lock
 uv run python tools/generate_build_provenance.py \
-  --app "$artifact_dir/Agent Quota.app" \
+  --app "$artifact_stage/Agent Quota.app" \
   --commit "$source_commit" \
-  --dmg "$artifact_dir/Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
-  --output "$artifact_dir/build-provenance.json"
+  --dmg "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
+  --output "$artifact_stage/build-provenance.json"
 
 (
-  cd "$artifact_dir"
+  cd "$artifact_stage"
   /usr/bin/shasum -a 256 \
     "Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
     "build-provenance.json" \
@@ -207,5 +216,9 @@ uv run python tools/generate_build_provenance.py \
     "agent-quota-0.1.0-source.tar.gz" > artifact-sha256.txt
 )
 verify_source_lock
+uv run python tools/publish_artifact_directory.py \
+  --stage "$artifact_stage" \
+  --target "$artifact_dir"
+artifact_stage=""
 
 echo "$artifact_dir"

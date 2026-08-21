@@ -21,6 +21,7 @@ xcrun swiftc \
   -framework UniformTypeIdentifiers \
   "$repo_root/native/AgentQuotaNative.swift" \
   -o "$app_binary"
+/usr/bin/install_name_tool -delete_rpath /usr/lib/swift "$app_binary"
 
 /usr/bin/plutil -create xml1 "$app_plist"
 /usr/bin/plutil -insert CFBundleExecutable -string AgentQuotaNative "$app_plist"

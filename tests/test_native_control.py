@@ -297,6 +297,101 @@ def test_writer_enforces_the_same_state_size_bound(
     with pytest.raises(ValueError, match="oversized"):
         control._persist()
     assert control.path.read_bytes() == persisted
+    assert control.renderer_accounts() == NativeControlPlane(control.data_root).renderer_accounts()
+
+
+def test_failed_state_write_restores_authoritative_disk_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = (tmp_path / "private-write-failure").absolute()
+    control = NativeControlPlane(root)
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+    )
+    before = json.loads(json.dumps(control.accounts))
+
+    def fail_write(*_args: object, **_kwargs: object) -> None:
+        raise OSError("simulated durable write failure")
+
+    monkeypatch.setattr("agent_quota.native_control.atomic_write_private", fail_write)
+    _, generation, provider = control.credential_context(created.principal_ref)
+    with pytest.raises(OSError, match="simulated durable write failure"):
+        control.commit_provider_failure(
+            principal_ref=created.principal_ref,
+            expected_generation=generation,
+            provider_id=provider,
+            safe_error_code="timeout",
+        )
+
+    assert control.accounts == before
+    assert control.accounts == NativeControlPlane(root).accounts
+
+
+def test_ambiguous_state_write_reloads_committed_disk_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = (tmp_path / "private-ambiguous-write").absolute()
+    control = NativeControlPlane(root)
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+    )
+    from agent_quota.filesystem import atomic_write_private as durable_write
+
+    def write_then_fail(path: Path, payload: bytes, *, max_bytes: int) -> None:
+        durable_write(path, payload, max_bytes=max_bytes)
+        raise OSError("simulated post-rename fsync ambiguity")
+
+    monkeypatch.setattr("agent_quota.native_control.atomic_write_private", write_then_fail)
+    _, generation, provider = control.credential_context(created.principal_ref)
+    with pytest.raises(OSError, match="post-rename fsync ambiguity"):
+        control.commit_provider_failure(
+            principal_ref=created.principal_ref,
+            expected_generation=generation,
+            provider_id=provider,
+            safe_error_code="timeout",
+        )
+
+    assert control.accounts == NativeControlPlane(root).accounts
+    assert control.accounts[0]["last_error_code"] == "timeout"
+
+
+def test_failed_state_write_and_reload_poison_live_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = (tmp_path / "private-poisoned-write").absolute()
+    control = NativeControlPlane(root)
+    created = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(1),
+        principal_ref=None,
+        expected_generation=None,
+    )
+    _, generation, provider = control.credential_context(created.principal_ref)
+    monkeypatch.setattr(
+        "agent_quota.native_control.atomic_write_private",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("write failed")),
+    )
+    monkeypatch.setattr(
+        control,
+        "_load",
+        lambda: (_ for _ in ()).throw(ValueError("reload failed")),
+    )
+
+    with pytest.raises(OSError, match="write failed"):
+        control.commit_provider_failure(
+            principal_ref=created.principal_ref,
+            expected_generation=generation,
+            provider_id=provider,
+            safe_error_code="timeout",
+        )
+    with pytest.raises(KeyError):
+        control.renderer_accounts()
 
 
 def test_valid_state_over_one_megabyte_mutates_persists_and_restarts(tmp_path: Path) -> None:

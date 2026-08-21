@@ -33,7 +33,7 @@
 Agent Quota 将不同 Provider 的额度投影到统一桌面视图：窗口额度保持各自周期，钱包余额保持各自币种，跨类型不求和。凭据生命周期由 macOS 原生安全窗口与 Keychain 管理；Renderer 不接触秘密，Provider 查询只访问固定官方接口。
 
 > [!IMPORTANT]
-> 当前仓库提供源码与 Apple Silicon 本地未签名开发包构建能力，尚无可公开分发的正式 Release。正式发布仍需 Developer ID 签名、Apple notarization/stapling 与发布校验和。
+> 当前仓库只允许发布 Source Preview。公开 Release 不附带 `.app`、`.dmg` 或 `.pkg`；正式 macOS 二进制仍需 Developer ID 签名、Apple notarization/stapling 与原生资源身份绑定闭环。
 
 ## 核心能力
 
@@ -81,7 +81,7 @@ AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin \
   ./tools/build_macos_package.sh
 ```
 
-构建输出位于 `artifacts/iteration-4/`。完整的工具链、签名等级、安装、升级、回滚与 Purge 规则见[安装指南](docs/INSTALLATION.md)。
+构建输出以 commit 隔离在 `artifacts/iteration-4-<source_commit>/`。产物仅供本机开发验证，不得附加到公开 Release。完整的工具链、签名等级、安装、升级、回滚与 Purge 规则见[安装指南](docs/INSTALLATION.md)。
 
 ## Provider 支持
 
@@ -154,6 +154,7 @@ Agent Quota 不包含 Web 后端，不开放 loopback 业务服务；Hermes、�
 | [安全模型](docs/security-model.md) | 信任边界、威胁与门禁 |
 | [性能目标](docs/PERFORMANCE.md) | 性能预算与测量方法 |
 | [审计历史](docs/contracts/history-manifest-v1.json) | 第 1–20 轮审计索引 |
+| [Source Preview 说明](docs/releases/v0.1.0-preview.1.md) | 下载范围、禁止项与已知阻断 |
 
 <!-- AQ-NORMATIVE-DECISION-LINK-V1:docs/audits/gui-product-decision-resolution.md -->
 Desktop GUI 与 Codex/OpenRouter 的规范决策见 [`gui-product-decision-resolution.md`](docs/audits/gui-product-decision-resolution.md)。
