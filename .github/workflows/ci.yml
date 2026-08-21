@@ -68,7 +68,7 @@ jobs:
       - run: cargo +1.97.1 test --locked --manifest-path src-tauri/Cargo.toml --features development-overrides
       - name: Compile production host boundary
         env:
-          AQ_RESOURCE_MANIFEST_SHA256: 0000000000000000000000000000000000000000000000000000000000000000
+          AQ_RESOURCE_MANIFEST_SHA256: "0000000000000000000000000000000000000000000000000000000000000000"
         run: >-
           cargo +1.97.1 clippy --locked
           --manifest-path src-tauri/Cargo.toml
