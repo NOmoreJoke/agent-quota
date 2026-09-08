@@ -1517,10 +1517,11 @@ private func selfTestProviderMinimization() -> Int32 {
 private struct AgentQuotaNative {
     @MainActor
     static func main() {
-        if CommandLine.arguments == [CommandLine.arguments[0], "--self-test-keychain"] {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.count == 2 && arguments[1] == "--self-test-keychain" {
             exit(selfTestKeychain())
         }
-        if CommandLine.arguments == [CommandLine.arguments[0], "--self-test-provider-minimization"] {
+        if arguments.count == 2 && arguments[1] == "--self-test-provider-minimization" {
             exit(selfTestProviderMinimization())
         }
         autoreleasepool {
