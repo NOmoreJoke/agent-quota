@@ -23,7 +23,7 @@ test("prototype covers primary navigation and host-owned actions", async ({ page
 
   await page.getByRole("button", { name: "账户与 Provider" }).click();
   await expect(page.locator("[data-sidebar-position=left]")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "已启用 Provider" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "已配置 Provider" })).toBeVisible();
   await page.getByRole("button", { name: "添加 Provider" }).click();
   await expect(page.getByRole("status")).toContainText("临时测试账户已添加");
   await expect(page.getByRole("heading", { name: "Fixture · 临时测试账户" })).toBeVisible();
@@ -61,6 +61,8 @@ test("failure, empty, offline and responsive states remain operable", async ({ p
 
   await page.goto("/?scenario=offline");
   await expect(page.getByRole("status")).toContainText("当前离线");
+  await expect(page.getByRole("button", { name: "全部刷新" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "重新连接本机服务" })).toBeEnabled();
 
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.getByRole("button", { name: "账户与 Provider" }).click();
@@ -77,19 +79,19 @@ test("failure, empty, offline and responsive states remain operable", async ({ p
   await expect(page.getByRole("heading", { name: "Provider 行为" })).toBeVisible();
 });
 
-test("provider preset catalog only shows the five connected suppliers", async ({ page }) => {
+test("launch catalog separates creatable, blocked and information products", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "账户与 Provider" }).click();
 
   const catalog = page.locator("[data-provider-id]");
-  await expect(catalog).toHaveCount(5);
+  await expect(catalog).toHaveCount(10);
+  await expect(catalog.locator("button:enabled")).toHaveCount(5);
+  await expect(catalog.locator("button:disabled")).toHaveCount(5);
 
   expect(await catalog.evaluateAll((cards) => cards.map((card) => card.getAttribute("data-provider-id")))).toEqual([
-    "provider-026",
-    "provider-034",
-    "provider-035",
-    "provider-038",
-    "provider-073",
+    "deepseek-api-balance-cn", "kimi-api-balance-cn", "kimi-code-token-plan",
+    "minimax-token-plan-cn", "glm-coding-plan-cn", "volcengine-ark-agent-plan-personal",
+    "volcengine-billing-balance", "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
   ]);
 
   const search = page.getByRole("textbox", { name: "搜索 Provider Preset" });
@@ -112,14 +114,12 @@ test("provider preset catalog only shows the five connected suppliers", async ({
     .toBe(true);
 
   await filter.getByRole("button", { name: "Window View" }).click();
-  expect(await catalog.count()).toBeGreaterThan(0);
-  expect(await catalog.locator(".preset-capabilities small:first-child").allTextContents())
-    .not.toContain("Window · unsupported");
+  await expect(catalog).toHaveCount(6);
+  await expect(page.locator('[data-provider-id="xiaomi-mimo-token-plan"]')).toHaveCount(0);
 
   await filter.getByRole("button", { name: "Wallet View" }).click();
-  expect(await catalog.count()).toBeGreaterThan(0);
-  expect(await catalog.locator(".preset-capabilities small:nth-child(2)").allTextContents())
-    .not.toContain("Wallet · unsupported");
+  await expect(catalog).toHaveCount(4);
+  await expect(page.locator('[data-provider-id="volcengine-billing-balance"] button')).toBeDisabled();
 
   for (const width of [1024, 390]) {
     await page.setViewportSize({ width, height: 844 });

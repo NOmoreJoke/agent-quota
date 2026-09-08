@@ -22,25 +22,9 @@ type ProviderCatalogDocument = {
 
 export const providerCatalog = catalogDocument as ProviderCatalogDocument;
 
-const visibleAdapterIds = new Set([
-  "deepseek",
-  "glm-cn",
-  "kimi-cn",
-  "kimi-code",
-  "minimax-cn",
-]);
-
 if (
   providerCatalog.rows.length !== 78 ||
   new Set(providerCatalog.rows.map((row) => row.row_id)).size !== 78
 ) {
   throw new Error("provider catalog integrity mismatch");
-}
-
-export const visibleProviderRows = providerCatalog.rows.filter((row) =>
-  row.adapter_ids.some((adapterId) => visibleAdapterIds.has(adapterId)),
-);
-
-if (visibleProviderRows.length !== 5) {
-  throw new Error("visible provider preset integrity mismatch");
 }

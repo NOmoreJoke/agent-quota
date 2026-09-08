@@ -1,0 +1,151 @@
+{
+  "schema": "aq-launch-products-v1",
+  "source_sha256": "e2c8dad17c4da7153aa8a460d7f573302a27a2c5f67572b7018f0368ed177f90",
+  "products": [
+    {
+      "product_id": "deepseek-api-balance-cn",
+      "brand": "DeepSeek",
+      "display_name": "DeepSeek API 余额",
+      "adapter_id": "deepseek",
+      "candidate": true,
+      "creatable": true,
+      "window": false,
+      "wallet": true,
+      "capabilities": [
+        "账户余额"
+      ],
+      "state": "creatable"
+    },
+    {
+      "product_id": "kimi-api-balance-cn",
+      "brand": "Kimi",
+      "display_name": "Kimi API 余额（中国区）",
+      "adapter_id": "kimi-cn",
+      "candidate": true,
+      "creatable": true,
+      "window": false,
+      "wallet": true,
+      "capabilities": [
+        "账户余额"
+      ],
+      "state": "creatable"
+    },
+    {
+      "product_id": "kimi-code-token-plan",
+      "brand": "Kimi",
+      "display_name": "Kimi Code Token Plan",
+      "adapter_id": "kimi-code",
+      "candidate": true,
+      "creatable": true,
+      "window": true,
+      "wallet": true,
+      "capabilities": [
+        "5 小时窗口",
+        "周窗口",
+        "额外用量 (存在时)"
+      ],
+      "state": "creatable"
+    },
+    {
+      "product_id": "minimax-token-plan-cn",
+      "brand": "MiniMax",
+      "display_name": "MiniMax Token Plan（中国区）",
+      "adapter_id": "minimax-cn",
+      "candidate": true,
+      "creatable": true,
+      "window": true,
+      "wallet": false,
+      "capabilities": [
+        "5 小时窗口",
+        "周窗口"
+      ],
+      "state": "creatable"
+    },
+    {
+      "product_id": "glm-coding-plan-cn",
+      "brand": "Zhipu GLM",
+      "display_name": "GLM Coding Plan（中国区）",
+      "adapter_id": "glm-cn",
+      "candidate": true,
+      "creatable": true,
+      "window": true,
+      "wallet": false,
+      "capabilities": [
+        "5 小时 Token 窗口",
+        "MCP 月度用量"
+      ],
+      "state": "creatable"
+    },
+    {
+      "product_id": "volcengine-ark-agent-plan-personal",
+      "brand": "Volcengine",
+      "display_name": "火山方舟 Agent Plan（个人版）",
+      "adapter_id": "volc-plan",
+      "candidate": true,
+      "creatable": false,
+      "window": true,
+      "wallet": false,
+      "capabilities": [
+        "5 小时窗口",
+        "周窗口"
+      ],
+      "state": "implementation-blocked"
+    },
+    {
+      "product_id": "volcengine-billing-balance",
+      "brand": "Volcengine",
+      "display_name": "火山引擎账户余额",
+      "adapter_id": "volc-wallet",
+      "candidate": true,
+      "creatable": false,
+      "window": false,
+      "wallet": true,
+      "capabilities": [
+        "五项独立金额"
+      ],
+      "state": "implementation-blocked"
+    },
+    {
+      "product_id": "bailian-coding-plan",
+      "brand": "Alibaba Bailian",
+      "display_name": "百炼 Coding Plan",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": true,
+      "wallet": false,
+      "capabilities": [
+        "5 小时 / 周 / 月调用量"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "bailian-token-plan-personal",
+      "brand": "Alibaba Bailian",
+      "display_name": "百炼 Token Plan 个人版",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": true,
+      "wallet": false,
+      "capabilities": [
+        "5 小时 / 7 天积分"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "xiaomi-mimo-token-plan",
+      "brand": "Xiaomi MiMo",
+      "display_name": "Xiaomi MiMo Token Plan",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": false,
+      "wallet": false,
+      "capabilities": [
+        "月度 / 年度固定积分"
+      ],
+      "state": "information-only"
+    }
+  ]
+}

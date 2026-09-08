@@ -60,9 +60,15 @@ private let providers = [
     ProviderDefinition(id: "volc-plan", label: "火山方舟 Coding Plan", host: "ark.cn-beijing.volces.com", path: "/", authMode: .volcAKSK(service: "ark", region: "cn-beijing", action: "GetAFPUsage", version: "2024-01-01", method: "POST")),
 ]
 
+// BEGIN GENERATED LAUNCH CREATE IDS
 private let creatableProviderIDs = [
-    "deepseek", "glm-cn", "kimi-cn", "kimi-code", "minimax-cn",
+    "deepseek",
+    "glm-cn",
+    "kimi-cn",
+    "kimi-code",
+    "minimax-cn",
 ]
+// END GENERATED LAUNCH CREATE IDS
 
 private let creatableProviders = creatableProviderIDs.compactMap { id in
     providers.first { $0.id == id }

@@ -83,10 +83,12 @@ unit_separator=$(/usr/bin/printf '\037')
 CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$real_home=/build/home${unit_separator}--remap-path-prefix=$repo_root=/build/src"
 export CARGO_ENCODED_RUSTFLAGS
 
+cd "$repo_root"
+uv run python tools/generate_launch_products.py --check
+
 /bin/rm -rf "$generated" "$pyi_root"
 /bin/mkdir -p "$generated" "$pyi_root/work" "$pyi_root/spec"
 
-cd "$repo_root"
 uv run --group package pyinstaller \
   --clean \
   --noconfirm \
