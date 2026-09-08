@@ -239,16 +239,25 @@ class NativeControlPlane:
             raise ValueError("pending keychain deletion mismatch")
 
     def _persist(self) -> None:
-        self._validate_state(self._state)
-        payload = json.dumps(
-            self._state,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode()
-        if len(payload) > MAX_STATE_BYTES:
-            raise ValueError("native state is oversized")
-        atomic_write_private(self.path, payload, max_bytes=MAX_STATE_BYTES)
+        try:
+            self._validate_state(self._state)
+            payload = json.dumps(
+                self._state,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            if len(payload) > MAX_STATE_BYTES:
+                raise ValueError("native state is oversized")
+            atomic_write_private(self.path, payload, max_bytes=MAX_STATE_BYTES)
+        except Exception:
+            # 磁盘态定权
+            try:
+                self._state = self._load()
+            except Exception:
+                # 状态不可用
+                self._state = {}
+            raise
 
     @property
     def generation(self) -> int:

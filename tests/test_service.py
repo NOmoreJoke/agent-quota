@@ -226,3 +226,64 @@ def test_budget_bounds_rejected(
             remaining_budget_ns=budget,
         )
     assert adapter.calls == 0
+
+
+@pytest.mark.parametrize("elapsed", [10, 11])
+def test_request_deadline_rejects_late_response_with_live_lease(
+    store: Store, scope: AccountScope, elapsed: int
+) -> None:
+    class SlowAdapter(FakeAdapter):
+        def fetch(self, context: object) -> object:
+            result = super().fetch(context)  # type: ignore[arg-type]
+            store.clock.mono += elapsed  # type: ignore[attr-defined]
+            return result
+
+    adapter = SlowAdapter()
+    app = service(store, adapter)
+    with pytest.raises(OutcomeUnknown):
+        app.refresh(scope, idempotency_key="late", remaining_budget_ns=10)
+    assert store.latest_snapshot(scope) is None
+    assert store.refresh_row("late")["state"] == "outcome_unknown"
+    with pytest.raises(OutcomeUnknown):
+        app.refresh(scope, idempotency_key="late")
+    assert adapter.calls == 1
+
+
+def test_refresh_insert_race_replays_and_releases_lease(
+    store: Store, scope: AccountScope, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter = FakeAdapter()
+    app = service(store, adapter)
+    original_acquire = store.acquire_lease
+    raced = False
+
+    def acquire_after_other_request(name: str, owner: str, duration: int) -> object:
+        nonlocal raced
+        if not raced:
+            raced = True
+            app.refresh(scope, idempotency_key="raced")
+        return original_acquire(name, owner, duration)
+
+    monkeypatch.setattr(store, "acquire_lease", acquire_after_other_request)
+    result = app.refresh(scope, idempotency_key="raced")
+    assert result.state == "succeeded"
+    assert adapter.calls == 1
+    assert app.refresh(scope, idempotency_key="next").state == "succeeded"
+
+
+def test_refresh_start_failure_releases_lease(
+    store: Store, scope: AccountScope, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sqlite3
+
+    original_start = store.start_refresh
+
+    def fail_start(*_args: object) -> None:
+        raise sqlite3.IntegrityError("unrelated insert failure")
+
+    monkeypatch.setattr(store, "start_refresh", fail_start)
+    app = service(store, FakeAdapter())
+    with pytest.raises(sqlite3.IntegrityError):
+        app.refresh(scope, idempotency_key="failure")
+    monkeypatch.setattr(store, "start_refresh", original_start)
+    assert app.refresh(scope, idempotency_key="next").state == "succeeded"

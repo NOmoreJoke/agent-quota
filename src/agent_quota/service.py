@@ -75,7 +75,27 @@ class ApplicationService:
             owner,
             remaining_budget_ns + 1_000_000_000,
         )
-        self.store.start_refresh(idempotency_key, scope, lease)
+        try:
+            try:
+                self.store.start_refresh(idempotency_key, scope, lease)
+            except sqlite3.IntegrityError:
+                existing = self.store.refresh_row(idempotency_key)
+                if existing is None:
+                    raise
+                return self._existing_refresh(existing, scope)
+            return self._refresh_with_lease(scope, idempotency_key, remaining_budget_ns, lease)
+        finally:
+            # Cleanup cannot replace the already determined public result.
+            with contextlib.suppress(Exception):
+                self.store.release_lease(lease)
+
+    def _refresh_with_lease(
+        self,
+        scope: AccountScope,
+        idempotency_key: str,
+        remaining_budget_ns: int,
+        lease: Lease,
+    ) -> RefreshResult:
         request_digest = _digest(
             {
                 "scope_ref": scope.opaque_ref,
@@ -110,6 +130,8 @@ class ApplicationService:
                 )
                 raise ContractViolation("deadline expired before dispatch")
             observation = adapter.fetch(context)
+            if self.store.clock.monotonic_ns() >= deadline_ns:
+                raise TimeoutError("deadline expired after dispatch")
             self._validate_observation(context, observation)
             snapshot = CapabilitySnapshot(
                 scope=scope,
@@ -161,10 +183,6 @@ class ApplicationService:
                 error_code="unexpected_after_dispatch",
             )
             raise OutcomeUnknown(idempotency_key) from error
-        finally:
-            # Cleanup cannot replace the already determined public result.
-            with contextlib.suppress(Exception):
-                self.store.release_lease(lease)
 
     def _finish_or_unknown(
         self,

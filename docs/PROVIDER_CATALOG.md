@@ -16,6 +16,11 @@ Desktop 的 Provider Preset 只渲染当前已完成本机接入的 5 张卡片�
 Kimi For Coding、MiniMax、Zhipu GLM。其余目录行继续保留为合同/审计输入，但不进入
 卡片、搜索结果或能力筛选结果。
 
+首发范围目标另由 `docs/acceptance-matrix-v2.json` 管理：10 张独立产品卡、7 个品牌、
+7 个目标可操作候选与 3 张禁用信息卡。该目标不是当前实现状态；launch product card
+不得由 catalog row 的组合 `adapter_ids` 推导，避免将火山钱包/Agent Plan 或百炼钱包/
+Plan 能力错误合并。
+
 ## 已实现查询
 
 | Preset | Adapter | Window | Wallet | 验证方式 |

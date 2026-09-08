@@ -1,0 +1,313 @@
+{
+  "schema": "agent-quota-acceptance-matrix-v2",
+  "decided_at": "2026-08-13",
+  "completion_rule": "complete iff every capability cell with claimed=true and release_denominator=true is PASS and every formal release gate is PASS",
+  "allowed_statuses": [
+    "PASS",
+    "BLOCKED_ACCOUNT",
+    "BLOCKED_IMPLEMENTATION",
+    "BLOCKED_OFFICIAL_API_ABSENT",
+    "NOT_APPLICABLE_OUT_OF_RELEASE_SCOPE",
+    "FAIL"
+  ],
+  "scope_summary": {
+    "brand_count": 7,
+    "product_card_count": 10,
+    "target_actionable_candidate_count": 7,
+    "current_creatable_count": 5,
+    "implementation_blocked_candidate_count": 2,
+    "disabled_information_card_count": 3
+  },
+  "formal_release_gates": [
+    {
+      "gate_id": "holder_live_lifecycle",
+      "required": true,
+      "status": "BLOCKED_ACCOUNT",
+      "commit_binding": null,
+      "evidence": []
+    },
+    {
+      "gate_id": "launch_scope_implementation",
+      "required": true,
+      "status": "BLOCKED_IMPLEMENTATION",
+      "commit_binding": null,
+      "evidence": []
+    },
+    {
+      "gate_id": "developer_id_notarization",
+      "required": true,
+      "status": "BLOCKED_IMPLEMENTATION",
+      "commit_binding": null,
+      "evidence": []
+    },
+    {
+      "gate_id": "final_package_evidence",
+      "required": true,
+      "status": "NOT_GENERATED",
+      "commit_binding": null,
+      "evidence": []
+    }
+  ],
+  "formal_release_gate_allowed_statuses": [
+    "PASS",
+    "BLOCKED_ACCOUNT",
+    "BLOCKED_IMPLEMENTATION",
+    "NOT_GENERATED",
+    "FAIL"
+  ],
+  "products": [
+    {
+      "product_id": "deepseek-api-balance-cn",
+      "brand": "DeepSeek",
+      "display_name": "DeepSeek API 余额",
+      "region": "China",
+      "adapter_id": "deepseek",
+      "target_actionable_candidate": true,
+      "current_creatable": true,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "wallet_balance",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://api-docs.deepseek.com/api/get-user-balance/"]
+        }
+      ]
+    },
+    {
+      "product_id": "kimi-api-balance-cn",
+      "brand": "Kimi",
+      "display_name": "Kimi API 余额（中国区）",
+      "region": "China",
+      "adapter_id": "kimi-cn",
+      "target_actionable_candidate": true,
+      "current_creatable": true,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "wallet_balance",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://platform.kimi.com/docs/api/balance"]
+        }
+      ]
+    },
+    {
+      "product_id": "kimi-code-token-plan",
+      "brand": "Kimi",
+      "display_name": "Kimi Code Token Plan",
+      "region": "China",
+      "adapter_id": "kimi-code",
+      "target_actionable_candidate": true,
+      "current_creatable": true,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "window_5h",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://www.kimi.com/code/docs/kimi-code/membership.html"]
+        },
+        {
+          "capability_id": "window_week",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://www.kimi.com/code/docs/kimi-code/membership.html"]
+        },
+        {
+          "capability_id": "extra_usage_wallet_when_present",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://github.com/MoonshotAI/kimi-code/blob/main/packages/oauth/src/managed-usage.ts"]
+        }
+      ]
+    },
+    {
+      "product_id": "minimax-token-plan-cn",
+      "brand": "MiniMax",
+      "display_name": "MiniMax Token Plan（中国区）",
+      "region": "China",
+      "adapter_id": "minimax-cn",
+      "target_actionable_candidate": true,
+      "current_creatable": true,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "window_5h",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://platform.minimaxi.com/docs/token-plan/faq"]
+        },
+        {
+          "capability_id": "window_week",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://platform.minimaxi.com/docs/token-plan/faq"]
+        }
+      ]
+    },
+    {
+      "product_id": "glm-coding-plan-cn",
+      "brand": "Zhipu GLM",
+      "display_name": "GLM Coding Plan（中国区）",
+      "region": "China",
+      "adapter_id": "glm-cn",
+      "target_actionable_candidate": true,
+      "current_creatable": true,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "token_window_5h",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin"]
+        },
+        {
+          "capability_id": "mcp_monthly_usage",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin"]
+        }
+      ]
+    },
+    {
+      "product_id": "volcengine-ark-agent-plan-personal",
+      "brand": "Volcengine",
+      "display_name": "火山方舟 Agent Plan（个人版）",
+      "region": "cn-beijing",
+      "adapter_id": "volc-plan",
+      "target_actionable_candidate": true,
+      "current_creatable": false,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-implementation-and-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "window_5h",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_IMPLEMENTATION",
+          "official_evidence": ["https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent+Plan+API&serviceCode=ark&version=2024-01-01"]
+        },
+        {
+          "capability_id": "window_week",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_IMPLEMENTATION",
+          "official_evidence": ["https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent+Plan+API&serviceCode=ark&version=2024-01-01"]
+        }
+      ]
+    },
+    {
+      "product_id": "volcengine-billing-balance",
+      "brand": "Volcengine",
+      "display_name": "火山引擎账户余额",
+      "region": "China",
+      "adapter_id": "volc-wallet",
+      "target_actionable_candidate": true,
+      "current_creatable": false,
+      "evidence_tier": "implementation-blocked",
+      "release_status": "blocked-official-get-contract-hardening",
+      "capabilities": [
+        {
+          "capability_id": "wallet_five_independent_amounts",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_IMPLEMENTATION",
+          "official_evidence": [
+            "https://www.volcengine.com/docs/6269/1223898?lang=zh",
+            "https://www.volcengine.com/docs/6269/1186807?lang=zh"
+          ],
+          "promotion_gate": "Use official GET; exact five bounded canonical decimal strings; no inferred currency; independent values with arrears preserved as debt; fail closed without overwriting LKG; GET signing and negative tests; least-privilege policy and installed-RC holder live acceptance"
+        }
+      ]
+    },
+    {
+      "product_id": "bailian-coding-plan",
+      "brand": "Alibaba Bailian",
+      "display_name": "百炼 Coding Plan",
+      "region": "China",
+      "adapter_id": null,
+      "target_actionable_candidate": false,
+      "current_creatable": false,
+      "evidence_tier": "experimental",
+      "release_status": "blocked-out-of-release-scope",
+      "capabilities": [
+        {
+          "capability_id": "calls_5h_week_month",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": ["https://help.aliyun.com/zh/model-studio/coding-plan"]
+        }
+      ]
+    },
+    {
+      "product_id": "bailian-token-plan-personal",
+      "brand": "Alibaba Bailian",
+      "display_name": "百炼 Token Plan 个人版",
+      "region": "China",
+      "adapter_id": null,
+      "target_actionable_candidate": false,
+      "current_creatable": false,
+      "evidence_tier": "experimental",
+      "release_status": "blocked-out-of-release-scope",
+      "capabilities": [
+        {
+          "capability_id": "credits_5h_7day",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": ["https://help.aliyun.com/zh/model-studio/token-plan-personal-faq"]
+        }
+      ]
+    },
+    {
+      "product_id": "xiaomi-mimo-token-plan",
+      "brand": "Xiaomi MiMo",
+      "display_name": "Xiaomi MiMo Token Plan",
+      "region": "China/global platform",
+      "adapter_id": null,
+      "target_actionable_candidate": false,
+      "current_creatable": false,
+      "evidence_tier": "experimental",
+      "release_status": "blocked-out-of-release-scope",
+      "capabilities": [
+        {
+          "capability_id": "monthly_annual_fixed_credits",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": ["https://mimo.mi.com/docs/en-US/price/token-plan"]
+        },
+        {
+          "capability_id": "window_5h_week",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "NOT_APPLICABLE_OUT_OF_RELEASE_SCOPE",
+          "official_evidence": ["https://mimo.mi.com/docs/en-US/news/latest/token-plan-release"]
+        }
+      ]
+    }
+  ],
+  "disabled_information_card_policy": {
+    "creatable": false,
+    "credential_collection": false,
+    "provider_request": false,
+    "web_scraping": false,
+    "release_denominator": false
+  }
+}

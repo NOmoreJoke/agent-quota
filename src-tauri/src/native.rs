@@ -148,6 +148,7 @@ impl NativeHost {
     }
 
     fn run(&self, request: Value, timeout: Duration) -> Result<NativeResponse, NativeError> {
+        let deadline = Instant::now() + timeout;
         let path = self.executable.as_deref().ok_or(NativeError::Unavailable)?;
         let path = check_executable(path)?;
         let mut body = serde_json::to_vec(&request).map_err(|_| NativeError::Protocol)?;
@@ -181,25 +182,43 @@ impl NativeHost {
             let result = stdout.take(MAX_RESPONSE_BYTES + 1).read_to_end(&mut bytes);
             let _ = sender.send((result, bytes));
         });
-        let (read_result, bytes) = match receiver.recv_timeout(timeout) {
-            Ok(result) => result,
-            Err(_) => {
-                terminate(&mut child);
-                return Err(NativeError::Timeout);
-            }
-        };
+        let (read_result, bytes) =
+            match receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                Ok(result) => result,
+                Err(_) => {
+                    terminate(&mut child);
+                    return Err(NativeError::Timeout);
+                }
+            };
         if read_result.is_err() {
             terminate(&mut child);
             return Err(NativeError::Process);
         }
-        let status = child.wait().map_err(|_| NativeError::Process)?;
-        if !status.success()
-            || bytes.is_empty()
+        if bytes.is_empty()
             || bytes.len() > MAX_RESPONSE_BYTES as usize
             || bytes.iter().filter(|byte| **byte == b'\n').count() != 1
             || bytes.last() != Some(&b'\n')
         {
+            terminate(&mut child);
             return Err(NativeError::Protocol);
+        }
+        loop {
+            if Instant::now() >= deadline {
+                terminate(&mut child);
+                return Err(NativeError::Timeout);
+            }
+            match child.try_wait() {
+                Ok(Some(status)) if status.success() => break,
+                Ok(Some(_)) => return Err(NativeError::Protocol),
+                Ok(None) => thread::sleep(
+                    Duration::from_millis(10)
+                        .min(deadline.saturating_duration_since(Instant::now())),
+                ),
+                Err(_) => {
+                    terminate(&mut child);
+                    return Err(NativeError::Process);
+                }
+            }
         }
         serde_json::from_slice(&bytes[..bytes.len() - 1]).map_err(|_| NativeError::Protocol)
     }
@@ -422,6 +441,36 @@ mod tests {
         );
         assert!(matches!(result, Err(NativeError::Timeout)));
         assert!(started.elapsed() < Duration::from_millis(250));
+    }
+
+    #[test]
+    fn helper_closed_stdout_must_exit_before_deadline() {
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("closed-stdout-helper");
+        fs::write(&executable, "#!/bin/sh\nread request\nprintf '%s\\n' '{\"status\":\"cancelled\"}'\nexec 1>&-\nexec /bin/sleep 2\n").unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        let host = NativeHost::new(Some(executable));
+        let started = Instant::now();
+        let result = host.run(serde_json::json!({}), Duration::from_millis(100));
+        assert!(matches!(result, Err(NativeError::Timeout)));
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn oversized_helper_output_is_terminated_before_waiting_for_exit() {
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("oversized-helper");
+        fs::write(
+            &executable,
+            "#!/bin/sh\nread request\n/usr/bin/head -c 393217 /dev/zero\nexec /bin/sleep 10\n",
+        )
+        .unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        let host = NativeHost::new(Some(executable));
+        let started = Instant::now();
+        let result = host.run(serde_json::json!({}), Duration::from_secs(5));
+        assert!(matches!(result, Err(NativeError::Protocol)));
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 
     #[test]

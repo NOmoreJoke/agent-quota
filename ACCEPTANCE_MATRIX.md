@@ -1,38 +1,51 @@
-# RC acceptance matrix
+# Release acceptance matrix
 
-Authoritative machine record: `docs/acceptance-matrix-v1.json`.
+Authoritative machine record: `docs/acceptance-matrix-v2.json`.
+Closed structure: `docs/acceptance-matrix-v2.schema.json`.
 
-`COMPLETE` requires `21/21 PASS` plus every release gate. Historical live
-fixtures, HTTP 200, documented product limits, and an `Unsupported` UI state do
-not satisfy current installed-RC live acceptance.
+`COMPLETE` requires every `claimed=true` and `release_denominator=true` capability
+cell to be current installed-release `PASS`, plus every formal release gate. Product
+existence, documentation, fixtures, HTTP 200, catalog visibility, or parser tests do
+not substitute for holder-controlled live acceptance.
 
-| Provider | Wallet | 5h | Week | Current result |
-|---|---:|---:|---:|---|
-| DeepSeek | BLOCKED_ACCOUNT | BLOCKED_PRODUCT_ABSENT | BLOCKED_PRODUCT_ABSENT | BLOCKED |
-| Alibaba Bailian | BLOCKED_ACCOUNT | BLOCKED_OFFICIAL_API_ABSENT | BLOCKED_OFFICIAL_API_ABSENT | BLOCKED |
-| Volcengine | BLOCKED_ACCOUNT | BLOCKED_ACCOUNT | BLOCKED_ACCOUNT | BLOCKED |
-| MiniMax | BLOCKED_OFFICIAL_API_ABSENT | BLOCKED_ACCOUNT | BLOCKED_ACCOUNT | BLOCKED |
-| Zhipu GLM | BLOCKED_OFFICIAL_API_ABSENT | BLOCKED_ACCOUNT | BLOCKED_OFFICIAL_API_ABSENT | BLOCKED |
-| Kimi | BLOCKED_ACCOUNT | BLOCKED_ACCOUNT | BLOCKED_ACCOUNT | BLOCKED |
-| Xiaomi MiMo | BLOCKED_OFFICIAL_API_ABSENT | BLOCKED_PRODUCT_ABSENT | BLOCKED_PRODUCT_ABSENT | BLOCKED |
+## Launch scope
 
-## Product/account binding
+| Product card | Adapter | Current state | Release denominator |
+|---|---|---|---:|
+| DeepSeek API 余额 | `deepseek` | Creatable; live acceptance blocked | Yes |
+| Kimi API 余额（中国区） | `kimi-cn` | Creatable; live acceptance blocked | Yes |
+| Kimi Code Token Plan | `kimi-code` | Creatable; live acceptance blocked | Yes |
+| MiniMax Token Plan（中国区） | `minimax-cn` | Creatable; live acceptance blocked | Yes |
+| GLM Coding Plan（中国区） | `glm-cn` | Creatable; live acceptance blocked | Yes |
+| 火山方舟 Agent Plan（个人版） | `volc-plan` | Implementation and live acceptance blocked | Yes |
+| 火山引擎账户余额 | `volc-wallet` | Implementation blocked; not yet claimed | No |
+| 百炼 Coding Plan | — | Disabled information card; official read API absent | No |
+| 百炼 Token Plan 个人版 | — | Disabled information card; official read API absent | No |
+| Xiaomi MiMo Token Plan | — | Disabled information card; official read API absent | No |
 
-| Provider | Wallet principal | Plan principal | Region |
-|---|---|---|---|
-| DeepSeek | Open Platform API key | No verified product | China |
-| Alibaba Bailian | Alibaba Cloud RAM AccessKey | Coding/Token Plan key | China |
-| Volcengine | Billing AK/SK | Ark Agent Plan AK/SK + active plan | cn-beijing |
-| MiniMax | Open Platform API account | Token Plan key | China |
-| Zhipu GLM | Open Platform billing account | Coding Plan token | China |
-| Kimi | Open Platform API key | Kimi Code OAuth membership | China |
-| Xiaomi MiMo | Open Platform API account | Monthly/annual Token Plan key | China/global platform |
+Scope totals: `10` product cards, `7` brands, `7` target actionable candidates,
+`5` currently creatable products, `2` implementation-blocked candidates, and `3`
+disabled information cards.
 
-## Account preflight
+## Firewalled scope boundaries
 
-- Configured accounts at `2026-08-11T15:47:47+08:00`: `1` DeepSeek account,
-  lifecycle `needs-reauth`; the installed app binary differs from the RC artifact, so it
-  does not satisfy current installed-RC acceptance.
-- No Keychain value was queried; no credential reference was emitted.
-- Account holder action: use only the installed app native secure dialog.
-- A blocked cell does not stop safe work on other cells.
+- 火山 Agent Plan and 火山钱包 are independent products, capability sets and
+  acceptance units. Agent Plan claims only the 5-hour and weekly windows.
+- 火山钱包 stays `creatable=false`, `claimed=false` until the official GET contract,
+  strict five-string amount schema, no-inferred-currency rendering, LKG fail-closed
+  behavior, signing negatives, IAM boundary and installed-release live checks pass.
+- 百炼 Coding Plan, 百炼 Token Plan and MiMo Token Plan are visible scope records only:
+  no add action, credential collection, Provider request, scraping, or release score.
+- MiMo uses monthly/annual fixed Credits and has no 5-hour/weekly product window.
+- The 78-row Provider catalog remains audit input; launch cards are a separate product
+  model and must not be inferred from a catalog row's combined `adapter_ids`.
+
+## Holder-controlled acceptance
+
+For every claimed capability: add -> Keychain -> refresh -> restart -> refresh; verify
+subject, unit, window, remaining/limit, reset semantics, server timestamp and
+`last_success_at`; then exercise 401 reauthentication, stale LKG, upgrade/rollback,
+uninstall/reinstall retention and native-confirmed purge.
+
+Machine completion additionally requires every required `formal_release_gates` row to
+be `PASS`, carry the final 40-character release commit binding, and contain evidence.

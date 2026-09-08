@@ -136,7 +136,7 @@ describe("App", () => {
       node.textContent?.includes("账户与 Provider"),
     );
     await act(async () => accounts?.click());
-    expect(host.textContent).toContain("已启用 Provider");
+    expect(host.textContent).toContain("已配置 Provider");
     expect([...host.querySelectorAll(".provider-card h3")].map((node) => node.textContent)).toEqual([
       "OpenAI",
       "Kimi Code",
@@ -145,11 +145,9 @@ describe("App", () => {
     expect([...host.querySelectorAll("[data-provider-id]")].map((node) =>
       node.getAttribute("data-provider-id"),
     )).toEqual([
-      "provider-026",
-      "provider-034",
-      "provider-035",
-      "provider-038",
-      "provider-073",
+      "deepseek-api-balance-cn", "kimi-api-balance-cn", "kimi-code-token-plan",
+      "minimax-token-plan-cn", "glm-coding-plan-cn", "volcengine-ark-agent-plan-personal",
+      "volcengine-billing-balance", "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
     ]);
     expect(host.querySelector('[aria-label^="Cursor "]')).toBeNull();
 

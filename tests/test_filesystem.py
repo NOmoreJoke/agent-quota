@@ -58,3 +58,25 @@ def test_private_io_enforces_explicit_bounds(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="private write"):
         atomic_write_private(path, b"1234", max_bytes=3)
     assert path.read_bytes() == b"1234"
+
+
+def test_regular_read_rejects_fifo_without_waiting_for_writer(tmp_path: Path) -> None:
+    import subprocess
+    import sys
+
+    fifo = tmp_path / "pipe"
+    os.mkfifo(fifo, 0o600)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, sys; from agent_quota.filesystem import read_regular_at; "
+            "fd = os.open(sys.argv[1], os.O_RDONLY); "
+            "read_regular_at(fd, 'pipe')",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        timeout=3,
+    )
+    assert result.returncode == 1
+    assert b"private file identity mismatch" in result.stderr
