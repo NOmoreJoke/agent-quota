@@ -33,6 +33,69 @@ use tauri::{AppHandle, Emitter, Manager, State};
 type CommandResult = Result<Value, String>;
 const DEFAULT_BUDGET_NS: u64 = 2_000_000_000;
 const REFRESH_DEADLINE: Duration = Duration::from_secs(30);
+const CLOSE_WINDOW_MENU_ID: &str = "quota-close-window";
+
+fn application_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    #[cfg(not(target_os = "macos"))]
+    return tauri::menu::Menu::default(app);
+
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::menu::{
+            AboutMetadata, HELP_SUBMENU_ID, MenuBuilder, MenuItem, SubmenuBuilder,
+            WINDOW_SUBMENU_ID,
+        };
+        // AppKit's predefined performClose: ignores borderless windows. Route both
+        // menu entries through Tauri so our CloseRequested recovery also handles Cmd+W.
+        let close = MenuItem::with_id(
+            app,
+            CLOSE_WINDOW_MENU_ID,
+            "Close Window",
+            true,
+            Some("CmdOrCtrl+W"),
+        )?;
+        let package = app.package_info();
+        let about = AboutMetadata {
+            name: Some(package.name.clone()),
+            version: Some(package.version.to_string()),
+            copyright: app.config().bundle.copyright.clone(),
+            authors: app.config().bundle.publisher.clone().map(|name| vec![name]),
+            ..Default::default()
+        };
+        MenuBuilder::new(app)
+            .items(&[
+                &SubmenuBuilder::new(app, &package.name)
+                    .about(Some(about))
+                    .separator()
+                    .services()
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .separator()
+                    .quit()
+                    .build()?,
+                &SubmenuBuilder::new(app, "File").item(&close).build()?,
+                &SubmenuBuilder::new(app, "Edit")
+                    .undo()
+                    .redo()
+                    .separator()
+                    .cut()
+                    .copy()
+                    .paste()
+                    .select_all()
+                    .build()?,
+                &SubmenuBuilder::new(app, "View").fullscreen().build()?,
+                &SubmenuBuilder::with_id(app, WINDOW_SUBMENU_ID, "Window")
+                    .minimize()
+                    .maximize()
+                    .separator()
+                    .item(&close)
+                    .build()?,
+                &SubmenuBuilder::with_id(app, HELP_SUBMENU_ID, "Help").build()?,
+            ])
+            .build()
+    }
+}
 
 struct HostState {
     _instance_lease: InstanceLease,
@@ -1013,6 +1076,19 @@ pub fn run() {
         }
     };
     tauri::Builder::default()
+        .menu(application_menu)
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == CLOSE_WINDOW_MENU_ID {
+                for label in ["main", "floating"] {
+                    if let Some(window) = app.get_webview_window(label)
+                        && window.is_focused().ok() == Some(true)
+                    {
+                        let _ = window.close();
+                        break;
+                    }
+                }
+            }
+        })
         .setup(move |app| {
             let (sidecar_executable, native_executable) = runtime_resources(app);
             let mut sidecar = sidecar_spec(sidecar_executable, &data_root)
