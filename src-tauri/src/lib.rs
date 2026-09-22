@@ -28,7 +28,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use supervisor::{SidecarSupervisor, SupervisorError};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 type CommandResult = Result<Value, String>;
 const DEFAULT_BUDGET_NS: u64 = 2_000_000_000;
@@ -37,6 +37,7 @@ const REFRESH_DEADLINE: Duration = Duration::from_secs(30);
 struct HostState {
     _instance_lease: InstanceLease,
     credential_destructive_transaction: Mutex<()>,
+    refresh_transaction: Mutex<()>,
     sidecar: Mutex<Option<SidecarSupervisor>>,
     native: NativeHost,
 }
@@ -358,23 +359,70 @@ fn refresh_accounts_error(accounts: &Value) -> Option<&str> {
 }
 
 #[tauri::command]
-fn bootstrap_state(state: State<'_, HostState>, request: Value) -> CommandResult {
-    call_sidecar(&state, "bootstrap_state", request, DEFAULT_BUDGET_NS)
+async fn bootstrap_state(app: AppHandle, request: Value) -> CommandResult {
+    read_projection(app, "bootstrap_state", request).await
 }
 
 #[tauri::command]
-fn accounts_read(state: State<'_, HostState>, request: Value) -> CommandResult {
-    call_sidecar(&state, "accounts_read", request, DEFAULT_BUDGET_NS)
+async fn accounts_read(app: AppHandle, request: Value) -> CommandResult {
+    read_projection(app, "accounts_read", request).await
 }
 
 #[tauri::command]
-fn quota_overview(state: State<'_, HostState>, request: Value) -> CommandResult {
-    call_sidecar(&state, "quota_overview", request, DEFAULT_BUDGET_NS)
+async fn quota_overview(app: AppHandle, request: Value) -> CommandResult {
+    read_projection(app, "quota_overview", request).await
+}
+
+async fn read_projection(app: AppHandle, command: &'static str, request: Value) -> CommandResult {
+    // Waiting for the shared sidecar must not freeze dragging or hover on the UI thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        call_sidecar(&app.state(), command, request, DEFAULT_BUDGET_NS)
+    })
+    .await
+    .map_err(|_| "projection task unavailable".to_owned())?
 }
 
 #[tauri::command]
-fn refresh_scope(state: State<'_, HostState>, request: Value) -> CommandResult {
+async fn refresh_scope(window: tauri::WebviewWindow, request: Value) -> CommandResult {
+    let app = window.app_handle().clone();
+    let source = window.label().to_owned();
+    tauri::async_runtime::spawn_blocking(move || {
+        let response = refresh_scope_inner(app.state(), request)?;
+        if response["refresh_state"]["phase"] != "running" {
+            let outcome = if response["safe_error"]["code"] == "outcome-unknown" {
+                "unknown"
+            } else if response["status"] == "ok" {
+                "success"
+            } else {
+                "warning"
+            };
+            let _ = app.emit(
+                "quota-projection-changed",
+                json!({"source": source, "refreshOutcome": outcome}),
+            );
+        }
+        Ok(response)
+    })
+    .await
+    .map_err(|_| "refresh task unavailable".to_owned())?
+}
+
+fn refresh_scope_inner(state: State<'_, HostState>, request: Value) -> CommandResult {
     validate_request("refresh_scope", &request).map_err(|_| "request rejected".to_owned())?;
+    let Ok(_refresh_guard) = state.refresh_transaction.try_lock() else {
+        return validated(
+            "refresh_scope",
+            json!({"refresh_state": {"phase": "running"}, "status": "running"}),
+        );
+    };
+    // Account generations must stay stable from fetch-plan through commit.
+    // Native account dialogs use the same gate without blocking the UI thread.
+    let Ok(_account_guard) = state.credential_destructive_transaction.try_lock() else {
+        return validated(
+            "refresh_scope",
+            unavailable("refresh_scope", &request, "not-authorized"),
+        );
+    };
     let scope = request["scope_ref"].as_str().unwrap_or_default();
     let accounts = call_sidecar(
         &state,
@@ -418,6 +466,12 @@ fn refresh_scope(state: State<'_, HostState>, request: Value) -> CommandResult {
 
 #[tauri::command]
 fn config_validate_apply(state: State<'_, HostState>, request: Value) -> CommandResult {
+    let Ok(_transaction) = state.credential_destructive_transaction.try_lock() else {
+        return validated(
+            "config_validate_apply",
+            unavailable("config_validate_apply", &request, "not-authorized"),
+        );
+    };
     call_sidecar(&state, "config_validate_apply", request, DEFAULT_BUDGET_NS)
 }
 
@@ -437,12 +491,12 @@ fn credential_dialog_open(
             unavailable("credential_dialog_open", &request, "not-authorized"),
         );
     }
-    let _transaction = match state.credential_destructive_transaction.lock() {
+    let _transaction = match state.credential_destructive_transaction.try_lock() {
         Ok(transaction) => transaction,
         Err(_) => {
             return validated(
                 "credential_dialog_open",
-                unavailable("credential_dialog_open", &request, "provider-unavailable"),
+                unavailable("credential_dialog_open", &request, "not-authorized"),
             );
         }
     };
@@ -547,6 +601,7 @@ fn credential_dialog_open(
         }
     };
     restore_main_window(&app);
+    let _ = app.emit("quota-projection-changed", json!({"source": "main"}));
     validated("credential_dialog_open", response)
 }
 
@@ -564,16 +619,12 @@ fn destructive_confirmation_open(
             unavailable("destructive_confirmation_open", &request, "not-authorized"),
         );
     }
-    let _transaction = match state.credential_destructive_transaction.lock() {
+    let _transaction = match state.credential_destructive_transaction.try_lock() {
         Ok(transaction) => transaction,
         Err(_) => {
             return validated(
                 "destructive_confirmation_open",
-                unavailable(
-                    "destructive_confirmation_open",
-                    &request,
-                    "provider-unavailable",
-                ),
+                unavailable("destructive_confirmation_open", &request, "not-authorized"),
             );
         }
     };
@@ -674,6 +725,7 @@ fn destructive_confirmation_open(
             )
         }
     };
+    let _ = app.emit("quota-projection-changed", json!({"source": "main"}));
     validated("destructive_confirmation_open", response)
 }
 
@@ -686,12 +738,12 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
             unavailable("reauthenticate", &request, "not-authorized"),
         );
     }
-    let _transaction = match state.credential_destructive_transaction.lock() {
+    let _transaction = match state.credential_destructive_transaction.try_lock() {
         Ok(transaction) => transaction,
         Err(_) => {
             return validated(
                 "reauthenticate",
-                unavailable("reauthenticate", &request, "provider-unavailable"),
+                unavailable("reauthenticate", &request, "not-authorized"),
             );
         }
     };
@@ -813,6 +865,7 @@ fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -
             unavailable("reauthenticate", &request, code)
         }
     };
+    let _ = app.emit("quota-projection-changed", json!({"source": "main"}));
     validated("reauthenticate", response)
 }
 
@@ -893,8 +946,8 @@ fn redacted_diagnostics(accounts: &Value, quota: &Value, scheduler: &Value) -> V
 }
 
 #[tauri::command]
-fn scheduler_state(state: State<'_, HostState>, request: Value) -> CommandResult {
-    call_sidecar(&state, "scheduler_state", request, DEFAULT_BUDGET_NS)
+async fn scheduler_state(app: AppHandle, request: Value) -> CommandResult {
+    read_projection(app, "scheduler_state", request).await
 }
 
 fn app_data_root() -> Result<PathBuf, InstanceLeaseError> {
@@ -989,10 +1042,40 @@ pub fn run() {
             app.manage(HostState {
                 _instance_lease: instance_lease,
                 credential_destructive_transaction: Mutex::new(()),
+                refresh_transaction: Mutex::new(()),
                 sidecar: Mutex::new(sidecar),
                 native,
             });
+            if let Some(floating) = app.get_webview_window("floating") {
+                if let Ok(Some(monitor)) = floating.primary_monitor() {
+                    let area = monitor.work_area();
+                    let scale = monitor.scale_factor();
+                    let _ = floating.set_position(tauri::PhysicalPosition::new(
+                        area.position.x
+                            + (f64::from(area.size.width) - 404.0 * scale).max(0.0) as i32,
+                        area.position.y + (24.0 * scale) as i32,
+                    ));
+                }
+                let _ = floating.show();
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() == "floating"
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
+            {
+                api.prevent_close();
+                restore_main_window(window.app_handle());
+                let _ = window.hide();
+            }
+            if window.label() == "main"
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && let Some(floating) = window.app_handle().get_webview_window("floating")
+                && floating.show().is_ok()
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap_state,
@@ -1006,8 +1089,16 @@ pub fn run() {
             export_redacted,
             scheduler_state
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Agent Quota desktop host");
+        .build(tauri::generate_context!())
+        .expect("failed to build Agent Quota desktop host")
+        .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                restore_main_window(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }
 
 #[cfg(test)]

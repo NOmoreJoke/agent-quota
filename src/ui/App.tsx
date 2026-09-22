@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { transportMode } from "../host/transport";
+import { showFloatingWindow } from "../host/floatingWindow";
 import { filterProducts, productStatus } from "./launchProducts";
 import { useQuotaController } from "./useQuotaController";
 import {
@@ -123,6 +124,11 @@ export function App() {
 
   const pageTitle = view === "overview" ? "额度总览" : nav.find((item) => item.id === view)?.label;
 
+  const openFloating = async () => {
+    try { await showFloatingWindow(); }
+    catch { setNotice({ tone: "danger", text: "无法打开悬浮窗，请重试。" }); }
+  };
+
   return (
     <div
       className="app"
@@ -139,7 +145,7 @@ export function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-foot"><span className={connection === "ready" ? "health-dot" : "health-dot offline"}/>{connectionLabel}</div>
+        <div className="sidebar-foot"><button type="button" className="secondary compact" style={{ marginBottom: 12, width: "100%" }} onClick={() => void openFloating()}>打开用量悬浮窗 ↗</button><br/><span className={connection === "ready" ? "health-dot" : "health-dot offline"}/>{connectionLabel}</div>
       </aside>
 
       <main id="main" tabIndex={-1}>

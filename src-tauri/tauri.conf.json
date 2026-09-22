@@ -10,11 +10,13 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     },
     "windows": [
       {
+        "label": "main",
         "title": "Agent Quota",
         "width": 1120,
         "height": 760,
@@ -22,6 +24,22 @@
         "minHeight": 560,
         "resizable": true,
         "fullscreen": false
+      },
+      {
+        "label": "floating",
+        "title": "Agent Quota · 用量悬浮窗",
+        "url": "index.html?surface=floating",
+        "width": 264,
+        "height": 72,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visibleOnAllWorkspaces": true,
+        "focus": false,
+        "visible": false
       }
     ]
   },

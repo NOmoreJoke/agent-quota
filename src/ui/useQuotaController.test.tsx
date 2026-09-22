@@ -3,8 +3,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invokeHost } from "../host/transport";
 import { useQuotaController } from "./useQuotaController";
+import { onQuotaProjectionChanged, type ProjectionChange } from "../host/floatingWindow";
 
 vi.mock("../host/transport", () => ({ transportMode: "fixture", invokeHost: vi.fn() }));
+vi.mock("../host/floatingWindow", () => ({ onQuotaProjectionChanged: vi.fn() }));
+let projectionChanged: (change: ProjectionChange) => void;
 const invoke = vi.mocked(invokeHost);
 let controller: ReturnType<typeof useQuotaController>;
 let root: Root;
@@ -24,6 +27,10 @@ function response(command: string): Record<string, unknown> {
 }
 
 beforeEach(async () => {
+  vi.mocked(onQuotaProjectionChanged).mockImplementation(async (callback) => {
+    projectionChanged = callback;
+    return () => undefined;
+  });
   unmounted = false;
   invoke.mockReset().mockImplementation(async (command) => response(command));
   const container = document.createElement("div");
@@ -38,6 +45,36 @@ afterEach(async () => {
 });
 
 describe("quota controller outcomes", () => {
+  it("ends another window's running refresh after partial completion and re-reads without another refresh", async () => {
+    invoke.mockImplementation(async (command) => command === "refresh_scope"
+      ? { status: "running", refresh_state: { phase: "running" } } : response(command));
+    await act(async () => controller.refresh());
+    expect(controller.refreshState.phase).toBe("running");
+    invoke.mockClear();
+    await act(async () => projectionChanged({ source: "other", refreshOutcome: "warning" }));
+    expect(controller.refreshState.phase).toBe("completed");
+    expect(controller.refreshState.outcome).toBe("warning");
+    expect(controller.notice?.text).toContain("部分刷新未完成");
+    expect(invoke.mock.calls.map(([command]) => command)).toEqual(["bootstrap_state", "accounts_read", "quota_overview", "scheduler_state"]);
+  });
+
+  it("does not lose a completion notification that arrives before the running response", async () => {
+    let finish!: (result: Record<string, unknown>) => void;
+    invoke.mockImplementation((command) => command === "refresh_scope"
+      ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve(response(command)));
+    let pending!: Promise<void>;
+    await act(async () => { pending = controller.refresh(); });
+    await act(async () => projectionChanged({ source: "other", refreshOutcome: "unknown" }));
+    await act(async () => projectionChanged({ source: "other" }));
+    await act(async () => {
+      finish({ status: "running", refresh_state: { phase: "running" } });
+      await pending;
+    });
+    expect(controller.refreshState.phase).toBe("completed");
+    expect(controller.refreshState.outcome).toBe("warning");
+    expect(controller.notice?.text).toContain("刷新结果未知");
+  });
+
   it("shows checking before bootstrap and unavailable on initial failure, then recovers without refreshing", async () => {
     await act(async () => root.unmount());
     let reject!: (reason: Error) => void;
