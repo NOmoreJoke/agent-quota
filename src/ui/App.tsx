@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { AppearanceSwitch } from "./AppearanceSwitch";
 import { transportMode } from "../host/transport";
 import { showFloatingWindow } from "../host/floatingWindow";
 import { filterProducts, productStatus } from "./launchProducts";
@@ -145,6 +146,7 @@ export function App() {
             </button>
           ))}
         </nav>
+        <AppearanceSwitch/>
         <div className="sidebar-foot"><button type="button" className="secondary compact" style={{ marginBottom: 12, width: "100%" }} onClick={() => void openFloating()}>打开用量悬浮窗 ↗</button><br/><span className={connection === "ready" ? "health-dot" : "health-dot offline"}/>{connectionLabel}</div>
       </aside>
 

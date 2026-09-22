@@ -1,0 +1,4 @@
+/* Loaded before the synchronous bootstrap, including during a persisted dark-theme reload. */
+:root { color-scheme: light; color: #0c0a09; background: #fff; }
+:root[data-theme="dark"] { color-scheme: dark; color: #fafaf9; background: #1c1917; }
+:root.floating-surface, .floating-surface body { background: transparent; }

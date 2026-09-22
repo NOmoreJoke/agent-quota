@@ -4,7 +4,7 @@
 
 ## 交互
 
-- 启动时显示深色悬浮胶囊，右侧拖动柄可移动位置。主窗口侧栏也可重新打开悬浮窗。
+- 启动时显示悬浮胶囊，右侧拖动柄可移动位置。主窗口侧栏也可重新打开悬浮窗。外观默认浅色，主窗口侧栏可切换浅色 / 深色，浮窗同步并记住选择；参见 [外观实现说明](APPEARANCE.md)。
 - 鼠标停留 160ms 展开；离开 350ms 后收起。点击「固定」保持展开；Escape 取消固定并收起。键盘聚焦入口或按 Enter 也可展开。
 - 展开后先切换 `Window View` / `Wallet View`，再从横向供应商简称列表中选择一项，下方只展示该供应商在当前分类中的内容。窗口与余额分别筛选，两个分类在本次运行中各自记住选择。
 - 当前分类只列出已有该类额度的供应商；选中的供应商移除后自动回退到首个可用项，分类为空时显示空状态。其他状态或计数提示本视图暂不展示。
@@ -36,6 +36,8 @@
 ## 原型与开发交接
 
 原型位于 [agent-quota-desktop.pen](design/agent-quota-desktop.pen) 的 `17.x Floating` 模块（画布底部，从 `x=0, y=27880` 开始），包含 9 个状态画板和 2 个说明画板。文字、按钮、进度条和容器为独立可编辑图层。参见 [状态索引与预览](design/floating-usage/README.md)。
+
+后续外观迭代将上述九种状态统一为浅色，并在右侧补齐九种深色对照及说明；新增 `18.x Appearance` 主窗口浅深对照和可复用切换组件，见 [外观画板索引](design/appearance/README.md)。此前“原有 141 个顶层节点与基线一致”记录仅指最初浮窗迭代；本轮有意修改共享侧栏与颜色变量以统一全局主题。
 
 实现入口为 `src/ui/FloatingQuota.tsx`，窗口桥接为 `src/host/floatingWindow.ts`，原生窗口配置与生命周期在 `src-tauri/tauri.conf.json` / `src-tauri/src/lib.rs`。`src/ui/FloatingQuota.test.tsx` 与 `tests/e2e/floating.spec.ts` 验证两级选择、用量语义和交互。UI 仍沿用现有 Host DTO，不引入新的业务命令或凭证入口。
 

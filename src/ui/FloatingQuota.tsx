@@ -4,6 +4,7 @@ import { transportMode } from "../host/transport";
 import { compareWindowOrder, displayedHealth, effectiveHealth, isWeeklyWindow, providerName, providerOrder, windowFamily, windowMetric } from "./quotaPresentation";
 import { useQuotaController } from "./useQuotaController";
 import "./floating.css";
+import { useAppearance } from "./appearance";
 
 const healthLabels: Record<string, string> = {
   ok: "可用", error: "查询失败", exhausted: "已用尽", unavailable: "不可用",
@@ -16,6 +17,7 @@ const quotaViews: { id: QuotaView; label: string }[] = [
 ];
 
 export function FloatingQuota() {
+  useAppearance();
   const quota = useQuotaController();
   const [expanded, setExpanded] = useState(false);
   const [pinned, setPinned] = useState(false);
@@ -160,7 +162,7 @@ export function FloatingQuota() {
                   const health = effectiveHealth(row, exhausted);
                   const metric = row.display_kind === "window" ? windowMetric(row.value_display) : null;
                   const remaining = metric ? metric.mode === "remaining" ? metric.percentage : 100 - metric.percentage : null;
-                  return <article className={`floating-quota-row ${health !== "ok" ? "has-issue" : ""} ${stale ? "is-stale" : ""}`} key={row.capability_ref}>
+                  return <article className={`floating-quota-row ${health !== "ok" ? "has-issue" : ""} ${stale ? "is-stale" : ""}`} data-health={health} key={row.capability_ref}>
                     <div><span className="floating-kind">{row.display_kind === "balance" ? "钱包余额" : row.display_kind === "window" ? "额度窗口" : "状态"}</span><span className="floating-health">{healthLabels[health] ?? health}</span></div>
                     <p>{row.value_display}</p>
                     {remaining !== null && <><div className="floating-meter" role="meter" aria-label={`${selectedGroup.provider} ${row.value_display} · 剩余额度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={remaining}><i style={{ width: `${remaining}%` }}/></div><small className="floating-remaining">剩余 {Number(remaining.toFixed(2))}%{health === "unavailable" ? " · 受周额度限制" : ""}</small></>}
