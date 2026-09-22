@@ -151,16 +151,26 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert credential_flow.index("create_credential_candidate(&state)") < credential_flow.index(
         "state.native.credential"
     )
-    assert credential_flow.index(
-        "credential_destructive_transaction.lock()"
-    ) < credential_flow.index("create_credential_candidate(&state)")
     assert '"opaqueReference": reference' in credential_flow
     destructive_flow = rust_host[
         rust_host.index("fn destructive_confirmation_open") : rust_host.index("fn reauthenticate")
     ]
-    assert destructive_flow.index(
-        "credential_destructive_transaction.lock()"
-    ) < destructive_flow.index("host_internal.destructive_prepare")
+    for flow, command, protected_action in (
+        (credential_flow, "credential_dialog_open", "create_credential_candidate(&state)"),
+        (destructive_flow, "destructive_confirmation_open", "host_internal.destructive_prepare"),
+    ):
+        guard = flow.index(
+            "let _transaction = match state.credential_destructive_transaction.try_lock()"
+        )
+        operation = flow.index(protected_action)
+        assert guard < operation
+        lock_flow = "".join(flow[guard:operation].split())
+        assert "Ok(transaction)=>transaction," in lock_flow
+        assert (
+            f'Err(_)=>{{returnvalidated("{command}",'
+            f'unavailable("{command}",&request,"not-authorized"),);}}'
+        ) in lock_flow
+        assert "drop(_transaction)" not in lock_flow
     helper = (root / "tools/build_native_helper.sh").read_text()
     assert "-strict-concurrency=complete" in helper
     assert "-target arm64-apple-macosx13.0" in helper
@@ -211,7 +221,7 @@ def test_clean_install_verifier_matches_host_fd_and_canonical_path_boundary() ->
     assert 'Path(temporary).resolve(strict=True) / "data"' in verifier
 
 
-def test_production_renderer_has_no_timer_or_loopback_patterns() -> None:
+def test_production_renderer_has_only_hover_delays_and_no_loopback_patterns() -> None:
     root = Path(__file__).parents[1] / "src"
     forbidden = ("setInterval(", "setTimeout(", "http://127.0.0.1", "http://localhost")
     production = [
@@ -225,4 +235,14 @@ def test_production_renderer_has_no_timer_or_loopback_patterns() -> None:
     ]
     for path in production:
         text = path.read_text(encoding="utf-8", errors="strict")
+        if path == root / "ui/FloatingQuota.tsx":
+            text = "".join(text.split())
+            # Only these user-triggered, one-shot UI delays may use a timer.
+            for hover_delay in (
+                "setTimeout(expand,160)",
+                "setTimeout(()=>{if(!pinnedRef.current&&!pointerInside.current"
+                "&&!keyboardInside.current&&!dragging.current)collapse();},350)",
+            ):
+                assert text.count(hover_delay) == 1
+                text = text.replace(hover_delay, "")
         assert not any(pattern in text for pattern in forbidden), path

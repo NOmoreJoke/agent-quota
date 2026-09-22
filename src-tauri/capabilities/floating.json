@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "floating-window",
-  "description": "Local quota widget window controls; no file, network or credential permissions.",
+  "description": "Local widget core-window controls. Shared application commands retain Host validation and native confirmation boundaries.",
   "windows": ["floating"],
   "permissions": [
     "core:default",

@@ -37,6 +37,28 @@ beforeEach(async () => {
 });
 afterEach(async () => { await act(async () => root.unmount()); document.body.innerHTML = ""; vi.useRealTimers(); });
 
+it("never polls the Host or refreshes a Provider while idle, collapsed or expanded", async () => {
+  invoke.mockClear();
+  await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60 * 1000); });
+  expect(invoke).not.toHaveBeenCalled();
+  const shell = host.querySelector(".floating-shell")!;
+  await act(async () => {
+    shell.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(200);
+  });
+  expect(host.querySelector("#floating-details")).not.toBeNull();
+  expect(invoke.mock.calls.map(([command]) => command)).toEqual(["bootstrap_state", "accounts_read", "quota_overview", "scheduler_state"]);
+  invoke.mockClear();
+  await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60 * 1000); });
+  expect(invoke).not.toHaveBeenCalled();
+  await act(async () => {
+    shell.dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+  });
+  expect(host.querySelector("#floating-details")).toBeNull();
+  expect(invoke).not.toHaveBeenCalled();
+});
+
 it("hover only reads snapshots, preserves window semantics and collapses after pointer departure", async () => {
   invoke.mockClear();
   const shell = host.querySelector(".floating-shell")!;
