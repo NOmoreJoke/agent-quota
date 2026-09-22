@@ -27,4 +27,5 @@ tests；这些验证不会发出真实 Provider 请求，也不代表账户或�
 ## 资源策略
 
 默认仅按需刷新；没有账户时不触发 Provider 网络。当前无常驻 SchedulerHost、Renderer
-定时器或 loopback listener。完整边界和包大小门禁见 `PERFORMANCE.md`。
+后台轮询或定时刷新、loopback listener。浮窗的 160 ms 展开、350 ms 收起延时仅响应
+用户交互，展开只读取本地快照。完整边界和包大小门禁见 `PERFORMANCE.md`。

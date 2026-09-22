@@ -1,6 +1,7 @@
 import type { CommandId } from "../contracts/renderer";
 
 export type FixtureScenario =
+  | "floating"
   | "default"
   | "empty"
   | "offline"
@@ -13,6 +14,7 @@ export type FixtureScenario =
 function scenario(): FixtureScenario {
   const value = new URLSearchParams(window.location.search).get("scenario");
   const supported: FixtureScenario[] = [
+    "floating",
     "default",
     "empty",
     "offline",
@@ -48,6 +50,16 @@ const capabilityRows = [
   { capability_ref: "cap-codex", display_kind: "status", health: "incompatible", value_display: "CLI 版本不兼容" },
 ];
 
+const floatingRows = [
+  { capability_ref: "cap-glm-demo-weekly", display_kind: "window", health: "ok", value_display: "周额度 · 剩余 68%" },
+  { capability_ref: "cap-glm-demo-5h", display_kind: "window", health: "ok", value_display: "5小时 · 已用 24%" },
+  { capability_ref: "cap-deepseek-demo", display_kind: "balance", health: "ok", value_display: "余额 CNY 128.60" },
+  { capability_ref: "cap-kimi-demo", display_kind: "balance", health: "ok", value_display: "余额 CNY 64.20" },
+  { capability_ref: "cap-minimax-demo-weekly", display_kind: "window", health: "ok", value_display: "MiniMax-M2 · 周剩余 0%" },
+  { capability_ref: "cap-minimax-demo-5h", display_kind: "window", health: "ok", value_display: "MiniMax-M2 · 5小时剩余 100%" },
+  { capability_ref: "cap-kimi-code-demo-weekly", display_kind: "window", health: "ok", value_display: "周额度 · 剩余 82%" },
+];
+
 export async function fixtureInvoke(commandId: CommandId, payload: Record<string, unknown>): Promise<unknown> {
   await new Promise((resolve) => setTimeout(resolve, commandId === "refresh_scope" ? 180 : 35));
   const mode = scenario();
@@ -62,14 +74,16 @@ export async function fixtureInvoke(commandId: CommandId, payload: Record<string
       };
     case "accounts_read":
       return {
-        accounts: mode === "empty" ? addedAccountRows : [...accountRows, ...addedAccountRows],
+        accounts: mode === "empty" ? addedAccountRows : mode === "floating"
+          ? ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code"].map((name, index) => ({ display_label: name, lifecycle: "active", principal_ref: `principal-demo-${index}` }))
+          : [...accountRows, ...addedAccountRows],
         status: "ok",
       };
     case "quota_overview":
       return {
         projection: {
           capability_rows:
-            mode === "partial"
+            mode === "floating" ? floatingRows : mode === "partial"
               ? capabilityRows.map((row, index) =>
                   index === 1 ? { ...row, health: "error", value_display: "暂时不可用" } : row,
                 )

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invokeHost, transportMode } from "../host/transport";
+import { onQuotaProjectionChanged, type ProjectionChange } from "../host/floatingWindow";
 import { safeErrorMessage, type Account, type Capability, type Scheduler } from "./quotaPresentation";
 
 type Notice = { tone: "danger" | "info" | "success" | "warning"; text: string };
@@ -28,6 +29,9 @@ export function useQuotaController() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
   const actionPending = useRef(false);
+  const pendingSync = useRef<ProjectionChange | null>(null);
+  const synchronizeRef = useRef<(change: ProjectionChange) => void>(() => undefined);
+  const awaitingRefresh = useRef(false);
   const loadVersion = useRef(0);
   const [refreshState, setRefreshState] = useState<RefreshState>({
     phase: "idle", outcome: "none", text: "等待手动刷新",
@@ -41,12 +45,12 @@ export function useQuotaController() {
     return result;
   }, []);
 
-  const load = useCallback(async (): Promise<boolean> => {
+  const load = useCallback(async (preserveNotice = false): Promise<boolean> => {
     if (!mounted.current) return false;
     const version = ++loadVersion.current;
     setLoading(true);
     setConnection("checking");
-    setNotice(null);
+    if (!preserveNotice) setNotice(null);
     try {
       const results = await Promise.all([
         callHost("bootstrap_state", {}),
@@ -93,6 +97,35 @@ export function useQuotaController() {
     };
   }, [load]);
 
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    const synchronize = (change?: ProjectionChange) => {
+      if (disposed) return;
+      if (actionPending.current) {
+        if (change) pendingSync.current = { ...change, refreshOutcome: change.refreshOutcome ?? pendingSync.current?.refreshOutcome };
+        return;
+      }
+      void load(true).then((loaded) => {
+        if (disposed || !change?.refreshOutcome || !awaitingRefresh.current) return;
+        awaitingRefresh.current = false;
+        const text = change.refreshOutcome === "unknown" ? "刷新结果未知；已检查本机状态，请勿自动重试。"
+          : change.refreshOutcome === "warning" ? "部分刷新未完成；已同步最近结果。"
+            : loaded ? "刷新已结束，已同步本机状态。" : "刷新已结束，但本机状态未能载入。";
+        setRefreshState({ phase: "completed", outcome: change.refreshOutcome === "success" && loaded ? "success" : "warning", text });
+        if (loaded) setNotice({ tone: change.refreshOutcome === "success" ? "success" : "warning", text });
+      });
+    };
+    synchronizeRef.current = synchronize;
+    const onFocus = () => synchronize();
+    // Returning to the main window also picks up changes made by the widget.
+    window.addEventListener("focus", onFocus);
+    void onQuotaProjectionChanged(synchronize).then((cleanup) => {
+      if (disposed) cleanup(); else unlisten = cleanup;
+    }).catch(() => { /* Focus and hover remain available for read-only synchronization. */ });
+    return () => { disposed = true; unlisten?.(); window.removeEventListener("focus", onFocus); };
+  }, [load]);
+
   const runAction = async (label: string, action: () => Promise<void>, readOnly = false) => {
     if (!mounted.current || actionPending.current || (!readOnly && connection !== "ready")) return;
     actionPending.current = true;
@@ -106,6 +139,9 @@ export function useQuotaController() {
     } finally {
       actionPending.current = false;
       if (mounted.current) setBusy(false);
+      const queued = pendingSync.current;
+      pendingSync.current = null;
+      if (mounted.current && queued) synchronizeRef.current(queued);
     }
   };
 
@@ -119,14 +155,15 @@ export function useQuotaController() {
       if (safeError?.code === "outcome-unknown") {
         setRefreshState({ phase: "completed", outcome: "warning", text: "刷新结果未知；请先检查账户状态" });
         setNotice({ tone: "warning", text: "刷新结果未知。为避免重复操作，请先检查账户状态，再手动重试。" });
+      } else if (!safeError?.code && phase === "running" && (result.status === "ok" || result.status === "running")) {
+        awaitingRefresh.current = true;
+        setRefreshState({ phase: "running", outcome: "none", text: "host 仍在后台刷新" });
+        setNotice({ tone: "info", text: "已有刷新正在进行，完成后会同步用量。" });
       } else if (safeError?.code || result.status !== "ok" || phase === "failed") {
         const loaded = await load();
         const message = safeErrorMessage(safeError?.code ?? "provider-unavailable");
         setRefreshState({ phase: "completed", outcome: "warning", text: `部分刷新未完成：${message}` });
         if (loaded) setNotice({ tone: "warning", text: `部分刷新未完成：${message}；已保留成功结果与最近缓存。` });
-      } else if (phase === "running") {
-        setRefreshState({ phase: "running", outcome: "none", text: "host 仍在后台刷新" });
-        setNotice({ tone: "info", text: "刷新仍在后台运行，可在刷新队列查看状态。" });
       } else if (await load()) {
         setRefreshState({ phase: "completed", outcome: "success", text: "额度已刷新" });
         setNotice({ tone: "success", text: "额度已刷新。" });
@@ -199,9 +236,10 @@ export function useQuotaController() {
   });
 
   const retryLoad = () => runAction("重新连接", async () => { await load(); }, true);
+  const readSnapshot = () => runAction("读取快照", async () => { await load(true); }, true);
 
   return {
-    connection, retryLoad, loading, offline, accounts, capabilities, freshness, scheduler, notice, setNotice,
+    connection, retryLoad, readSnapshot, loading, offline, accounts, capabilities, freshness, scheduler, notice, setNotice,
     busy, refreshState, refresh, nativeCredential, reauthenticate, destructive, exportRedacted,
   };
 }

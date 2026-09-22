@@ -3,5 +3,5 @@
   "identifier": "main-window",
   "description": "Minimal renderer capability; application commands are registered explicitly.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-show", "core:window:allow-set-theme"]
 }

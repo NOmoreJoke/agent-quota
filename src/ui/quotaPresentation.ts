@@ -15,6 +15,7 @@ export type Scheduler = { health: string; installed: boolean };
 export const providerOrder = ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code", "其他"];
 
 export function safeErrorMessage(code: string): string {
+  if (code === "not-authorized") return "当前操作暂不可用，请等待正在进行的操作结束后在主窗口检查账户状态";
   if (code === "keychain-locked") return "macOS 登录钥匙串已锁定；解锁后再刷新";
   if (code === "reauth-required") return "Provider 凭据已失效；请重新认证";
   if (code === "provider-unavailable") return "Provider 暂时不可用";
@@ -80,7 +81,7 @@ export function windowFamily(row: Capability): string {
   return account ? `${providerName(row.capability_ref)}:${account[1]}` : providerName(row.capability_ref);
 }
 
-function windowOrder(row: Capability, sourceIndex: number): [string, number, number] {
+function windowOrder(row: Capability, sourceIndex: number, shortWindowsFirst = false): [string, number, number] {
   const model = row.capability_ref.match(/-account-([0-9a-f]{24})-model-(\d+)-/u);
   const account = row.capability_ref.match(
     /-row-[0-9a-f]{24}-account-([0-9a-f]{24})(?:-(?:5h|weekly))?$/u,
@@ -88,16 +89,17 @@ function windowOrder(row: Capability, sourceIndex: number): [string, number, num
   const familyOrder = model
     ? `${model[2].padStart(6, "0")}-${model[1]}`
     : account ? `000000-${account[1]}` : "0";
-  const periodOrder = isWeeklyWindow(row) ? 0 : isFiveHourWindow(row) ? 1 : 2;
+  const periodOrder = isWeeklyWindow(row) ? (shortWindowsFirst ? 1 : 0) : isFiveHourWindow(row) ? (shortWindowsFirst ? 0 : 1) : 2;
   return [familyOrder, periodOrder, sourceIndex];
 }
 
 export function compareWindowOrder(
   left: { row: Capability; sourceIndex: number },
   right: { row: Capability; sourceIndex: number },
+  shortWindowsFirst = false,
 ): number {
-  const a = windowOrder(left.row, left.sourceIndex);
-  const b = windowOrder(right.row, right.sourceIndex);
+  const a = windowOrder(left.row, left.sourceIndex, shortWindowsFirst);
+  const b = windowOrder(right.row, right.sourceIndex, shortWindowsFirst);
   return a[0].localeCompare(b[0]) || a[1] - b[1] || a[2] - b[2];
 }
 

@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "floating-window",
+  "description": "Local widget core-window controls. Shared application commands retain Host validation and native confirmation boundaries.",
+  "windows": ["floating"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show", "core:window:allow-set-theme",
+    "core:window:allow-hide",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-start-dragging"
+  ]
+}

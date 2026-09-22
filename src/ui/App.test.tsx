@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { invokeHost } from "../host/transport";
 
 vi.mock("../host/transport", () => ({
   transportMode: "fixture",
@@ -131,6 +132,14 @@ describe("App", () => {
     expect([...minimaxRows ?? []][1]?.querySelector(".status")?.textContent).toContain("不可用");
     expect([...minimaxRows ?? []][3]?.querySelector(".status")?.textContent).toContain("可用");
     expect(host.querySelectorAll(".nav-item")).toHaveLength(5);
+    const callsBeforeAppearance = vi.mocked(invokeHost).mock.calls.length;
+    for (const name of ["深色", "浅色"]) {
+      const button = [...host.querySelectorAll<HTMLButtonElement>(".appearance-switch button")].find((node) => node.textContent?.includes(name));
+      await act(async () => button?.click());
+      expect(button?.getAttribute("aria-pressed")).toBe("true");
+      expect(document.documentElement.dataset.theme).toBe(name === "深色" ? "dark" : "light");
+    }
+    expect(vi.mocked(invokeHost).mock.calls.length).toBe(callsBeforeAppearance);
 
     const accounts = [...host.querySelectorAll("button")].find((node) =>
       node.textContent?.includes("账户与 Provider"),

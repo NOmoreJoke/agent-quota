@@ -2,7 +2,8 @@
 
 ## 当前实现边界
 
-- 默认仅手动、按需刷新；无常驻 SchedulerHost、Renderer 定时器或 loopback listener。
+- 默认仅手动、按需刷新；无常驻 SchedulerHost、Renderer 后台轮询或定时刷新、loopback listener。
+- 浮窗仅在用户交互后使用单次 UI 延时（160 ms 悬停展开、350 ms 离开收起）；展开只读取本地快照，不触发 Provider 刷新。
 - 无活跃账户时不会触发 Provider 网络查询。
 - 应用包和 DMG 构建实行静态大小门禁；不以该门禁替代真实空闲功耗测试。
 - Low Power Mode、thermal signal、后台合并调度、熔断器尚未实现，不声称已上线。
@@ -11,7 +12,7 @@
 
 | 项目 | 当前 | 启用自动刷新前的强制策略 |
 |---|---|---|
-| 调度 | manual/on-demand | SchedulerHost 单一进程；Renderer 禁止 timer |
+| 调度 | manual/on-demand | SchedulerHost 单一进程；Renderer 禁止用 timer 调度后台轮询或刷新 |
 | 合并 | 不适用 | 同 Provider/主体/能力请求合并；单次并发 `1` |
 | 周期 | 不适用 | 最短 15 分钟 + 0–120 秒确定性 jitter；失败指数退避 |
 | 电源 | 不适用 | Low Power Mode 暂停；恢复后不补发历史轮次 |
