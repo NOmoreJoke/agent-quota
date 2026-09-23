@@ -82,7 +82,10 @@ AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin \
   ./tools/build_macos_package.sh
 ```
 
-构建输出以 commit 隔离在 `artifacts/iteration-4-<source_commit>/`。产物仅供本机开发验证，不得附加到公开 Release。完整的工具链、签名等级、安装、升级、回滚与 Purge 规则见[安装指南](docs/INSTALLATION.md)。
+构建输出按 commit 和签名模式隔离在 `artifacts/iteration-4-<source_commit>-<signing_mode>/`，
+其中模式为 `apple-team` 或 `adhoc-test-only`，测试包不会占用同提交的稳定签名产物目录。
+产物仅供本机开发验证，不得附加到公开 Release。完整工具链、签名等级、安装、升级、
+回滚与 Purge 规则见[安装指南](docs/INSTALLATION.md)。
 
 钥匙串跨 helper 更新保留授权需要同一 Apple 团队的稳定签名；构建不再静默使用
 ad-hoc。无证书时仅测试可显式设置 `AQ_ALLOW_ADHOC_SIGNING=1`，这不能解决更新后

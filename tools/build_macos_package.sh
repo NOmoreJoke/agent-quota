@@ -15,14 +15,14 @@ export SWIFT_MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET_REQUIRED"
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 # Fail before compiling or touching artifacts if a stable signing identity is missing.
-/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" preflight
+signing_mode=$(/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" preflight)
 generated="$repo_root/src-tauri/generated-resources"
 pyi_root="$repo_root/build/pyinstaller"
 artifact_parent="$repo_root/artifacts"
 dmg_root="$pyi_root/dmg-root"
 
 source_commit=$(git -C "$repo_root" rev-parse HEAD)
-artifact_dir="$artifact_parent/iteration-4-$source_commit"
+artifact_dir="$artifact_parent/iteration-4-$source_commit-$signing_mode"
 /bin/mkdir -p "$artifact_parent"
 artifact_stage=$(/usr/bin/mktemp -d "$artifact_parent/.iteration-4.stage.XXXXXX")
 cleanup_stage() {

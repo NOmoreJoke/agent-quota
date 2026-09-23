@@ -50,8 +50,8 @@ target 与用户/repository Cargo config 覆写；`production` 与
 
 输出：
 
-- `artifacts/iteration-4-<source_commit>/Agent Quota.app`
-- `artifacts/iteration-4-<source_commit>/Agent-Quota-0.1.0-arm64-local-development.dmg`
+- `artifacts/iteration-4-<source_commit>-<signing_mode>/Agent Quota.app`
+- `artifacts/iteration-4-<source_commit>-<signing_mode>/Agent-Quota-0.1.0-arm64-local-development.dmg`
 - `bundle-manifest.txt`
 - `bundle-audit.json`
 - `signing-audit.json`
