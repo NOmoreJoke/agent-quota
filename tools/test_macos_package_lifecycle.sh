@@ -3,7 +3,7 @@ set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 source_commit=$(git -C "$repo_root" rev-parse HEAD)
-dmg=${1:-"$repo_root/artifacts/iteration-4-$source_commit/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"}
+dmg=${1:-"$repo_root/artifacts/iteration-4-$source_commit/Agent-Quota-0.1.0-arm64-local-development.dmg"}
 test_root=$(mktemp -d "${TMPDIR:-/tmp}/agent-quota-i5-lifecycle.XXXXXX")
 mount_point="$test_root/mount"
 applications="$test_root/Applications"

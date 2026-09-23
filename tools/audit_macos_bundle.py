@@ -77,7 +77,8 @@ def verify_resource_manifest(resources: Path, errors: list[str]) -> tuple[str, s
     digest = hashlib.sha256(raw).hexdigest()
     if (
         set(manifest) != {"artifact_class", "entries", "schema"}
-        or manifest["artifact_class"] != "local unsigned development package"
+        or manifest["artifact_class"]
+        not in {"local unsigned development package", "local development package"}
         or manifest["schema"] != "agent-quota-resource-manifest-v1"
         or not isinstance(manifest["entries"], list)
     ):
@@ -561,7 +562,7 @@ def main() -> int:
         text=True,
     )
     report = {
-        "artifact_class": "local unsigned development package",
+        "artifact_class": "local development package",
         "architecture": "arm64",
         "bundle_id": plist.get("CFBundleIdentifier"),
         "binaries": binaries,

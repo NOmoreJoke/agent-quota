@@ -190,7 +190,10 @@ pub fn validate(
     }
     let manifest: Manifest = serde_json::from_slice(&bytes).map_err(|_| ResourceError::Contract)?;
     if manifest.schema != "agent-quota-resource-manifest-v1"
-        || manifest.artifact_class != "local unsigned development package"
+        || !matches!(
+            manifest.artifact_class.as_str(),
+            "local unsigned development package" | "local development package"
+        )
         || manifest.entries.is_empty()
     {
         return Err(ResourceError::Contract);

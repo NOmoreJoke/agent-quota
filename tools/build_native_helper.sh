@@ -2,6 +2,7 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" preflight
 output_dir="$repo_root/src-tauri/bin"
 app_dir="$output_dir/AgentQuotaNative.app"
 app_binary="$app_dir/Contents/MacOS/AgentQuotaNative"
@@ -9,6 +10,10 @@ app_plist="$app_dir/Contents/Info.plist"
 mkdir -p "$output_dir"
 /bin/rm -rf "$app_dir"
 mkdir -p "$app_dir/Contents/MacOS"
+mkdir -p "$repo_root/build/native"
+xcrun clang -target arm64-apple-macosx13.0 -Wall -Wextra -Werror \
+  -c "$repo_root/native/KeychainMetadata.c" \
+  -o "$repo_root/build/native/KeychainMetadata.o"
 
 xcrun swiftc \
   -target arm64-apple-macosx13.0 \
@@ -19,6 +24,8 @@ xcrun swiftc \
   -framework AppKit \
   -framework Security \
   -framework UniformTypeIdentifiers \
+  -import-objc-header "$repo_root/native/KeychainMetadata.h" \
+  "$repo_root/build/native/KeychainMetadata.o" \
   "$repo_root/native/AgentQuotaNative.swift" \
   -o "$app_binary"
 load_commands=$(/usr/bin/otool -l "$app_binary")
@@ -36,7 +43,8 @@ fi
 /usr/bin/plutil -insert CFBundleName -string "Agent Quota Native" "$app_plist"
 /usr/bin/plutil -insert CFBundlePackageType -string APPL "$app_plist"
 /usr/bin/plutil -insert LSUIElement -bool true "$app_plist"
-/usr/bin/codesign --force --deep --sign - "$app_dir"
+/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" sign \
+  --path "$app_dir" --identifier com.agentquota.desktop.native-helper
 bundle_inventory=$(CDPATH= cd -- "$app_dir" && /usr/bin/find . -mindepth 1 -print | LC_ALL=C /usr/bin/sort)
 expected_inventory='./Contents
 ./Contents/Info.plist
@@ -49,3 +57,4 @@ expected_inventory='./Contents
   exit 1
 }
 "$app_binary" --self-test-provider-minimization
+"$app_binary" --self-test-credential-labels

@@ -66,6 +66,8 @@ jobs:
           --component clippy,rustfmt
           --target aarch64-apple-darwin
       - name: Compile native helper and verify provider minimization
+        env:
+          AQ_ALLOW_ADHOC_SIGNING: "1"
         run: ./tools/build_native_helper.sh
       - name: Prepare development resource placeholders
         run: |

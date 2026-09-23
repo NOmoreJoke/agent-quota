@@ -5,6 +5,7 @@ import Security
 import UniformTypeIdentifiers
 
 private let service = "com.agentquota.desktop.credentials.v1"
+private let legacyCredentialLabel = "Agent Quota credential reference"
 private let maxRequestBytes = 4096
 private let maxResponseBytes = 384 * 1024
 private let maxProviderBodyBytes = 256 * 1024
@@ -126,7 +127,7 @@ private struct NativeRequest {
             required = (value["dialogPurpose"] as? String) == "replace-credential-reference"
                 ? ["action", "dialogPurpose", "opaqueReference", "provider"]
                 : ["action", "dialogPurpose", "opaqueReference"]
-        case "provider-fetch":
+        case "provider-fetch", "keychain-rename":
             required = ["action", "opaqueReference", "provider"]
         case "destructive":
             required = [
@@ -261,29 +262,173 @@ private func withSecretData<T>(
     }
 }
 
-private func keychainAdd(account: String, secret: inout [UInt8]) throws {
+private func credentialKeychainLabel(reference: String, provider: ProviderDefinition) -> String? {
+    guard isCredentialReference(reference) else { return nil }
+    // This suffix identifies a local credential, not an account name or part of its secret.
+    let identifier = reference.dropFirst("credential-".count).prefix(8).lowercased()
+    return "Agent Quota · \(provider.label) · \(identifier)"
+}
+
+private func keychainAdd(
+    account: String, provider: ProviderDefinition, secret: inout [UInt8],
+    keychain: SecKeychain? = nil
+) throws {
+    guard let label = credentialKeychainLabel(reference: account, provider: provider) else {
+        secret.resetBytes(in: secret.indices)
+        throw NativeFailure.invalidRequest
+    }
+    try keychainAdd(account: account, label: label, secret: &secret, keychain: keychain)
+}
+
+private func keychainAdd(
+    account: String, label: String, secret: inout [UInt8], keychain: SecKeychain? = nil
+) throws {
     try withSecretData(&secret) { data in
-        let query: [CFString: Any] = [
+        // macOS permission dialogs use the ACL descriptor, which is separate from the label
+        // shown in Keychain Access. A nil trusted list keeps the default: this creating app.
+        var access: SecAccess?
+        let accessStatus = AQKeychainCreateAccess(label as CFString, &access)
+        guard accessStatus == errSecSuccess, let access else {
+            throw NativeFailure.keychain(accessStatus)
+        }
+        var query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: account,
-            kSecAttrLabel: "Agent Quota credential reference",
+            kSecAttrLabel: label,
+            kSecAttrAccess: access,
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecValueData: data,
         ]
+        if let keychain { query[kSecUseKeychain] = keychain }
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else { throw NativeFailure.keychain(status) }
     }
 }
 
-private func keychainRead(account: String) throws -> Data {
-    let query: [CFString: Any] = [
+private func keychainAttributes(account: String, keychain: SecKeychain? = nil) throws -> [CFString: Any] {
+    var query: [CFString: Any] = [
+        kSecClass: kSecClassGenericPassword,
+        kSecAttrService: service,
+        kSecAttrAccount: account,
+        kSecMatchLimit: kSecMatchLimitOne,
+        kSecReturnAttributes: true,
+        kSecReturnRef: true,
+    ]
+    if let keychain { query[kSecMatchSearchList] = [keychain] }
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    guard status == errSecSuccess, let attributes = result as? [CFString: Any] else {
+        throw NativeFailure.keychain(status == errSecSuccess ? errSecInternalComponent : status)
+    }
+    return attributes
+}
+
+private enum CredentialLabelMigration: Equatable {
+    case renamed
+    case unchanged
+    case customLabelPreserved
+    case labelUpdateDeferred(OSStatus)
+    case failed(OSStatus)
+}
+
+@discardableResult
+private func migrateCredentialKeychainLabel(
+    account: String, provider: ProviderDefinition, keychain: SecKeychain? = nil
+) -> CredentialLabelMigration {
+    guard let label = credentialKeychainLabel(reference: account, provider: provider) else {
+        return .failed(errSecParam)
+    }
+    // Called only by explicit keychain-rename maintenance. Legacy ACL writes may prompt even
+    // with optional interaction disabled; never call this function from a refresh operation.
+    do {
+        let attributes = try keychainAttributes(account: account, keychain: keychain)
+        guard let currentLabel = attributes[kSecAttrLabel] as? String,
+              currentLabel == legacyCredentialLabel || currentLabel == label
+        else { return .customLabelPreserved }
+        guard let item = attributes[kSecValueRef] else { return .failed(errSecInternalComponent) }
+        var access: SecAccess?
+        var changedDescription = false
+        let accessStatus = AQKeychainCopyAccessRenamingDescription(
+            item as CFTypeRef, legacyCredentialLabel as CFString, label as CFString,
+            &access, &changedDescription
+        )
+        guard accessStatus == errSecSuccess, let access else { return .failed(accessStatus) }
+        guard currentLabel != label || changedDescription else { return .unchanged }
+        // Authorize the ACL description change first. SecItemUpdate is not atomic across
+        // label and ACL writes on the legacy keychain, so do not submit them together.
+        if changedDescription {
+            let status = AQKeychainSetAccess(item as CFTypeRef, access)
+            guard status == errSecSuccess else { return .failed(status) }
+        }
+        guard currentLabel != label else { return .renamed }
+        var query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecAttrLabel: currentLabel,
+            kSecMatchItemList: [item],
+        ]
+        if let keychain { query[kSecMatchSearchList] = [keychain] }
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary, [kSecAttrLabel: label] as CFDictionary
+        )
+        // A later retry accepts the old label with the already updated ACL description.
+        return updateStatus == errSecSuccess ? .renamed : .labelUpdateDeferred(updateStatus)
+    } catch NativeFailure.keychain(let status) {
+        return .failed(status)
+    } catch {
+        return .failed(errSecInternalComponent)
+    }
+}
+
+private func renameCredentialReference(_ reference: String, provider id: String) -> NativeResponse {
+    guard isCredentialReference(reference), let definition = providerDefinition(id) else {
+        return NativeResponse(
+            status: "error", opaqueReference: nil, errorCode: "invalid-request",
+            userPresenceToken: nil
+        )
+    }
+    // Explicit maintenance action only. It never requests secret data; the system may ask the
+    // user to authorize editing this item's metadata. Normal refresh never enables this UI.
+    let result = migrateCredentialKeychainLabel(
+        account: reference, provider: definition
+    )
+    let status: String
+    let errorCode: String?
+    switch result {
+    case .renamed:
+        status = "renamed"
+        errorCode = nil
+    case .unchanged:
+        status = "unchanged"
+        errorCode = nil
+    case .customLabelPreserved:
+        status = "unchanged"
+        errorCode = "custom-label-preserved"
+    case .labelUpdateDeferred:
+        status = "deferred"
+        errorCode = "keychain-label-update-pending"
+    case .failed(let code):
+        status = [errSecInteractionNotAllowed, errSecAuthFailed, errSecUserCanceled].contains(code)
+            ? "deferred" : "error"
+        errorCode = code == errSecItemNotFound ? "not-found" : "keychain-metadata-update-failed"
+    }
+    return NativeResponse(
+        status: status, opaqueReference: nil, errorCode: errorCode,
+        userPresenceToken: nil, provider: id
+    )
+}
+
+private func keychainRead(account: String, keychain: SecKeychain? = nil) throws -> Data {
+    var query: [CFString: Any] = [
         kSecClass: kSecClassGenericPassword,
         kSecAttrService: service,
         kSecAttrAccount: account,
         kSecMatchLimit: kSecMatchLimitOne,
         kSecReturnData: true,
     ]
+    if let keychain { query[kSecMatchSearchList] = [keychain] }
     var result: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &result)
     guard status == errSecSuccess, let data = result as? Data else {
@@ -292,13 +437,16 @@ private func keychainRead(account: String) throws -> Data {
     return data
 }
 
-private func keychainUpdate(account: String, secret: inout [UInt8]) throws {
+private func keychainUpdate(
+    account: String, secret: inout [UInt8], keychain: SecKeychain? = nil
+) throws {
     try withSecretData(&secret) { data in
-        let query: [CFString: Any] = [
+        var query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: account,
         ]
+        if let keychain { query[kSecMatchSearchList] = [keychain] }
         let status = SecItemUpdate(
             query as CFDictionary,
             [kSecValueData: data] as CFDictionary
@@ -307,12 +455,13 @@ private func keychainUpdate(account: String, secret: inout [UInt8]) throws {
     }
 }
 
-private func keychainDelete(account: String) -> OSStatus {
-    let query: [CFString: Any] = [
+private func keychainDelete(account: String, keychain: SecKeychain? = nil) -> OSStatus {
+    var query: [CFString: Any] = [
         kSecClass: kSecClassGenericPassword,
         kSecAttrService: service,
         kSecAttrAccount: account,
     ]
+    if let keychain { query[kSecMatchSearchList] = [keychain] }
     return SecItemDelete(query as CFDictionary)
 }
 
@@ -490,7 +639,7 @@ private func credentialDialog(
         }
     }
     do {
-        try keychainAdd(account: reference, secret: &bytes)
+        try keychainAdd(account: reference, provider: definition, secret: &bytes)
         return NativeResponse(
             status: purpose == "replace-credential-reference"
                 ? "reference-replaced" : "reference-created",
@@ -1390,25 +1539,190 @@ private func exportRedacted(contentBase64: String, filename: String) -> NativeRe
     }
 }
 
-private func selfTestKeychain() -> Int32 {
-    let account = "self-test-\(UUID().uuidString.lowercased())"
+private func selfTestCredentialLabels() -> Int32 {
+    let reference = "credential-a1234567-0000-4000-8000-000000000001"
+    let secondReference = "credential-b1234567-0000-4000-8000-000000000001"
+    guard let deepseek = providerDefinition("deepseek"), let kimi = providerDefinition("kimi-code")
+    else { return 20 }
+    guard
+        credentialKeychainLabel(reference: reference, provider: deepseek)
+            == "Agent Quota · DeepSeek · a1234567",
+        credentialKeychainLabel(reference: "credential-A1234567-0000-4000-8000-000000000001", provider: deepseek)
+            == "Agent Quota · DeepSeek · a1234567",
+        credentialKeychainLabel(reference: reference.uppercased(), provider: deepseek) == nil,
+        credentialKeychainLabel(reference: "credential-a1234567-invalid", provider: deepseek) == nil,
+        credentialKeychainLabel(reference: "secret-not-a-reference", provider: deepseek) == nil,
+        credentialKeychainLabel(reference: secondReference, provider: deepseek)
+            != credentialKeychainLabel(reference: reference, provider: deepseek),
+        credentialKeychainLabel(reference: reference, provider: kimi)
+            != credentialKeychainLabel(reference: reference, provider: deepseek),
+        providers.allSatisfy({ provider in
+            credentialKeychainLabel(reference: reference, provider: provider)
+                == "Agent Quota · \(provider.label) · a1234567"
+        })
+    else { return 21 }
+    let validRequest = #"{"action":"keychain-rename","opaqueReference":"credential-a1234567-0000-4000-8000-000000000001","provider":"deepseek"}"#
+    guard (try? NativeRequest(data: Data(validRequest.utf8)))?.action == "keychain-rename" else { return 37 }
+    let invalidRequests = [
+        #"{"action":"keychain-rename","opaqueReference":"credential-a1234567-0000-4000-8000-000000000001"}"#,
+        #"{"action":"keychain-rename","opaqueReference":"credential-a1234567-0000-4000-8000-000000000001","provider":"deepseek","label":"override"}"#,
+        #"{"action":"keychain-rename","opaqueReference":"credential-a1234567-0000-4000-8000-000000000001","provider":"deepseek","service":"override"}"#,
+        #"{"action":"keychain-rename","opaqueReference":"credential-a1234567-0000-4000-8000-000000000001","provider":"deepseek","dialogPurpose":"replace-credential-reference"}"#,
+    ]
+    guard invalidRequests.allSatisfy({ (try? NativeRequest(data: Data($0.utf8))) == nil }) else { return 38 }
+    return 0
+}
+
+private func keychainACLSnapshot(account: String, keychain: SecKeychain? = nil) throws -> [[String: Any]] {
+    let attributes = try keychainAttributes(account: account, keychain: keychain)
+    guard let item = attributes[kSecValueRef] else {
+        throw NativeFailure.keychain(errSecInternalComponent)
+    }
+    var status: OSStatus = errSecSuccess
+    guard let snapshot = AQKeychainCopyACLSnapshot(item as CFTypeRef, &status) as? [[String: Any]],
+          status == errSecSuccess
+    else { throw NativeFailure.keychain(status) }
+    return snapshot
+}
+
+private func selfTestKeychainMetadata(provider: ProviderDefinition, keychain: SecKeychain) throws -> Int32 {
+    // Every query targets one fresh random reference in an isolated test keychain. Do not
+    // execute an ACL write: even a legacy noninteractive update may start SecurityAgent.
+    let legacy = "credential-\(UUID().uuidString.lowercased())"
+    let partial = "credential-\(UUID().uuidString.lowercased())"
+    let custom = "credential-\(UUID().uuidString.lowercased())"
+    let current = "credential-\(UUID().uuidString.lowercased())"
+    let accounts = [legacy, partial, custom, current]
+    defer { for account in accounts { _ = keychainDelete(account: account, keychain: keychain) } }
+    let testSecret = Data("temporary-agent-quota-metadata-self-test".utf8)
+    for account in accounts {
+        let label = credentialKeychainLabel(reference: account, provider: provider)!
+        let storedLabel = account == custom ? "User custom credential name"
+            : account == legacy ? legacyCredentialLabel : label
+        var access: SecAccess?
+        let descriptor = account == current ? label : legacyCredentialLabel
+        let status = AQKeychainCreateAccess(descriptor as CFString, &access)
+        guard status == errSecSuccess, let access else { return 29 }
+        let addStatus = SecItemAdd([
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecAttrLabel: storedLabel,
+            kSecAttrAccess: access,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecValueData: testSecret,
+            kSecUseKeychain: keychain,
+        ] as CFDictionary, nil)
+        guard addStatus == errSecSuccess else { return 30 }
+    }
+    for account in accounts {
+        let beforeAttributes = try keychainAttributes(account: account, keychain: keychain)
+        let beforeACL = try keychainACLSnapshot(account: account, keychain: keychain)
+        let label = credentialKeychainLabel(reference: account, provider: provider)!
+        guard let item = beforeAttributes[kSecValueRef] else { return 23 }
+        var plannedAccess: SecAccess?
+        var changed = false
+        let planStatus = AQKeychainCopyAccessRenamingDescription(
+            item as CFTypeRef, legacyCredentialLabel as CFString, label as CFString,
+            &plannedAccess, &changed
+        )
+        guard planStatus == errSecSuccess, let plannedAccess else { return 24 }
+        var snapshotStatus: OSStatus = errSecSuccess
+        guard let plannedACL = AQKeychainCopyACLSnapshot(plannedAccess, &snapshotStatus) as? [[String: Any]],
+              snapshotStatus == errSecSuccess
+        else { return 25 }
+        let expectedACL = beforeACL.map { entry -> [String: Any] in
+            var result = entry
+            if result["description"] as? String == legacyCredentialLabel {
+                result["description"] = label
+            }
+            return result
+        }
+        // Verify the public app data (paths), authorization tags, prompt flags, and every
+        // nonmatching descriptor. The bridge reuses the trusted-app objects; this snapshot
+        // does not claim to serialize their private code-signing requirements.
+        guard NSArray(array: plannedACL).isEqual(to: expectedACL), changed == (account != current)
+        else { return 26 }
+        // Only the two no-write branches may call the actual maintenance function in tests.
+        if account == custom || account == current {
+            let migration = migrateCredentialKeychainLabel(account: account, provider: provider, keychain: keychain)
+            let expectedMigration: CredentialLabelMigration = account == custom ? .customLabelPreserved : .unchanged
+            guard migration == expectedMigration else { return 31 }
+        }
+        let afterAttributes = try keychainAttributes(account: account, keychain: keychain)
+        guard NSArray(array: try keychainACLSnapshot(account: account, keychain: keychain)).isEqual(to: beforeACL),
+              afterAttributes[kSecAttrLabel] as? String == beforeAttributes[kSecAttrLabel] as? String,
+              afterAttributes[kSecAttrAccount] as? String == account,
+              afterAttributes[kSecAttrService] as? String == service,
+              (afterAttributes[kSecAttrAccessible] as? String)
+                == (beforeAttributes[kSecAttrAccessible] as? String),
+              try keychainRead(account: account, keychain: keychain) == testSecret
+        else { return 32 }
+    }
+    return 0
+}
+
+private func selfTestKeychain(path: String? = nil) -> Int32 {
+    guard let provider = providerDefinition("deepseek") else { return 20 }
+    let nameStatus = selfTestCredentialLabels()
+    guard nameStatus == 0 else { return nameStatus }
+    var wasInteractionAllowed = false
+    guard AQKeychainBeginNoninteractive(&wasInteractionAllowed) == errSecSuccess else { return 27 }
+    defer { _ = AQKeychainRestoreInteraction(wasInteractionAllowed) }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "agent-quota-keychain-self-test-\(UUID().uuidString.lowercased())", isDirectory: true
+    )
+    var openedKeychain: SecKeychain?
+    if let path {
+        guard path.hasPrefix("/"), AQKeychainOpenForSelfTest(path, &openedKeychain) == errSecSuccess
+        else { return 33 }
+    } else {
+        do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false) }
+        catch { return 34 }
+        let password = Data(UUID().uuidString.utf8)
+        let status = AQKeychainCreateForSelfTest(
+            directory.appendingPathComponent("isolated.keychain-db").path,
+            password as CFData, &openedKeychain
+        )
+        guard status == errSecSuccess else {
+            try? FileManager.default.removeItem(at: directory)
+            return 35
+        }
+    }
+    guard let keychain = openedKeychain else { return 36 }
+    defer {
+        if path == nil {
+            _ = AQKeychainDeleteForSelfTest(keychain)
+            try? FileManager.default.removeItem(at: directory)
+        }
+    }
+    let account = "credential-\(UUID().uuidString.lowercased())"
     var first = Array("temporary-agent-quota-self-test-a".utf8)
     var second = Array("temporary-agent-quota-self-test-b".utf8)
-    defer { _ = keychainDelete(account: account) }
+    defer { _ = keychainDelete(account: account, keychain: keychain) }
     do {
-        try keychainAdd(account: account, secret: &first)
-        guard try keychainRead(account: account) == Data(
+        try keychainAdd(account: account, provider: provider, secret: &first, keychain: keychain)
+        let label = credentialKeychainLabel(reference: account, provider: provider)!
+        let attributes = try keychainAttributes(account: account, keychain: keychain)
+        let snapshot = try keychainACLSnapshot(account: account, keychain: keychain)
+        guard attributes[kSecAttrLabel] as? String == label,
+              snapshot.contains(where: { $0["description"] as? String == label }),
+              !snapshot.contains(where: { $0["description"] as? String == legacyCredentialLabel })
+        else { return 28 }
+        guard try keychainRead(account: account, keychain: keychain) == Data(
             "temporary-agent-quota-self-test-a".utf8
         ) else { return 3 }
-        try keychainUpdate(account: account, secret: &second)
-        guard try keychainRead(account: account) == Data(
+        try keychainUpdate(account: account, secret: &second, keychain: keychain)
+        guard try keychainRead(account: account, keychain: keychain) == Data(
             "temporary-agent-quota-self-test-b".utf8
         ) else { return 4 }
-        guard keychainDelete(account: account) == errSecSuccess else { return 5 }
+        guard keychainDelete(account: account, keychain: keychain) == errSecSuccess else { return 5 }
         do {
-            _ = try keychainRead(account: account)
+            _ = try keychainRead(account: account, keychain: keychain)
             return 6
         } catch NativeFailure.keychain(let status) where status == errSecItemNotFound {}
+        let metadataStatus = try selfTestKeychainMetadata(provider: provider, keychain: keychain)
+        guard metadataStatus == 0 else { return metadataStatus }
         emit(
             NativeResponse(
                 status: "self-test-ok", opaqueReference: nil, errorCode: nil,
@@ -1518,8 +1832,11 @@ private struct AgentQuotaNative {
     @MainActor
     static func main() {
         let arguments = ProcessInfo.processInfo.arguments
-        if arguments.count == 2 && arguments[1] == "--self-test-keychain" {
-            exit(selfTestKeychain())
+        if (2...3).contains(arguments.count) && arguments[1] == "--self-test-keychain" {
+            exit(selfTestKeychain(path: arguments.count == 3 ? arguments[2] : nil))
+        }
+        if arguments.count == 2 && arguments[1] == "--self-test-credential-labels" {
+            exit(selfTestCredentialLabels())
         }
         if arguments.count == 2 && arguments[1] == "--self-test-provider-minimization" {
             exit(selfTestProviderMinimization())
@@ -1566,6 +1883,15 @@ private struct AgentQuotaNative {
                     exit(64)
                 }
                 response = providerFetch(reference: reference, provider: provider)
+            case "keychain-rename":
+                guard let reference = request.opaqueReference, let provider = request.provider else {
+                    emit(NativeResponse(
+                        status: "error", opaqueReference: nil, errorCode: "invalid-request",
+                        userPresenceToken: nil
+                    ))
+                    exit(64)
+                }
+                response = renameCredentialReference(reference, provider: provider)
             case "destructive":
                 response = destructiveDialog(request)
             case "keychain-delete":

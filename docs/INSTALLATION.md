@@ -2,12 +2,14 @@
 
 ## 产物等级
 
-`Agent-Quota-0.1.0-arm64-local-unsigned.dmg` 是
-`local unsigned development package`：
+`Agent-Quota-0.1.0-arm64-local-development.dmg` 是
+`local development package`：
 
 - Apple Silicon `arm64`，最低 macOS 13.0；不按芯片代际或 Pro/Max/Ultra 型号特判。
 - 内含固定 CPython 3.11.15 sidecar 与 macOS native helper。
-- ad-hoc 签名；未使用 Developer ID，未公证。
+- 默认要求 Apple Development 或 Developer ID Application 签名；主应用、helper、
+  sidecar 的实际身份和团队记录在 `signing-audit.json`。显式测试模式可使用 ad-hoc。
+- 本构建流程不执行公证；签名通过不等于可公开发布。
 - 不代表 Intel/universal、干净 VM、真实 Provider 或生产环境验证。
 - 全芯片目标兼容不等于全部机型实机验证。
 
@@ -20,14 +22,18 @@ Node/pnpm、`rust-toolchain.toml` 固定的 Rust 1.97.1 + clippy/rustfmt。
 uv sync --all-groups --locked
 pnpm install --frozen-lockfile
 AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin ./tools/verify_rust_toolchain.sh
-AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin ./tools/build_macos_package.sh
+AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin \
+  AQ_CODESIGN_IDENTITY=<certificate-SHA1> AQ_CODESIGN_TEAM_ID=<Apple-Team-ID> \
+  ./tools/build_macos_package.sh
 ```
 
 固定工具链必须安装到非临时、当前用户不可被其他用户写入的持久目录并显式传入；
 构建不读取 `PATH` 中的 Rust，`/private/var/tmp` 会被门禁拒绝：
 
 ```bash
-AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin ./tools/build_macos_package.sh
+AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin \
+  AQ_CODESIGN_IDENTITY=<certificate-SHA1> AQ_CODESIGN_TEAM_ID=<Apple-Team-ID> \
+  ./tools/build_macos_package.sh
 ```
 
 门禁逐项核对 Rust 官方 standalone archive SHA-256、完整安装树 SHA-256、rustc
@@ -45,9 +51,10 @@ target 与用户/repository Cargo config 覆写；`production` 与
 输出：
 
 - `artifacts/iteration-4-<source_commit>/Agent Quota.app`
-- `artifacts/iteration-4-<source_commit>/Agent-Quota-0.1.0-arm64-local-unsigned.dmg`
+- `artifacts/iteration-4-<source_commit>/Agent-Quota-0.1.0-arm64-local-development.dmg`
 - `bundle-manifest.txt`
 - `bundle-audit.json`
+- `signing-audit.json`
 - `clean-install-audit.json`
 - `sbom.cdx.json`
 - `third-party-license-corpus.json`
@@ -92,7 +99,9 @@ target 与用户/repository Cargo config 覆写；`production` 与
 
 第三方直接下载版本必须同时具备 Developer ID 签名、Apple notarization/stapling、
 GitHub Release 校验和、SBOM、源码标签和可复现门禁证据。当前
-`local unsigned development package` 未满足签名/公证要求，不得标记为公开正式版。
+`local development package` 未完成这些公开发布门禁，不得标记为公开正式版。
+
+钥匙串授权、开发证书配置及测试包限制见 [MACOS_SIGNING.md](MACOS_SIGNING.md)。
 
 ## 回滚
 
@@ -137,5 +146,5 @@ host/core 删除本机状态并清理 Keychain 引用。若 `.app` 已被移除�
 校验 DMG：
 
 ```bash
-/usr/bin/shasum -a 256 Agent-Quota-0.1.0-arm64-local-unsigned.dmg
+/usr/bin/shasum -a 256 Agent-Quota-0.1.0-arm64-local-development.dmg
 ```

@@ -285,7 +285,7 @@ def main() -> int:
             "properties": [
                 {
                     "name": "agent-quota:artifact-class",
-                    "value": "local unsigned development package",
+                    "value": "local development package",
                 },
                 {"name": "agent-quota:target", "value": "aarch64-apple-darwin"},
             ],

@@ -156,7 +156,7 @@ def main() -> int:
                 raise ValueError("packaged sidecar persisted account details on clean install")
         report = {
             "accounts_count": 0,
-            "artifact_class": "local unsigned development package",
+            "artifact_class": "local development package",
             "sidecar_sha256": sha256(sidecar),
             "state_file_present": state_file.exists(),
             "status": "pass",

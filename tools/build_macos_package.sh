@@ -14,6 +14,8 @@ export MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET_REQUIRED"
 export SWIFT_MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET_REQUIRED"
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# Fail before compiling or touching artifacts if a stable signing identity is missing.
+/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" preflight
 generated="$repo_root/src-tauri/generated-resources"
 pyi_root="$repo_root/build/pyinstaller"
 artifact_parent="$repo_root/artifacts"
@@ -111,7 +113,8 @@ uv run --group package pyinstaller \
   "$generated/AgentQuotaNative.app"
 /bin/chmod 0755 \
   "$generated/agent-quota-sidecar/agent-quota-sidecar"
-/usr/bin/codesign --force --deep --sign - "$generated/agent-quota-sidecar/agent-quota-sidecar"
+/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" sign-sidecar \
+  --path "$generated/agent-quota-sidecar"
 
 uv run python tools/generate_resource_manifest.py \
   --generated "$generated" \
@@ -130,17 +133,20 @@ node_bin_dir=$(/usr/bin/dirname -- "$NODE")
 AQ_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256" \
   PATH="$rust_command_shim:$node_bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
   "$PNPM" tauri build --runner "$CARGO" --target aarch64-apple-darwin \
-    --features production --bundles app
+    --features production --bundles app --no-sign
 
 app="$repo_root/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Agent Quota.app"
 if [ ! -d "$app" ]; then
   echo "Tauri application output is incomplete" >&2
   exit 1
 fi
-/usr/bin/codesign --force --sign - "$app"
+/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" sign \
+  --path "$app" --identifier com.agentquota.desktop
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
 
 /usr/bin/ditto "$app" "$artifact_stage/Agent Quota.app"
+/usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" audit \
+  --path "$artifact_stage/Agent Quota.app" --output "$artifact_stage/signing-audit.json"
 uv run python tools/audit_macos_bundle.py \
   --app "$artifact_stage/Agent Quota.app" \
   --output "$artifact_stage/bundle-audit.json"
@@ -179,10 +185,10 @@ uv run python tools/audit_sbom_licenses.py \
   -srcfolder "$dmg_root" \
   -ov \
   -format UDZO \
-  "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
-/usr/bin/hdiutil verify "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg"
+  "$artifact_stage/Agent-Quota-0.1.0-arm64-local-development.dmg"
+/usr/bin/hdiutil verify "$artifact_stage/Agent-Quota-0.1.0-arm64-local-development.dmg"
 
-dmg_bytes=$(/usr/bin/stat -f%z "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg")
+dmg_bytes=$(/usr/bin/stat -f%z "$artifact_stage/Agent-Quota-0.1.0-arm64-local-development.dmg")
 if [ "$dmg_bytes" -gt 20971520 ]; then
   echo "DMG exceeds 20MiB budget: $dmg_bytes bytes" >&2
   exit 1
@@ -200,14 +206,16 @@ verify_source_lock
 uv run python tools/generate_build_provenance.py \
   --app "$artifact_stage/Agent Quota.app" \
   --commit "$source_commit" \
-  --dmg "$artifact_stage/Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
+  --signing-audit "$artifact_stage/signing-audit.json" \
+  --dmg "$artifact_stage/Agent-Quota-0.1.0-arm64-local-development.dmg" \
   --output "$artifact_stage/build-provenance.json"
 
 (
   cd "$artifact_stage"
   /usr/bin/shasum -a 256 \
-    "Agent-Quota-0.1.0-arm64-local-unsigned.dmg" \
+    "Agent-Quota-0.1.0-arm64-local-development.dmg" \
     "build-provenance.json" \
+    "signing-audit.json" \
     "bundle-audit.json" \
     "bundle-manifest.txt" \
     "clean-install-audit.json" \

@@ -58,7 +58,7 @@ def main() -> int:
         )
     )
     document = {
-        "artifact_class": "local unsigned development package",
+        "artifact_class": "local development package",
         "entries": sorted(entries, key=lambda entry: str(entry["path"])),
         "schema": "agent-quota-resource-manifest-v1",
     }

@@ -78,10 +78,15 @@ VITE_AQ_FIXTURE_MODE=1 pnpm dev
 uv sync --all-groups --locked
 pnpm install --frozen-lockfile
 AQ_RUST_BIN=/absolute/persistent/path/rust-1.97.1/bin \
+  AQ_CODESIGN_IDENTITY=<certificate-SHA1> AQ_CODESIGN_TEAM_ID=<Apple-Team-ID> \
   ./tools/build_macos_package.sh
 ```
 
 构建输出以 commit 隔离在 `artifacts/iteration-4-<source_commit>/`。产物仅供本机开发验证，不得附加到公开 Release。完整的工具链、签名等级、安装、升级、回滚与 Purge 规则见[安装指南](docs/INSTALLATION.md)。
+
+钥匙串跨 helper 更新保留授权需要同一 Apple 团队的稳定签名；构建不再静默使用
+ad-hoc。无证书时仅测试可显式设置 `AQ_ALLOW_ADHOC_SIGNING=1`，这不能解决更新后
+再次授权。配置与验收见[签名及凭据说明](docs/MACOS_SIGNING.md)。
 
 ## Provider 支持
 
