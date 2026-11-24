@@ -68,6 +68,16 @@ pnpm e2e
 npm run validate --prefix docs/contracts
 
 # 3. 本机 macOS 包体、资源闭包、干净安装 Sidecar、SBOM 与许可证审计（要求 clean git worktree）
-AQ_RUST_BIN="$HOME/.rustup/toolchains/1.97.1-aarch64-apple-darwin/bin" \
-  AQ_ALLOW_ADHOC_SIGNING=1 ./tools/build_macos_package.sh
+#    已安装 Apple Development / Developer ID 证书时优先使用 AQ_CODESIGN_AUTO=1 产出稳定 Team 签名包；
+#    仅在无证书测试环境显式回退 AQ_ALLOW_ADHOC_SIGNING=1。
+AQ_RUST_BIN="$HOME/.cache/agent-quota/rust-1.97.1/bin" \
+  AQ_CODESIGN_AUTO=1 ./tools/build_macos_package.sh
+
+# 4. Xcode + 隔离钥匙串跨构建免弹窗正反证（验证不同 CDHash 同 Team ID 静默读取 + ad-hoc 伪造包拦截）
+uv run python tools/verify_xcode_apple_signing.py
+
+# 5. Xcode CLI 二进制 minos / Assets.car 动态图标 / 禁网沙箱与常驻内存门禁
+./tools/verify_macos_runtime_xcode.sh "/Applications/Agent Quota.app"
 ```
+
+完整 macOS + Xcode + Apple 证书标准开发与跨项目复用规范见 [MACOS_XCODE_TESTING_SOP.md](./MACOS_XCODE_TESTING_SOP.md)。

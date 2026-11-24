@@ -45,10 +45,93 @@ MACHO_MAGICS = {
 }
 
 
+def run(*command: str, stdin_text: str | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, input=stdin_text, check=True, capture_output=True, text=True)
+
+
+def discover_signing_identities() -> list[dict[str, str]]:
+    """Discover valid Apple identities and extract their true subject.OU Team ID."""
+    listing = run("/usr/bin/security", "find-identity", "-v", "-p", "codesigning").stdout
+    candidates: list[tuple[str, str]] = []
+    for line in listing.splitlines():
+        match = re.search(r'\b([0-9A-Fa-f]{40})\s+"([^"]+)"', line)
+        if match is None:
+            continue
+        sha1, common_name = match.group(1).upper(), match.group(2)
+        if common_name.startswith(("Apple Development:", "Developer ID Application:")):
+            candidates.append((sha1, common_name))
+    if not candidates:
+        return []
+    pem_dump = run("/usr/bin/security", "find-certificate", "-a", "-Z", "-p").stdout
+    pem_by_sha1: dict[str, str] = {}
+    blocks = re.split(r"(?=SHA-1 hash:\s*[0-9A-Fa-f]{40})", pem_dump)
+    for block in blocks:
+        sha_match = re.match(r"SHA-1 hash:\s*([0-9A-Fa-f]{40})", block)
+        pem_match = re.search(
+            r"(-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)",
+            block,
+            re.DOTALL,
+        )
+        if sha_match and pem_match:
+            pem_by_sha1[sha_match.group(1).upper()] = pem_match.group(1)
+    discovered: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for sha1, common_name in candidates:
+        if sha1 in seen or sha1 not in pem_by_sha1:
+            continue
+        seen.add(sha1)
+        subject = run(
+            "/usr/bin/openssl",
+            "x509",
+            "-noout",
+            "-subject",
+            "-nameopt",
+            "RFC2253",
+            stdin_text=pem_by_sha1[sha1],
+        ).stdout
+        ou_match = re.search(r"(?:^|,)OU=([A-Z0-9]{10})(?:,|$)", subject.strip())
+        if ou_match is None:
+            continue
+        kind = (
+            "developer-id"
+            if common_name.startswith("Developer ID Application:")
+            else "apple-development"
+        )
+        discovered.append(
+            {
+                "common_name": common_name,
+                "identity": sha1,
+                "kind": kind,
+                "team_id": ou_match.group(1),
+            }
+        )
+    return discovered
+
+
 def configuration(environ: dict[str, str]) -> tuple[str, str | None]:
     identity = environ.get("AQ_CODESIGN_IDENTITY", "")
     team = environ.get("AQ_CODESIGN_TEAM_ID", "")
     adhoc = environ.get("AQ_ALLOW_ADHOC_SIGNING", "")
+    auto = environ.get("AQ_CODESIGN_AUTO", "")
+    if auto:
+        if auto != "1" or identity or team or adhoc:
+            raise ValueError(
+                "AQ_CODESIGN_AUTO=1 cannot be combined with explicit signing or ad-hoc flags"
+            )
+        discovered = discover_signing_identities()
+        if not discovered:
+            raise ValueError("No valid Apple code-signing identity found in Keychain")
+        teams = {entry["team_id"] for entry in discovered}
+        if len(teams) > 1:
+            raise ValueError(
+                "Multiple Apple Team IDs found in Keychain; "
+                "pin AQ_CODESIGN_IDENTITY and AQ_CODESIGN_TEAM_ID explicitly"
+            )
+        preferred = sorted(
+            discovered,
+            key=lambda item: (0 if item["kind"] == "developer-id" else 1, item["identity"]),
+        )[0]
+        return preferred["identity"], preferred["team_id"]
     if identity or team:
         if adhoc:
             raise ValueError("Apple signing and AQ_ALLOW_ADHOC_SIGNING cannot be combined")
@@ -60,15 +143,12 @@ def configuration(environ: dict[str, str]) -> tuple[str, str | None]:
     if adhoc == "1":
         return "-", None
     raise ValueError(
-        "Stable signing requires AQ_CODESIGN_IDENTITY and AQ_CODESIGN_TEAM_ID. "
+        "Stable signing requires AQ_CODESIGN_IDENTITY and AQ_CODESIGN_TEAM_ID "
+        "(or AQ_CODESIGN_AUTO=1). "
         "Install an Apple Development or Developer ID Application identity in Keychain. "
         "Only for tests, explicitly set AQ_ALLOW_ADHOC_SIGNING=1; "
         "that mode does not preserve keychain authorization across helper changes."
     )
-
-
-def run(*command: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, check=True, capture_output=True, text=True)
 
 
 def preflight(identity: str) -> None:
@@ -104,7 +184,7 @@ def verify(path: Path, identifier: str, team: str | None) -> dict[str, object]:
             f'({APPLE_SIGNER_REQUIREMENT}) and identifier "{identifier}" '
             f'and certificate leaf[subject.OU] = "{team}"'
         )
-        run("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(path))
+        run("/usr/bin/codesign", "--verify", "--strict", "-R", f"={requirement}", str(path))
         if not details.get("requirement"):
             raise ValueError("Missing designated requirement")
     elif details.get("Signature") != "adhoc":
@@ -163,11 +243,16 @@ def sign_sidecar_tree(root: Path, identity: str, team: str | None) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["preflight", "sign", "sign-sidecar", "audit"])
+    parser.add_argument(
+        "action", choices=["discover", "preflight", "sign", "sign-sidecar", "audit"]
+    )
     parser.add_argument("--path", type=Path)
     parser.add_argument("--identifier")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.action == "discover":
+        print(json.dumps({"identities": discover_signing_identities()}, indent=2, sort_keys=True))
+        return 0
     identity, team = configuration(dict(os.environ))
     preflight(identity)
     if args.action == "preflight":

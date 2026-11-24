@@ -171,3 +171,44 @@ def test_provenance_binds_signing_report_to_actual_components(tmp_path, corrupti
             validate(report, tmp_path)
     else:
         assert validate(report, tmp_path) is report
+
+
+def test_auto_discovery_extracts_subject_ou_instead_of_cn_member_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sha_dev = "d" * 40
+    sha_dist = "e" * 40
+
+    def fake_run(*command: str, stdin_text: str | None = None) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ("/usr/bin/security", "find-identity", "-v"):
+            out = (
+                f'  1) {sha_dev.upper()} "Apple Development: dev@example.com (392AK27NA8)"\n'
+                f'  2) {sha_dist.upper()} "Developer ID Application: Dev (34Y68VQZ4R)"\n'
+            )
+            return subprocess.CompletedProcess(command, 0, stdout=out, stderr="")
+        if command[:3] == ("/usr/bin/security", "find-certificate", "-a"):
+            out = (
+                f"SHA-1 hash: {sha_dev.upper()}\n"
+                "-----BEGIN CERTIFICATE-----\nDEV\n-----END CERTIFICATE-----\n"
+                f"SHA-1 hash: {sha_dist.upper()}\n"
+                "-----BEGIN CERTIFICATE-----\nDIST\n-----END CERTIFICATE-----\n"
+            )
+            return subprocess.CompletedProcess(command, 0, stdout=out, stderr="")
+        if command[0] == "/usr/bin/openssl":
+            assert stdin_text is not None
+            # CN carries Member ID 392AK27NA8, whereas OU holds true Team ID 34Y68VQZ4R
+            subject = (
+                "subject=UID=U1,CN=Apple Development: dev@example.com (392AK27NA8),"
+                "OU=34Y68VQZ4R,C=US\n"
+            )
+            return subprocess.CompletedProcess(command, 0, stdout=subject, stderr="")
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr(signing, "run", fake_run)
+    identities = signing.discover_signing_identities()
+    assert len(identities) == 2
+    assert all(entry["team_id"] == "34Y68VQZ4R" for entry in identities)
+    # Auto mode prefers Developer ID Application when same Team ID has both
+    assert signing.configuration({"AQ_CODESIGN_AUTO": "1"}) == (sha_dist.upper(), "34Y68VQZ4R")
+    with pytest.raises(ValueError, match="cannot be combined"):
+        signing.configuration({"AQ_CODESIGN_AUTO": "1", "AQ_ALLOW_ADHOC_SIGNING": "1"})

@@ -8,17 +8,24 @@
 
 在本机钥匙串安装含私钥的 Apple Development（macOS）或 Developer ID Application
 证书。保持同一 Apple Team、证书类型及 bundle ID。证书私钥不应放入仓库、构建
-目录或聊天。列出本机可用身份：
+目录或聊天。列出本机可用身份并自动提取真实的 `subject.OU` Team ID（切勿误用证书 CN 括号内的个人 Member ID）：
 
 ```sh
-security find-identity -v -p codesigning
+python3 tools/macos_signing.py discover
 ```
 
-将选中的证书 SHA-1 和实际 Apple Team ID 作为构建环境变量传入：
+若本机钥匙串仅有一组 Apple Team 身份，可直接启用 `AQ_CODESIGN_AUTO=1` 自动完成稳定签名（若同时存在 `Developer ID Application` 与 `Apple Development`，优先选用 `Developer ID Application`）：
+
+```sh
+AQ_CODESIGN_AUTO=1 AQ_RUST_BIN='/absolute/persistent/path/rust-1.97.1/bin' \
+  ./tools/build_macos_package.sh
+```
+
+也可显式将选中的证书 40 位 SHA-1 和 10 位 `OU` Apple Team ID 作为构建环境变量传入：
 
 ```sh
 export AQ_CODESIGN_IDENTITY='<40-character certificate SHA-1>'
-export AQ_CODESIGN_TEAM_ID='<10-character Apple Team ID>'
+export AQ_CODESIGN_TEAM_ID='<10-character Apple Team ID (subject.OU)>'
 export AQ_RUST_BIN='/absolute/persistent/path/rust-1.97.1/bin'
 ./tools/build_macos_package.sh
 ```
