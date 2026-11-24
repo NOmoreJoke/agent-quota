@@ -111,11 +111,12 @@ export function FloatingQuota() {
       <div className="floating-capsule">
         <button
           ref={shell.trigger}
+          type="button"
           className="floating-trigger"
           aria-label="展开用量悬浮窗"
           aria-expanded={shell.expanded}
           aria-controls="floating-details"
-          onClick={shell.expand}
+          onClick={shell.toggleExpanded}
         >
           <span
             className={`floating-orb ${unavailable || issues ? "needs-attention" : ""}`}

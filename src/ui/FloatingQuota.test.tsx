@@ -131,3 +131,29 @@ it("click refresh is one Provider request, pin keeps it open, Escape collapses a
   expect(host.textContent).toContain("刷新结果未知");
   expect(invoke.mock.calls.filter(([command]) => command === "refresh_scope")).toHaveLength(1);
 });
+
+it("clicking the top title bar collapses an expanded or pinned floating window", async () => {
+  const shell = host.querySelector(".floating-shell")!;
+  const trigger = host.querySelector<HTMLButtonElement>(".floating-trigger")!;
+  await act(async () => {
+    shell.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(200);
+  });
+  expect(host.querySelector("#floating-details")).not.toBeNull();
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  await act(async () => trigger.click());
+  expect(host.querySelector("#floating-details")).toBeNull();
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+  expect(host.querySelector("#floating-details")).toBeNull();
+
+  await act(async () => trigger.click());
+  expect(host.querySelector("#floating-details")).not.toBeNull();
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="保持展开"]')!.click());
+  expect(host.querySelector<HTMLButtonElement>('[aria-label="保持展开"]')!.getAttribute("aria-pressed")).toBe("true");
+  await act(async () => trigger.click());
+  expect(host.querySelector("#floating-details")).toBeNull();
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => trigger.click());
+  expect(host.querySelector<HTMLButtonElement>('[aria-label="保持展开"]')!.getAttribute("aria-pressed")).toBe("false");
+});

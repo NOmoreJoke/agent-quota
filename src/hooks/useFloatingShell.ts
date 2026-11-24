@@ -50,6 +50,17 @@ export function useFloatingShell(quota: QuotaReader) {
     setExpanded(false);
   }
 
+  function toggleExpanded() {
+    if (dragging.current) return;
+    if (expandedRef.current) {
+      pinnedRef.current = false;
+      setPinned(false);
+      collapse();
+      return;
+    }
+    expand();
+  }
+
   function scheduleCollapse() {
     clearTimer();
     hoverTimer.current = setTimeout(() => {
@@ -143,6 +154,7 @@ export function useFloatingShell(quota: QuotaReader) {
     pinned,
     windowError,
     expand,
+    toggleExpanded,
     togglePinned,
     windowAction,
     onPointerEnter,

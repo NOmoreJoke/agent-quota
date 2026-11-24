@@ -41,6 +41,11 @@ test("floating hover, pin, keyboard, scrolling and return to main work", async (
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await page.keyboard.press("Enter");
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#floating-details")).toHaveCount(0);
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(windowProviders.getByRole("button", { name: "GLM", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.screenshot({ path: "output/playwright/floating-expanded.png" });
