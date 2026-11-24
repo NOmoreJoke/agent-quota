@@ -1,6 +1,7 @@
 import type { CommandId } from "../contracts/renderer";
 
 export type FixtureScenario =
+  | "antigravity"
   | "floating"
   | "default"
   | "empty"
@@ -14,6 +15,7 @@ export type FixtureScenario =
 function scenario(): FixtureScenario {
   const value = new URLSearchParams(window.location.search).get("scenario");
   const supported: FixtureScenario[] = [
+    "antigravity",
     "floating",
     "default",
     "empty",
@@ -60,6 +62,27 @@ const floatingRows = [
   { capability_ref: "cap-kimi-code-demo-weekly", display_kind: "window", health: "ok", value_display: "周额度 · 剩余 82%" },
 ];
 
+const antigravityRows = [
+  {
+    capability_ref: "cap-antigravity-row-0123456789abcdef01234567-account-fedcba9876543210fedcba98-model-0-weekly",
+    display_kind: "window",
+    health: "ok",
+    value_display: "Gemini · 周剩余 94%",
+  },
+  {
+    capability_ref: "cap-antigravity-row-1123456789abcdef01234567-account-fedcba9876543210fedcba98-model-0-5h",
+    display_kind: "window",
+    health: "ok",
+    value_display: "Gemini · 5小时剩余 72%",
+  },
+  {
+    capability_ref: "cap-antigravity-row-2123456789abcdef01234567-account-fedcba9876543210fedcba98",
+    display_kind: "balance",
+    health: "ok",
+    value_display: "AI Credits 剩余 450",
+  },
+];
+
 export async function fixtureInvoke(commandId: CommandId, payload: Record<string, unknown>): Promise<unknown> {
   await new Promise((resolve) => setTimeout(resolve, commandId === "refresh_scope" ? 180 : 35));
   const mode = scenario();
@@ -74,16 +97,18 @@ export async function fixtureInvoke(commandId: CommandId, payload: Record<string
       };
     case "accounts_read":
       return {
-        accounts: mode === "empty" ? addedAccountRows : mode === "floating"
-          ? ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code"].map((name, index) => ({ display_label: name, lifecycle: "active", principal_ref: `principal-demo-${index}` }))
-          : [...accountRows, ...addedAccountRows],
+        accounts: mode === "empty" ? addedAccountRows : mode === "antigravity"
+          ? [{ display_label: "Google Antigravity (Pro)", lifecycle: "active", principal_ref: "principal-fedcba9876543210fedcba98" }]
+          : mode === "floating"
+            ? ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code"].map((name, index) => ({ display_label: name, lifecycle: "active", principal_ref: `principal-demo-${index}` }))
+            : [...accountRows, ...addedAccountRows],
         status: "ok",
       };
     case "quota_overview":
       return {
         projection: {
           capability_rows:
-            mode === "floating" ? floatingRows : mode === "partial"
+            mode === "antigravity" ? antigravityRows : mode === "floating" ? floatingRows : mode === "partial"
               ? capabilityRows.map((row, index) =>
                   index === 1 ? { ...row, health: "error", value_display: "暂时不可用" } : row,
                 )

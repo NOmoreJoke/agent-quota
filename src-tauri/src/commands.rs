@@ -410,6 +410,12 @@ fn reauthenticate_inner(
             );
         }
     };
+    if context["provider_id"].as_str() == Some("antigravity") {
+        return validated(
+            "reauthenticate",
+            unavailable("reauthenticate", &request, "not-authorized"),
+        );
+    }
     let reference = match create_credential_candidate(state) {
         Ok(reference) => reference,
         Err(error) => {

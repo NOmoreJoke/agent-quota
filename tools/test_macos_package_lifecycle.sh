@@ -41,8 +41,16 @@ from pathlib import Path
 document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if document.get("schema") != "aq-native-account-state-v1":
     raise SystemExit("unexpected account-state schema")
-references = [account.get("credential_reference") for account in document.get("accounts", [])]
-if not references or any(not isinstance(reference, str) or "\n" in reference for reference in references):
+accounts = document.get("accounts", [])
+if not accounts:
+    raise SystemExit("account state has no configured accounts")
+references = [
+    account.get("credential_reference")
+    for account in accounts
+    if account.get("provider_id") != "antigravity"
+    and account.get("credential_type") != "agy-statusline-stdin"
+]
+if any(not isinstance(reference, str) or "\n" in reference for reference in references):
     raise SystemExit("account state has unsafe credential references")
 print("\n".join(references))
 PY
@@ -54,15 +62,17 @@ assert_persistent_state() {
     echo "lifecycle launch changed account state" >&2
     exit 1
   }
-  while IFS= read -r reference; do
-    /usr/bin/security find-generic-password \
-      -s com.agentquota.desktop.credentials.v1 -a "$reference" >/dev/null 2>&1 || {
-      echo "lifecycle launch removed a retained Keychain reference" >&2
-      exit 1
-    }
-  done <<EOF
+  if [ -n "$credential_references" ]; then
+    while IFS= read -r reference; do
+      /usr/bin/security find-generic-password \
+        -s com.agentquota.desktop.credentials.v1 -a "$reference" >/dev/null 2>&1 || {
+        echo "lifecycle launch removed a retained Keychain reference" >&2
+        exit 1
+      }
+    done <<EOF
 $credential_references
 EOF
+  fi
 }
 
 assert_persistent_state

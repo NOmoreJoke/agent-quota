@@ -92,3 +92,159 @@ def test_cli_ingest_antigravity_and_desktop_status(
     quiet_code = main(["--data-root", str(data_root), "ingest-antigravity-statusline", "--quiet"])
     assert quiet_code == 0
     assert capsys.readouterr().out == ""  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "sys.stdin",
+        type("FakeStdin", (), {"buffer": io.BytesIO(payload)})(),
+    )
+    render_code = main(
+        ["--data-root", str(data_root), "ingest-antigravity-statusline", "--render-statusline"]
+    )
+    rendered = capsys.readouterr().out.strip()  # type: ignore[attr-defined]
+    assert render_code == 0
+    assert "Antigravity (Pro)" in rendered
+    assert "75%" in rendered
+    assert "hidden@example.com" not in rendered
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "sys.stdin",
+        type("FakeStdin", (), {"buffer": io.BytesIO(b"not-json")})(),
+    )
+    bad_render_code = main(
+        ["--data-root", str(data_root), "ingest-antigravity-statusline", "--render-statusline"]
+    )
+    assert bad_render_code == 1
+    assert capsys.readouterr().out == ""  # type: ignore[attr-defined]
+
+
+def test_cli_setup_antigravity_preserves_settings_and_guards_conflicts(
+    tmp_path: Path,
+    capsys: object,
+) -> None:
+    data_root = tmp_path / "desktop"
+    settings_dir = tmp_path / "ag-config"
+    settings_dir.mkdir(mode=0o755)
+    settings_path = settings_dir / "settings.json"
+
+    code, initial = invoke(
+        capsys,
+        [
+            "--data-root",
+            str(data_root),
+            "setup-antigravity",
+            "--settings-path",
+            str(settings_path),
+            "--check",
+        ],
+    )
+    assert code == 0 and initial["configured"] is False
+
+    settings_path.write_text(
+        json.dumps({"theme": "dark", "statusLine": {"command": "echo custom"}}),
+        encoding="utf-8",
+    )
+    conflict_code, conflict = invoke(
+        capsys,
+        ["--data-root", str(data_root), "setup-antigravity", "--settings-path", str(settings_path)],
+    )
+    assert conflict_code == 1
+    assert conflict == {"status": "error", "error": "existing_statusline_conflict"}
+
+    force_code, forced = invoke(
+        capsys,
+        [
+            "--data-root",
+            str(data_root),
+            "setup-antigravity",
+            "--settings-path",
+            str(settings_path),
+            "--force",
+        ],
+    )
+    assert force_code == 0 and forced["configured"] is True
+    saved = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert saved["theme"] == "dark"
+    assert "ingest-antigravity-statusline --render-statusline" in saved["statusLine"]["command"]
+
+    check_code, checked = invoke(
+        capsys,
+        [
+            "--data-root",
+            str(data_root),
+            "setup-antigravity",
+            "--settings-path",
+            str(settings_path),
+            "--check",
+        ],
+    )
+    assert check_code == 0 and checked["configured"] is True
+
+    uninstall_code, uninstalled = invoke(
+        capsys,
+        [
+            "--data-root",
+            str(data_root),
+            "setup-antigravity",
+            "--settings-path",
+            str(settings_path),
+            "--uninstall",
+        ],
+    )
+    assert uninstall_code == 0 and uninstalled["configured"] is False
+    after_uninstall = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert after_uninstall == {"theme": "dark"}
+
+    symlink_path = tmp_path / "symlink-settings.json"
+    symlink_path.symlink_to(settings_path)
+    sym_code, sym_out = invoke(
+        capsys,
+        ["--data-root", str(data_root), "setup-antigravity", "--settings-path", str(symlink_path)],
+    )
+    assert sym_code == 1 and sym_out == {"status": "error", "error": "settings_symlink_rejected"}
+
+
+def test_sidecar_cli_bridge_and_local_bridge_destructive_cleanup(
+    tmp_path: Path,
+    capsys: object,
+    monkeypatch: object,
+) -> None:
+    import uuid
+
+    from agent_quota import sidecar
+    from agent_quota.native_control import NativeControlPlane
+
+    data_root = (tmp_path / "sidecar-cli").resolve()
+    monkeypatch.delenv("AQ_SESSION_SECRET_FD", raising=False)  # type: ignore[attr-defined]
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "sys.argv",
+        ["agent-quota-sidecar", "cli", "--data-root", str(data_root), "desktop-status"],
+    )
+    rc = sidecar.main()
+    out = json.loads(capsys.readouterr().out)  # type: ignore[attr-defined]
+    assert rc == 0 and out["accounts"] == []
+
+    # When AQ_SESSION_SECRET_FD is set by the host, "cli" mode MUST fail closed with exit 64
+    monkeypatch.setenv("AQ_SESSION_SECRET_FD", "999")  # type: ignore[attr-defined]
+    assert sidecar.main() == 64
+
+    # Deleting or purging a keyless local_cli_bridge account never queues Keychain deletions
+    control = NativeControlPlane(data_root)
+    control.ingest_antigravity_statusline(
+        json.dumps({"quota": {"gemini-5h": {"remaining_fraction": 0.5}}}).encode(),
+        now_ms=1_000,
+    )
+    principal = str(control.renderer_accounts()[0]["principal_ref"])
+    plan = control.prepare_destructive(
+        operation_intent="delete",
+        opaque_selection_handle=principal,
+    )
+    removed = control.commit_destructive(
+        plan_id=plan.plan_id,
+        digest=plan.digest,
+        generation=plan.generation,
+        nonce=plan.nonce,
+        user_presence_token=str(uuid.uuid4()),
+    )
+    assert removed == ()
+    assert control.cleanup_pending() == []
+    assert control.renderer_accounts() == []

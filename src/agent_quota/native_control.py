@@ -16,6 +16,7 @@ from typing import Final, cast
 
 from agent_quota.filesystem import atomic_write_private, open_directory_nofollow, read_regular_at
 from agent_quota.providers import (
+    LOCAL_BRIDGE_MANIFESTS,
     PROVIDER_IDS,
     manifest,
     parse_provider_response,
@@ -668,6 +669,23 @@ class NativeControlPlane:
         self._persist()
         return True
 
+    def antigravity_statusline_summary(self) -> str:
+        """Build a compact single-line TUI summary from the redacted Antigravity projection."""
+        for account in self.accounts:
+            if account["provider_id"] != "antigravity" or account["lifecycle"] != "active":
+                continue
+            rows = cast(list[dict[str, str]], account["quota_projection"])
+            if not rows:
+                return ""
+            label = str(account["display_label"]).removeprefix("Google ").strip()
+            parts = [label]
+            for row in rows[:4]:
+                value = row.get("value_display", "").strip()
+                if value:
+                    parts.append(value)
+            return " · ".join(parts)
+        return ""
+
     def cleanup_pending(self) -> list[str]:
         return list(self.pending_keychain_deletions)
 
@@ -776,7 +794,9 @@ class NativeControlPlane:
         removed_references: list[str] = []
         if plan.operation_intent == "purge":
             removed_references = [
-                cast(str, account["credential_reference"]) for account in self.accounts
+                cast(str, account["credential_reference"])
+                for account in self.accounts
+                if account.get("provider_id") not in LOCAL_BRIDGE_MANIFESTS
             ]
             complete_cleanup = list(self.pending_keychain_deletions)
             complete_cleanup.extend(
@@ -793,6 +813,7 @@ class NativeControlPlane:
                 cast(str, account["credential_reference"])
                 for account in self.accounts
                 if account["principal_ref"] == plan.opaque_selection_handle
+                and account.get("provider_id") not in LOCAL_BRIDGE_MANIFESTS
             ]
             self.accounts[:] = [
                 account

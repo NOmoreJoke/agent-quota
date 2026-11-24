@@ -48,6 +48,10 @@ export function providerFromAccount(label: string): string {
   return label;
 }
 
+export function isLocalBridgeAccount(label: string): boolean {
+  return providerFromAccount(label) === "Antigravity";
+}
+
 type WindowMetric = { mode: "remaining" | "used"; percentage: number };
 
 export function windowMetric(value: string): WindowMetric | null {

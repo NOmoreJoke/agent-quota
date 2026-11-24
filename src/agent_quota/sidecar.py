@@ -518,6 +518,10 @@ def serve(
 
 
 def main() -> int:
+    if "AQ_SESSION_SECRET_FD" not in os.environ and len(sys.argv) >= 2 and sys.argv[1] == "cli":
+        from agent_quota.cli import main as cli_main
+
+        return cli_main(sys.argv[2:])
     try:
         secret = read_session_secret()
         arguments = sys.argv[1:]

@@ -6,7 +6,7 @@ import { filterProducts, productStatus } from "./launchProducts";
 import { useAppearance } from "../hooks/useAppearance";
 import { useQuotaController } from "../hooks/useQuotaController";
 import {
-  providerOrder, safeErrorMessage, providerName, providerFromAccount,
+  providerOrder, safeErrorMessage, providerName, providerFromAccount, isLocalBridgeAccount,
   windowMetric, displayedHealth, isWeeklyWindow, windowFamily,
   compareWindowOrder, effectiveHealth,
 } from "./quotaPresentation";
@@ -223,13 +223,15 @@ export function App() {
               {accounts.map((account) => (
                 <article className="provider-card" key={account.principal_ref}>
                   <div className="provider-card-head"><div className="provider-avatar">{providerFromAccount(account.display_label).slice(0, 1)}</div><div><h3>{providerFromAccount(account.display_label)}</h3><p>{account.display_label}</p></div><StatusPill value={account.lifecycle}/></div>
-                  <p className="last-refresh">凭据：macOS Keychain · 查询：只读</p>
+                  <p className="last-refresh">{isLocalBridgeAccount(account.display_label) ? "凭据：agy statusLine 本地推送 · 无密钥存储" : "凭据：macOS Keychain · 查询：只读"}</p>
                   {account.last_error_code && (
                     <p className="last-refresh">最近错误：{safeErrorMessage(account.last_error_code)}</p>
                   )}
                   <div className="provider-actions">
                     <button type="button" className="primary compact" disabled={actionsDisabled} onClick={() => { setView("queue"); void refresh(account.principal_ref); }}>刷新</button>
-                    <button type="button" className="secondary compact" disabled={actionsDisabled} onClick={() => void reauthenticate(account.principal_ref)}>{account.lifecycle === "needs-reauth" ? "重新认证" : "更换凭据"}</button>
+                    {!isLocalBridgeAccount(account.display_label) && (
+                      <button type="button" className="secondary compact" disabled={actionsDisabled} onClick={() => void reauthenticate(account.principal_ref)}>{account.lifecycle === "needs-reauth" ? "重新认证" : "更换凭据"}</button>
+                    )}
                     <button type="button" className="text-button danger-text" disabled={actionsDisabled} onClick={() => void destructive("delete", account.principal_ref)}>删除</button>
                   </div>
                 </article>

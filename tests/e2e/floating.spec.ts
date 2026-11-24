@@ -65,3 +65,28 @@ test("floating empty, offline and unknown outcomes remain honest", async ({ page
     }
   }
 });
+
+test("antigravity local bridge separates 5h/weekly windows from AI Credits and omits keychain reauth", async ({ page }) => {
+  await page.setViewportSize({ width: 384, height: 536 });
+  await page.goto("/?surface=floating&scenario=antigravity");
+  await page.getByRole("button", { name: "展开用量悬浮窗" }).hover();
+  const categories = page.getByRole("group", { name: "额度分类" });
+  const windowProviders = page.getByRole("group", { name: "窗口额度供应商" });
+  await expect(windowProviders.getByRole("button")).toHaveText(["Antigravity"]);
+  await expect(page.locator(".floating-quota-row p")).toHaveText([
+    "Gemini · 5小时剩余 72%",
+    "Gemini · 周剩余 94%",
+  ]);
+  await categories.getByRole("button", { name: "Wallet View" }).click();
+  const walletProviders = page.getByRole("group", { name: "钱包余额供应商" });
+  await expect(walletProviders.getByRole("button")).toHaveText(["Antigravity"]);
+  await expect(page.getByRole("region", { name: "Antigravity", exact: true })).toContainText("AI Credits 剩余 450");
+  await expect(page.getByRole("meter")).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto("/?scenario=antigravity");
+  await page.getByRole("button", { name: "账户与 Provider" }).click();
+  const card = page.locator(".provider-card").first();
+  await expect(card).toContainText("凭据：agy statusLine 本地推送 · 无密钥存储");
+  await expect(card.getByRole("button", { name: "更换凭据" })).toHaveCount(0);
+});

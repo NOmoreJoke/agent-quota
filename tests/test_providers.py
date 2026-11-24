@@ -394,6 +394,24 @@ def test_antigravity_statusline_projection_and_pii_stripping() -> None:
         ("cap-antigravity-model-0-weekly", "window", "Gemini · 周剩余 93.78%"),
         ("cap-antigravity-credits-2", "balance", "AI Credits 剩余 42"),
     ]
+    # Official agy statusLine payloads omit top-level "product"; foreign "product" fails closed
+    minimal = sanitize_antigravity_statusline(
+        json.dumps(
+            {
+                "agent_state": "idle",
+                "vcs": {"branch": "secret-branch"},
+                "quota": {"gemini-5h": {"remaining_fraction": 0.5}},
+            }
+        ).encode()
+    )
+    assert minimal["product"] == "antigravity"
+    assert "secret-branch" not in json.dumps(minimal)
+    with pytest.raises(ValueError, match="product identifier mismatch"):
+        sanitize_antigravity_statusline(
+            json.dumps(
+                {"product": "codex", "quota": {"gemini-5h": {"remaining_fraction": 0.5}}}
+            ).encode()
+        )
 
 
 def test_native_minimizer_output_round_trips_through_python_parsers() -> None:

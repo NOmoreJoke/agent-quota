@@ -147,3 +147,38 @@
 - catalog 78 行/唯一 ID/adapter closure；搜索、筛选、禁用状态。
 - fixture/contract parser；不得把 mock 计作 live。
 - Python、renderer、Rust、合同、package 全门禁。
+
+## Iteration 6 — 全栈轻量化重构、跨层契约修复与确定性工程护栏
+
+状态：`PASS`（2026-11-24；基线 `800a539`）
+
+交付物：
+
+- 修复 DeepSeek Swift 裁剪器与 Python 解析器字段断路；新增 Swift `--self-test-minimize-stdin` → Python 解析器真实跨语言联调门禁。
+- 完成 `volc-wallet` 官方 `GET` 签名、严格 5 字符串十进制与欠费态解析，以及原生弹窗 `CredentialSelectorGate` 双密钥/OAuth 动态切换。
+- Tauri 全部 10 个命令异步非阻塞化（消除最长 150s UI 主线程冻结）、Sidecar 单读取线程 + `Condvar` 零轮询门控 + `SidecarSlot` 按需受控自愈（严守 `outcome-unknown` 不重放）。
+- Swift（6 模块）、Rust（5 模块）与 React 受控 `src/hooks/` 物理拆分；升级 `eslint.config.mjs` 静态依赖与副作用门禁，修复 Node 26 Vitest 兼容，落地私有仓省额 CI 与 `FEATURE-MAP.md` / `VERIFY.md`。
+
+自动化：
+
+- Python `ruff` + `mypy` + `pytest`（323 passed）；Rust `fmt` + `clippy` + `cargo test`（38 passed）；Swift `-strict-concurrency=complete` 自检。
+- Renderer `lint` + `typecheck` + `boundary` + `vitest`（60 passed）+ 4 组 ESLint `--stdin` 负向违规拦截反证 + Playwright E2E（10 passed）。
+
+## Iteration 7 — Google Antigravity 零门槛接入与文档一致性收口
+
+状态：`PASS`（2026-11-24）
+
+交付物：
+
+- 基于官方 `agy` CLI `statusLine` JSON 标准输入契约实现无密钥配额接入（入口剥离 `email`/`cwd`/`workspace`/`transcript_path`/`vcs`，60 秒无变化免 `fsync` 写盘去重）。
+- 新增 `setup-antigravity`（自动识别开发态 CLI 与 `.app` 包内 `agent-quota-sidecar cli`、防符号链接、冲突保护、`--check`/`--uninstall`）与 `--render-statusline` 终端状态栏精炼单行渲染。
+- 补齐无密钥桥接账户 Delete/Purge/Reauthenticate 边界与悬浮窗双视图 E2E 验收；同步刷新 `KNOWN_ISSUES.md`、`ACCEPTANCE_MATRIX.md`、`RELEASE_HANDOFF.md`、`PROVIDER_CATALOG.md`、`USER_GUIDE.md`。
+
+## Iteration 8 — Apple Silicon 生产级 `.app` / `.dmg` 构建与干净安装全链路验收
+
+状态：`PASS`（2026-11-24；`adhoc-test-only` 本地开发包门禁闭环，待外部 Apple Developer ID 签名公证）
+
+交付物：
+
+- 基于独立锁死 Rust `1.97.1` 工具链、PyInstaller 独立 Sidecar、多模块 Swift `AgentQuotaNative.app` 与 Tauri `production` 特性构建完整 `Agent Quota.app` 与 `Agent-Quota-0.1.0-arm64-local-development.dmg`。
+- 通过 `audit_macos_bundle.py`、`verify_clean_install_sidecar.py`、`audit_package_size.py`（`.app <= 40 MiB`、`.dmg <= 20 MiB`）、CycloneDX `sbom.cdx.json`、第三方许可证闭包与包内 `agent-quota-sidecar cli` 实机管道冒烟验收。

@@ -589,7 +589,8 @@ def _antigravity_bucket_parts(bucket_id: str) -> tuple[str, str, str | None]:
 def sanitize_antigravity_statusline(raw: bytes) -> dict[str, object]:
     """Strip PII/workspace fields from official `agy` statusLine JSON before processing."""
     document = _decode_raw_json(raw)
-    if document.get("product") != "antigravity":
+    product = document.get("product")
+    if product is not None and product != "antigravity":
         raise ValueError("Antigravity product identifier mismatch")
     quota = document.get("quota")
     if not isinstance(quota, dict) or not 1 <= len(quota) <= 32:
