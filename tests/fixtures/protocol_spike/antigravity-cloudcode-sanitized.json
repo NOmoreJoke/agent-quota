@@ -1,0 +1,70 @@
+{
+  "schema": "aq-provider-protocol-spike-v1",
+  "provider_id": "antigravity",
+  "source_kind": "official-plugin-protocol-sanitized",
+  "live_verified": false,
+  "evidence": [
+    "https://antigravity.google/docs/cli/statusline",
+    "Antigravity Cockpit extension (jlcodes.antigravity-cockpit-2.1.53-universal) out/extension.js"
+  ],
+  "sanitization": "Synthetic protocol schema derived from CloudCode loadCodeAssist + fetchAvailableModels + retrieveUserQuotaSummary; all identifiers, emails, projects, and tokens stripped.",
+  "raw_upstream_example": {
+    "loadCodeAssist": {
+      "cloudaicompanionProject": "sanitized-project-placeholder",
+      "paidTier": {
+        "id": "g1-pro-tier",
+        "availableCredits": [
+          {"creditType": "GOOGLE_ONE_AI", "creditAmount": "250"}
+        ]
+      }
+    },
+    "fetchAvailableModels": {
+      "models": {
+        "gemini-2.5-pro": {
+          "quotaInfo": {
+            "remainingFraction": 0.92,
+            "resetTime": "2026-11-24T20:00:00Z",
+            "quotaBucketType": "SHORT_TERM",
+            "quotaGroup": "gemini"
+          }
+        },
+        "claude-sonnet": {
+          "quotaInfo": {
+            "remainingFraction": 0.75,
+            "resetTime": "2026-11-30T00:00:00Z",
+            "quotaBucketType": "LONG_TERM",
+            "quotaGroup": "3p"
+          }
+        }
+      }
+    },
+    "retrieveUserQuotaSummary": {
+      "groups": [
+        {
+          "groupId": "gemini",
+          "buckets": [
+            {"bucketId": "gemini-5h", "remainingFraction": 0.92, "resetTime": "2026-11-24T20:00:00Z"},
+            {"bucketId": "gemini-weekly", "remainingFraction": 0.85, "resetTime": "2026-11-30T00:00:00Z"}
+          ]
+        },
+        {
+          "groupId": "3p",
+          "buckets": [
+            {"bucketId": "3p-5h", "remainingFraction": 0.8, "resetTime": "2026-11-24T20:00:00Z"},
+            {"bucketId": "3p-weekly", "remainingFraction": 0.75, "resetTime": "2026-11-30T00:00:00Z"}
+          ]
+        }
+      ]
+    }
+  },
+  "minimized_response": {
+    "tier": "g1-pro-tier",
+    "aiCredits": 250,
+    "buckets": [
+      {"id": "gemini-5h", "window": "5h", "remainingFraction": 0.92, "resetTime": "2026-11-24T20:00:00Z"},
+      {"id": "gemini-weekly", "window": "weekly", "remainingFraction": 0.85, "resetTime": "2026-11-30T00:00:00Z"},
+      {"id": "3p-5h", "window": "5h", "remainingFraction": 0.8, "resetTime": "2026-11-24T20:00:00Z"},
+      {"id": "3p-weekly", "window": "weekly", "remainingFraction": 0.75, "resetTime": "2026-11-30T00:00:00Z"}
+    ]
+  }
+}

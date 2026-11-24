@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 
@@ -34,17 +35,26 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     swift_sources = sorted((root / "native/Sources").glob("*.swift"))
     assert len(swift_sources) >= 5
     swift = "\n".join(path.read_text(encoding="utf-8") for path in swift_sources)
-    for host in (
-        "api.deepseek.com",
-        "api.moonshot.cn",
-        "api.moonshot.ai",
-        "api.kimi.com",
-        "www.minimaxi.com",
-        "www.minimax.io",
-        "open.bigmodel.cn",
-        "api.z.ai",
-    ):
-        assert swift.count(f'host: "{host}"') == 1
+    expected_native_endpoints = {
+        "bailian-wallet": ("business.aliyuncs.com", "/"),
+        "deepseek": ("api.deepseek.com", "/user/balance"),
+        "glm-cn": ("open.bigmodel.cn", "/api/monitor/usage/quota/limit"),
+        "glm-global": ("api.z.ai", "/api/monitor/usage/quota/limit"),
+        "kimi-cn": ("api.moonshot.cn", "/v1/users/me/balance"),
+        "kimi-global": ("api.moonshot.ai", "/v1/users/me/balance"),
+        "kimi-code": ("api.kimi.com", "/coding/v1/usages"),
+        "minimax-cn": ("www.minimaxi.com", "/v1/token_plan/remains"),
+        "minimax-global": ("www.minimax.io", "/v1/token_plan/remains"),
+        "volc-wallet": ("open.volcengineapi.com", "/"),
+        "volc-plan": ("ark.cn-beijing.volces.com", "/"),
+    }
+    raw_definitions = re.findall(
+        r'ProviderDefinition\(id: "([^"]+)", label: "[^"]+", host: "([^"]+)", path: "([^"]+)"',
+        swift,
+    )
+    assert len(raw_definitions) == len(expected_native_endpoints)
+    native_endpoints = {provider_id: (host, path) for provider_id, host, path in raw_definitions}
+    assert native_endpoints == expected_native_endpoints
     for constraint in (
         'components.scheme = "https"',
         "url.host == host",

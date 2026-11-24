@@ -1,0 +1,31 @@
+{
+  "schema": "aq-provider-protocol-spike-v1",
+  "provider_id": "workbuddy-cn",
+  "source_kind": "official-client-protocol-sanitized",
+  "live_verified": false,
+  "evidence": [
+    "WorkBuddy Desktop app /Applications/WorkBuddy.app cli/product.json + main/account.js + main/common2.js"
+  ],
+  "sanitization": "Synthetic billing resource-summary fixture modeled strictly after WorkBuddy parseResourceSummary schema; all uid/enterprise/email fields omitted.",
+  "response": {
+    "code": 0,
+    "data": {
+      "IsPaidUser": true,
+      "SubscriptionPackageCode": "TCACA_code_002_AkiJS3ZHF5",
+      "Packages": [
+        {
+          "PackageCode": "TCACA_code_002_AkiJS3ZHF5",
+          "CycleTotalCapacity": 1000,
+          "CycleRemainCapacity": 750,
+          "CycleUsedCapacity": 250
+        },
+        {
+          "PackageCode": "TCACA_extra_001",
+          "CycleTotalCapacity": 500,
+          "CycleRemainCapacity": 400,
+          "CycleUsedCapacity": 100
+        }
+      ]
+    }
+  }
+}
