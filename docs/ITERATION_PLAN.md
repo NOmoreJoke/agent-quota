@@ -183,3 +183,57 @@
 - 基于独立锁死 Rust `1.97.1` 工具链、PyInstaller 独立 Sidecar、多模块 Swift `AgentQuotaNative.app` 与 Tauri `production` 特性构建完整 `Agent Quota.app` 与 `Agent-Quota-0.1.0-arm64-local-development.dmg`。
 - 通过 `audit_macos_bundle.py`、`verify_clean_install_sidecar.py`、`audit_package_size.py`（`.app <= 40 MiB`、`.dmg <= 20 MiB`）、CycloneDX `sbom.cdx.json`、第三方许可证闭包与包内 `agent-quota-sidecar cli` 实机管道冒烟验收。
 - 完成主窗口与悬浮窗视觉降噪：移除「概览 / 刷新队列」顶部黄色静态横条，在「账户与 Provider」保留中性灰底隐私说明并支持点击跳转「设置 → 安全」，统一正常额度行清爽中性底色，并同步更新 `docs/design/agent-quota-desktop.pen` 复用组件与主题变量。
+
+## Iteration 9 — 悬浮窗标题栏点击折叠、凭据过期自动提示与测试覆盖率闭环
+
+状态：`PASS`（2026-11-24；基线 commit `0279eba`）
+
+交付物：
+
+- 悬浮窗顶部标题栏（`Agent Quota`）支持点击即时切换展开/折叠（包含固定状态下取消固定并收起），外观偏好与动效偏好跨主窗口/悬浮窗持久化同步。
+- 主窗口与悬浮窗落地 `needs-reauth`（含 OAuth `invalid_grant`）自动弹出重新授权提示及顶部快捷横幅。
+- 动态同步 `App.tsx` 目录摘要统计，补充 `test_cli.py` 与 `test_providers.py` 边界单测恢复 Python 分支覆盖率 `>= 90%`，并在独立 worktree 开启 Iter 10–13。
+
+## Iteration 10 — 协议勘察与隔离契约/护栏升级
+
+状态：`PASS`（2026-11-24；commit `6345b11`）
+
+交付物：
+
+- 完成 Antigravity CloudCode、智谱 GLM / MiniMax 加油包与 API Wallet、WorkBuddy CN 个人版、Qoder CN 个人版协议勘察，沉淀 `docs/audits/provider-protocol-spike-2026-11-24.md` 与 `tests/fixtures/protocol_spike/*.json`。
+- 将 `tests/test_architecture.py` 从粗粒度主机字符串计数升级为精确 `(provider_id, host, path)` allowlist 对齐校验。
+
+## Iteration 11 — Google Antigravity 官方 OAuth + CloudCode 远端查询与 CLI Bridge 双模兼容
+
+状态：`PASS`（2026-11-24；commit `c60d910`）
+
+交付物：
+
+- 新增 `antigravity` 原生 Google OAuth 2.0 + PKCE `S256` + `state` + `NWListener` 临时回环（`127.0.0.1:0/oauth-callback` + 手动回调兜底）与自动刷新，构建时从环境变量注入 `GeneratedOAuthConfig.swift`（仓内零字面量密钥）并支持弹窗手动覆盖 Client ID/Secret。
+- 实现固定域名 `daily-cloudcode-pa.googleapis.com`（降级 `cloudcode-pa.googleapis.com`）3 步只读配额查询（`loadCodeAssist` AI Credits 余额 + `fetchAvailableModels` + `retrieveUserQuotaSummary` 组桶），Swift 层剥离全部邮件/项目/账户 PII。
+- 保留 `agy statusLine`（`credential_type="agy-statusline-stdin"`、`Google Antigravity (CLI Bridge ...)`）共存，宿主机 `credential_context` 区分内部 `credential_type`，解锁 Antigravity OAuth 刷新、Keychain 删除清理与目录 `creatable=true`。
+
+## Iteration 12 — 智谱 GLM / MiniMax 加油包 Wallet 投影与 API 口径余额目录卡
+
+状态：`PASS`（2026-11-24；commit `3e7d619`）
+
+交付物：
+
+- 扩展 Swift `ResponseMinimizer.swift` 与 Python `providers.py`，支持 GLM 5h（`unit=3`）、周窗口（`unit=6`）、MCP 月度及 `extraPackage`/`CREDIT_LIMIT` 加油包 Wallet View 投影，以及 MiniMax `extra_remains`/`boost_remains` 加油包 Wallet View 投影，同时保持旧版双字段响应 100% 兼容。
+- 坚守无 Cookie / 无私有控制台抓取红线，新增 `glm-api-balance-cn` 与 `minimax-api-balance-cn` 独立 `information-only` Wallet View 卡片（`BLOCKED_OFFICIAL_API_ABSENT`）。
+
+## Iteration 13 — WorkBuddy 个人版（中国区）接入与 Qoder 个人版（中国区）目录卡
+
+状态：`PASS`（2026-11-24；commit `15fdc54`）
+
+交付物：
+
+- 新增 `workbuddy-cn`（首批仅个人版/中国区）无端口 OAuth（`/v2/plugin/auth/state` → 浏览器 → 轮询 `/v2/plugin/auth/token`、`code=11217` 继续）与 `/v2/plugin/auth/token/refresh` 自动刷新，对接 `POST https://www.workbuddy.cn/billing/meter/get-user-resource-summary` 并投影周期积分窗口与 `extra` 加油包 Wallet View。
+- 新增 `qoder-personal-cn`（首批仅个人版/中国区）独立目录卡，因个人版网页额度接口需浏览器 Cookie / WAF 且官方仅开放组织级 OpenAPI，诚实标为 `information-only`（`BLOCKED_OFFICIAL_API_ABSENT`）。
+- 矩阵收口至 **15 张产品卡 / 10 个品牌 / 9 个候选 / 7 个当前可添加 / 6 个仅信息展示**。
+
+## 后续排期（Next Phase：Iterations 14–16）
+
+- **Iteration 14**：通用 Webhook / OpenTelemetry 只读上报与多工作区配额分组视图；开放火山方舟 Agent Plan / 火山钱包实机验收解锁（待持有人验收）。
+- **Iteration 15**：WorkBuddy / Qoder 国际区或企业版只读适配（仅在官方非 Cookie API 发布后解锁）；多账户批量刷新并发调度优化。
+- **Iteration 16**：Apple Developer ID 签名/公证/Stapling 闭环与全量持有人实机 L4 验收后发布正式公开 DMG/Release。

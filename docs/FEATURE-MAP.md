@@ -11,7 +11,8 @@
 | **明暗外观切换与跨窗口同步** | `src/ui/AppearanceSwitch.tsx` + `src/hooks/useAppearance.ts` | `src/ui/appearancePreference.ts`（哈希固定） | `pnpm boundary`、`pnpm exec playwright test tests/e2e/appearance.spec.ts` |
 | **添加账户 / 重新认证（Keychain 托管）** | `useQuotaController.nativeCredential` / `reauthenticate` | `src-tauri/src/commands.rs` → `native/Sources/{Dialogs,KeychainStore}.swift` | `./tools/build_native_helper.sh`、`uv run pytest tests/test_native_control.py` |
 | **按需手动刷新与字段最小化解析** | `useQuotaController.refresh` | `src-tauri/src/refresh.rs` → `native/Sources/{ProviderTransport,ResponseMinimizer}.swift` → `src/agent_quota/providers.py` | `uv run pytest tests/test_providers.py` |
-| **Google Antigravity 用量查询（官方 `statusLine` 桥接）** | `agent-quota ingest-antigravity-statusline --quiet` | `src/agent_quota/cli.py` → `providers.py`（强制剥离 PII + 60s 相同快照零落盘去重） | `uv run pytest tests/test_cli.py tests/test_providers.py` |
+| **Google Antigravity 用量查询（OAuth CloudCode / `statusLine` 双模）** | 原生弹窗 OAuth 或 `agent-quota ingest-antigravity-statusline --quiet` | `ProviderTransport.swift` (`NWListener` PKCE + CloudCode) 或 `cli.py` → `providers.py`（剥离全部 PII，共存隔离） | `./tools/build_native_helper.sh`、`uv run pytest tests/test_cli.py tests/test_providers.py tests/test_native_control.py` |
+| **WorkBuddy CN / GLM / MiniMax 加油包与 Wallet View** | 原生弹窗无端口 OAuth（`workbuddy-cn`）或 Token Key（`glm-cn`/`minimax-cn`） | `ProviderTransport.swift` + `ResponseMinimizer.swift` → `providers.py`（`display_kind="balance"` 投影至 Wallet View） | `uv run pytest tests/test_providers.py` |
 | **两阶段破坏性确认（删除账户 / Purge）** | `useQuotaController.destructive` | `src-tauri/src/commands.rs` → `native/Sources/Dialogs.swift` → `native_control.py` | `uv run pytest tests/test_native_control.py tests/test_export_purge.py` |
 
 ## Google Antigravity CLI (`agy`) 接入示例
