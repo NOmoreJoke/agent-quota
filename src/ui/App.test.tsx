@@ -70,6 +70,7 @@ describe("App", () => {
     await act(async () => root.render(<App />));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(host.textContent).toContain("窗口额度 · 周 → 5小时");
+    expect(host.querySelectorAll(".contract-note")).toHaveLength(0);
     expect(host.querySelectorAll(".status-unavailable")).toHaveLength(3);
     expect(host.querySelectorAll(".status-error")).toHaveLength(1);
     const kimiRows = [...host.querySelectorAll(".provider-group")]
@@ -146,6 +147,12 @@ describe("App", () => {
     );
     await act(async () => accounts?.click());
     expect(host.textContent).toContain("已配置 Provider");
+    expect(host.querySelectorAll(".contract-note")).toHaveLength(1);
+    const securityJump = host.querySelector<HTMLButtonElement>(".contract-note .contract-link");
+    expect(securityJump?.textContent).toBe("安全与隐私说明 →");
+    await act(async () => securityJump?.click());
+    expect(host.textContent).toContain("Provider 行为");
+    await act(async () => accounts?.click());
     expect([...host.querySelectorAll(".provider-card h3")].map((node) => node.textContent)).toEqual([
       "OpenAI",
       "Kimi Code",
@@ -165,6 +172,7 @@ describe("App", () => {
       node.textContent?.includes("刷新队列"),
     );
     await act(async () => queue?.click());
+    expect(host.querySelectorAll(".contract-note")).toHaveLength(0);
     expect(host.textContent).toContain("Global Refresh");
     expect(host.textContent).toContain("等待手动刷新");
 

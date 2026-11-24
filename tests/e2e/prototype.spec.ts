@@ -19,11 +19,16 @@ test("prototype covers primary navigation and host-owned actions", async ({ page
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "额度总览", level: 1 })).toBeVisible();
   await expect(page.getByText("窗口额度 · 周 → 5小时")).toBeVisible();
+  await expect(page.locator(".contract-note")).toHaveCount(0);
   await expect(page.locator("[data-transport=fixture]")).toBeVisible();
 
   await page.getByRole("button", { name: "账户与 Provider" }).click();
   await expect(page.locator("[data-sidebar-position=left]")).toBeVisible();
   await expect(page.getByRole("heading", { name: "已配置 Provider" })).toBeVisible();
+  await expect(page.locator(".contract-note")).toHaveCount(1);
+  await page.getByRole("button", { name: "安全与隐私说明 →" }).click();
+  await expect(page.getByRole("heading", { name: "安全" })).toBeVisible();
+  await page.getByRole("button", { name: "账户与 Provider" }).click();
   await page.getByRole("button", { name: "添加 Provider" }).click();
   await expect(page.getByRole("status")).toContainText("临时测试账户已添加");
   await expect(page.getByRole("heading", { name: "Fixture · 临时测试账户" })).toBeVisible();

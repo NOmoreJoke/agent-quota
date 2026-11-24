@@ -643,12 +643,6 @@
               ]
             },
             {
-              "id": "UF6ls",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "id": "EEhWI",
               "type": "ref",
               "ref": "qvCl1",
@@ -732,12 +726,6 @@
               ]
             },
             {
-              "id": "KZJaO",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "id": "NFdTJ",
               "type": "ref",
               "ref": "qvCl1",
@@ -794,12 +782,6 @@
               "type": "ref",
               "ref": "qvCl1",
               "width": 360
-            },
-            {
-              "id": "z16o5",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -928,12 +910,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "EbJnn",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "id": "i6lZal",
@@ -1298,12 +1274,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "badtY",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "id": "BxDvN",
@@ -2474,7 +2444,7 @@
               "id": "j2ES7",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "text",
@@ -4767,12 +4737,6 @@
               ]
             },
             {
-              "id": "5dVHx",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "QV8MD",
               "name": "qcard",
@@ -5760,12 +5724,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "id": "Qs1pW",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -7816,7 +7774,7 @@
               "id": "pvreO",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -7957,7 +7915,7 @@
               "id": "f5lDy",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -8172,7 +8130,7 @@
               "id": "h4NcZ",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -8885,7 +8843,7 @@
               "id": "faoJ2",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -9599,7 +9557,7 @@
               "id": "YUCWJ",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -10308,12 +10266,6 @@
               ]
             },
             {
-              "id": "V2Fhn",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "W8cYaA",
               "name": "qcard",
@@ -10854,12 +10806,6 @@
               ]
             },
             {
-              "id": "vyO6M",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "eB0lR",
               "name": "empty",
@@ -11023,12 +10969,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "id": "ZjUEY",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -11571,12 +11511,6 @@
               ]
             },
             {
-              "id": "rh6K4",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "tKPgm",
               "name": "qcard",
@@ -12117,12 +12051,6 @@
               ]
             },
             {
-              "id": "LeelM",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "Pb2yZ",
               "name": "qcard",
@@ -12590,12 +12518,6 @@
               "fontWeight": "600"
             },
             {
-              "id": "cSqHa",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "jWY6R",
               "name": "banner",
@@ -12941,12 +12863,6 @@
               "fontFamily": "$font-display",
               "fontSize": 24,
               "fontWeight": "600"
-            },
-            {
-              "id": "Y3SWB",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "text",
@@ -14172,12 +14088,6 @@
               "fontFamily": "$font-display",
               "fontSize": 24,
               "fontWeight": "600"
-            },
-            {
-              "id": "s5l7e",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "text",
@@ -18586,12 +18496,6 @@
               "fontWeight": "600"
             },
             {
-              "id": "9jyVt",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "aFAGL",
               "name": "banner",
@@ -19648,12 +19552,6 @@
               "fontFamily": "$font-display",
               "fontSize": 24,
               "fontWeight": "600"
-            },
-            {
-              "id": "ayUzS",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -22842,13 +22740,13 @@
       "id": "7eXen",
       "x": -2000,
       "y": 1500,
-      "name": "component/CodexBanner",
+      "name": "component/AccountPrivacyNote",
       "reusable": true,
       "width": 760,
       "height": 40,
-      "fill": "$severity-warning-bg",
+      "fill": "$bg-subtle",
       "cornerRadius": "$radius-md",
-      "stroke": "$severity-warning",
+      "stroke": "$border",
       "strokeWidth": 1,
       "gap": "$gap-md",
       "padding": [
@@ -22863,16 +22761,16 @@
           "name": "icon",
           "width": 16,
           "height": 16,
-          "icon": "flask-cone",
+          "icon": "shield-check",
           "library": "lucide",
-          "fill": "$severity-warning"
+          "fill": "$text-muted"
         },
         {
           "type": "text",
           "id": "FCOPs",
           "name": "label",
-          "fill": "$text-secondary",
-          "content": "Codex Provider: Experimental · Incompatible · 默认关闭 · 不计 MVP · 无启用按钮",
+          "fill": "$text-muted",
+          "content": "密钥仅保存在 macOS Keychain（本地桥接免密钥）· 只读查询不上传第三方",
           "fontFamily": "$font-ui",
           "fontSize": 12,
           "fontWeight": "500"
@@ -22889,7 +22787,7 @@
           "id": "RnN9Z",
           "name": "link",
           "fill": "$accent",
-          "content": "详见 §13.1.3 →",
+          "content": "安全与隐私说明 →",
           "fontFamily": "$font-ui",
           "fontSize": 12,
           "fontWeight": "500"
@@ -28307,7 +28205,7 @@
               "id": "SKCDJ",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -28730,7 +28628,7 @@
               "id": "B8Vkx",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -29157,7 +29055,7 @@
               "id": "jwBte",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -29396,7 +29294,7 @@
               "id": "IHVCp",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -30095,12 +29993,6 @@
               ]
             },
             {
-              "id": "nHviG",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "PtEyq",
               "name": "banner",
@@ -30420,12 +30312,6 @@
               ]
             },
             {
-              "id": "wRyYD",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "nz6dD",
               "name": "banner",
@@ -30702,12 +30588,6 @@
               ]
             },
             {
-              "id": "23m6r",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "WsTnR",
               "name": "banner",
@@ -30833,12 +30713,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "MZFua",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -30968,12 +30842,6 @@
               ]
             },
             {
-              "id": "jj1UJ",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "VA6Hp",
               "name": "banner",
@@ -31099,12 +30967,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "eqkBj",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -31383,12 +31245,6 @@
               ]
             },
             {
-              "id": "JzUhf",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "7dzez",
               "name": "banner",
@@ -31514,12 +31370,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "yHMT2",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -31798,12 +31648,6 @@
               ]
             },
             {
-              "id": "EvR1r",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "tmSKH",
               "name": "banner",
@@ -31929,12 +31773,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "jDTYP",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -32064,12 +31902,6 @@
               ]
             },
             {
-              "id": "hva0j",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "LeOyZ",
               "name": "banner",
@@ -32195,12 +32027,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "iUZIr",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -32330,12 +32156,6 @@
               ]
             },
             {
-              "id": "tKued",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "Q8ZVy",
               "name": "banner",
@@ -32461,12 +32281,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "R6Vkq",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -32596,12 +32410,6 @@
               ]
             },
             {
-              "id": "DaVaE",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "cmdk2",
               "name": "banner",
@@ -32727,12 +32535,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "WQyHd",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -32865,7 +32667,7 @@
               "id": "a2QZ9",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -32998,7 +32800,7 @@
               "id": "n2KDE",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -33131,7 +32933,7 @@
               "id": "eB354",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -33261,12 +33063,6 @@
               ]
             },
             {
-              "id": "Oa2ZL",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "cQ4jZ",
               "name": "banner",
@@ -33392,12 +33188,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "9F44y",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -33527,12 +33317,6 @@
               ]
             },
             {
-              "id": "k4y1Q",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "yamtn",
               "name": "banner",
@@ -33658,12 +33442,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "Of8mZ",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -33796,7 +33574,7 @@
               "id": "Mis0l",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -34223,7 +34001,7 @@
               "id": "IV2Jc",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -34404,7 +34182,7 @@
               "id": "154PC",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -34585,7 +34363,7 @@
               "id": "90dxw",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -34766,7 +34544,7 @@
               "id": "rxbQ7",
               "type": "ref",
               "ref": "7eXen",
-              "name": "codexBanner"
+              "name": "accountPrivacyNote"
             },
             {
               "type": "frame",
@@ -34942,12 +34720,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "oySCr",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -35306,12 +35078,6 @@
               ]
             },
             {
-              "id": "dHnyf",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "Lid5K",
               "name": "banner",
@@ -35472,12 +35238,6 @@
               ]
             },
             {
-              "id": "TvtPt",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "type": "frame",
               "id": "y6S92",
               "name": "banner",
@@ -35613,12 +35373,6 @@
                   "fontWeight": "normal"
                 }
               ]
-            },
-            {
-              "id": "lt92z",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
             },
             {
               "type": "frame",
@@ -52963,12 +52717,6 @@
               ]
             },
             {
-              "id": "wfU5F",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "id": "LfsMV",
               "type": "ref",
               "ref": "qvCl1",
@@ -53138,12 +52886,6 @@
               ]
             },
             {
-              "id": "GudGc",
-              "type": "ref",
-              "ref": "7eXen",
-              "name": "codexBanner"
-            },
-            {
               "id": "k8zG4",
               "type": "ref",
               "ref": "qvCl1",
@@ -53301,7 +53043,7 @@
           "id": "pSTBT",
           "name": "语义",
           "fill": "$text-secondary",
-          "content": "共用颜色变量：暖白 / 暖深灰背景、橙色操作、黄色额度、绿色正常、红色异常；Window / Wallet 和供应商层级不变。",
+          "content": "共用颜色变量：暖白 / 暖深灰背景、清爽中性正常额度底色、橙色操作与受限、绿色正常、红色异常；Window / Wallet 和供应商层级不变。",
           "lineHeight": 1.5,
           "fontFamily": "Inter",
           "fontSize": 16,
@@ -53930,13 +53672,13 @@
       "type": "color",
       "value": [
         {
-          "value": "#FEF3C7",
+          "value": "#FAFAF9",
           "theme": {
             "appearance": "light"
           }
         },
         {
-          "value": "#352B12",
+          "value": "#211E1B",
           "theme": {
             "appearance": "dark"
           }

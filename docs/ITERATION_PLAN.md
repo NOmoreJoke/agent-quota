@@ -182,3 +182,4 @@
 
 - 基于独立锁死 Rust `1.97.1` 工具链、PyInstaller 独立 Sidecar、多模块 Swift `AgentQuotaNative.app` 与 Tauri `production` 特性构建完整 `Agent Quota.app` 与 `Agent-Quota-0.1.0-arm64-local-development.dmg`。
 - 通过 `audit_macos_bundle.py`、`verify_clean_install_sidecar.py`、`audit_package_size.py`（`.app <= 40 MiB`、`.dmg <= 20 MiB`）、CycloneDX `sbom.cdx.json`、第三方许可证闭包与包内 `agent-quota-sidecar cli` 实机管道冒烟验收。
+- 完成主窗口与悬浮窗视觉降噪：移除「概览 / 刷新队列」顶部黄色静态横条，在「账户与 Provider」保留中性灰底隐私说明并支持点击跳转「设置 → 安全」，统一正常额度行清爽中性底色，并同步更新 `docs/design/agent-quota-desktop.pen` 复用组件与主题变量。

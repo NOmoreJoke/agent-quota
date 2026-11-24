@@ -79,12 +79,12 @@ function EmptyState({ onAdd, disabled }: { onAdd: () => void; disabled: boolean 
   );
 }
 
-function ContractNote() {
+function AccountPrivacyNote({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   return (
     <div className="contract-note" role="note">
-      <span className="note-icon">i</span>
-      <span>凭据仅保存在 macOS Keychain · Renderer 隔离 · Provider 查询只读</span>
-      <span className="contract-link">本机安全边界 →</span>
+      <span className="note-icon" aria-hidden="true">i</span>
+      <span>密钥仅保存在 macOS Keychain（本地桥接免密钥）· 只读查询不上传第三方</span>
+      <button type="button" className="contract-link" onClick={onOpenSecurity}>安全与隐私说明 →</button>
     </div>
   );
 }
@@ -180,7 +180,6 @@ export function App() {
         ) : view === "overview" ? (
           accounts.length === 0 ? <EmptyState disabled={actionsDisabled} onAdd={() => void nativeCredential()}/> : (
             <section aria-label="额度摘要">
-              <ContractNote/>
               <div className="segmented" role="group" aria-label="额度视图">
                 <button type="button" className={overviewMode === "window" ? "active" : ""} onClick={() => setOverviewMode("window")}>Window View</button>
                 <button type="button" className={overviewMode === "wallet" ? "active" : ""} onClick={() => setOverviewMode("wallet")}>Wallet View</button>
@@ -217,7 +216,7 @@ export function App() {
           )
         ) : view === "accounts" ? (
           <section>
-            <ContractNote/>
+            <AccountPrivacyNote onOpenSecurity={() => setView("settings")}/>
             <h2 className="section-title">已配置 Provider</h2>
             <div className="provider-grid">
               {accounts.map((account) => (
@@ -273,7 +272,6 @@ export function App() {
           </section>
         ) : view === "queue" ? (
           <section>
-            <ContractNote/>
             <div className="panel refresh-state" aria-label="全局刷新状态">
               <h2>Global Refresh</h2>
               <p className="panel-copy">仅展示 host DTO 可证明的刷新状态，不生成 Provider 队列假象。</p>

@@ -40,7 +40,7 @@ html.floating-surface, .floating-surface body, .floating-surface #root {
 .floating-provider h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 12px; font-weight: 600; }
 .floating-provider h2 small { margin-left: auto; color: var(--muted); font-size: 10px; font-weight: 400; }
 .floating-provider-mark { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 7px; background: var(--raised); color: var(--accent-text); font-size: 11px; }
-.floating-quota-row { margin-top: 7px; padding: 11px 12px; background: var(--warning-bg); border: 1px solid var(--line); border-radius: 11px; }
+.floating-quota-row { margin-top: 7px; padding: 11px 12px; background: var(--subtle); border: 1px solid var(--line); border-radius: 11px; }
 .floating-quota-row > div:first-child { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; }
 .floating-kind { color: var(--muted); }
 .floating-health { color: var(--success); }
