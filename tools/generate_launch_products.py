@@ -32,7 +32,7 @@ CAPABILITIES = {
 
 def project(document: dict[str, Any]) -> list[dict[str, Any]]:
     products = document["products"]
-    if len(products) != 11 or len({p["product_id"] for p in products}) != 11:
+    if len(products) != 13 or len({p["product_id"] for p in products}) != 13:
         raise ValueError("launch product identities mismatch")
     if len({p["brand"] for p in products}) != 8:
         raise ValueError("launch brands mismatch")

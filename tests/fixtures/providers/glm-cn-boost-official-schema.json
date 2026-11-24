@@ -1,0 +1,59 @@
+{
+  "schema": "aq-provider-recording-v1",
+  "provider_id": "glm-cn",
+  "source_kind": "official-schema",
+  "live_verified": false,
+  "recorded_at": null,
+  "evidence_url": "https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin",
+  "sanitization": "Synthetic contract fixture for GLM 5h (unit=3), weekly (unit=6), MCP TIME_LIMIT, and extraPackage boost wallet.",
+  "response_sha256": "aa2383f3b9a94cdfce59c7726993c09d680c4bf608b7ccb5ca5fddeadbe3a608",
+  "response": {
+    "code": 200,
+    "success": true,
+    "data": {
+      "level": "pro",
+      "limits": [
+        {
+          "type": "TOKENS_LIMIT",
+          "unit": 3,
+          "number": 5,
+          "percentage": 12,
+          "usage": 1000,
+          "currentValue": 120,
+          "remaining": 880,
+          "nextResetTime": 1795500000000
+        },
+        {
+          "type": "TOKENS_LIMIT",
+          "unit": 6,
+          "number": 1,
+          "percentage": 25,
+          "usage": 5000,
+          "currentValue": 1250,
+          "remaining": 3750,
+          "nextResetTime": 1796000000000
+        },
+        {
+          "type": "TIME_LIMIT",
+          "unit": 5,
+          "number": 1,
+          "percentage": 10,
+          "usage": 1000,
+          "currentValue": 100,
+          "remaining": 900
+        }
+      ],
+      "extraPackage": {
+        "remaining": 640,
+        "total": 1000,
+        "unit": "credits"
+      }
+    }
+  },
+  "expected_projection": [
+    "5小时已用 12%",
+    "周已用 25%",
+    "MCP月度已用 10%",
+    "加油包剩余 640 / 1000"
+  ]
+}

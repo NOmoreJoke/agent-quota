@@ -1,6 +1,6 @@
 {
   "schema": "aq-launch-products-v1",
-  "source_sha256": "029150330dfbc6ee713d5ac5ad8b8fc810befdfe883e75ce16d61b0d24774308",
+  "source_sha256": "3e76e749a4a0863ea36bb1d18ecdf8a1250779a537b676973ae03617379ee55d",
   "products": [
     {
       "product_id": "deepseek-api-balance-cn",
@@ -54,10 +54,11 @@
       "candidate": true,
       "creatable": true,
       "window": true,
-      "wallet": false,
+      "wallet": true,
       "capabilities": [
         "5 小时窗口",
-        "周窗口"
+        "周窗口",
+        "额外用量 (存在时)"
       ],
       "state": "creatable"
     },
@@ -69,10 +70,12 @@
       "candidate": true,
       "creatable": true,
       "window": true,
-      "wallet": false,
+      "wallet": true,
       "capabilities": [
         "5 小时 Token 窗口",
-        "MCP 月度用量"
+        "周窗口",
+        "MCP 月度用量",
+        "额外用量 (存在时)"
       ],
       "state": "creatable"
     },
@@ -160,6 +163,34 @@
       "wallet": false,
       "capabilities": [
         "月度 / 年度固定积分"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "glm-api-balance-cn",
+      "brand": "Zhipu GLM",
+      "display_name": "智谱 GLM API 账户余额",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": false,
+      "wallet": true,
+      "capabilities": [
+        "账户余额"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "minimax-api-balance-cn",
+      "brand": "MiniMax",
+      "display_name": "MiniMax API 账户余额",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": false,
+      "wallet": true,
+      "capabilities": [
+        "账户余额"
       ],
       "state": "information-only"
     }

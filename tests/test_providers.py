@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from agent_quota.providers import MANIFESTS, manifest, parse_provider_response
 
@@ -995,3 +997,113 @@ def test_antigravity_cloudcode_projection_and_bounds() -> None:
             parse_provider_response("antigravity", 200, encoded(bad_payload)).safe_error_code
             == "contract-error"
         )
+
+
+def test_glm_and_minimax_boost_pack_wallet_and_bounds() -> None:
+    credit_limit = parse_provider_response(
+        "glm-global",
+        200,
+        encoded(
+            {
+                "code": 200,
+                "success": True,
+                "data": {
+                    "limits": [
+                        {"type": "TOKENS_LIMIT", "unit": 3, "percentage": 15},
+                        {
+                            "type": "CREDIT_LIMIT",
+                            "limitValue": 200,
+                            "currentValue": 50,
+                            "currency": "CNY",
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+    assert credit_limit.ok
+    assert [
+        (r["capability_ref"], r["display_kind"], r["value_display"]) for r in credit_limit.rows
+    ] == [
+        ("cap-glm-global-limit-0-5h", "window", "5小时已用 15%"),
+        ("cap-glm-global-boost-wallet", "balance", "加油包剩余 CNY 150 / 200"),
+    ]
+    rem_only = parse_provider_response(
+        "minimax-global",
+        200,
+        encoded(
+            {
+                "base_resp": {"status_code": 0},
+                "model_remains": [
+                    {
+                        "model_name": "M2.7",
+                        "current_interval_remaining_percent": 60,
+                        "current_weekly_status": 3,
+                    }
+                ],
+                "boost_remains": {"remaining": 42},
+            }
+        ),
+    )
+    assert rem_only.ok
+    assert rem_only.rows[-1]["value_display"] == "加油包剩余 42"
+    for bad_boost in (
+        "bad",
+        {"remaining": -1, "total": 10},
+        {"remaining": 5, "total": -1},
+        {"total": 100, "used": 120},
+        {"currency": "CNY"},
+    ):
+        assert (
+            parse_provider_response(
+                "minimax-cn",
+                200,
+                encoded(
+                    {
+                        "base_resp": {"status_code": 0},
+                        "model_remains": [
+                            {
+                                "model_name": "M2.7",
+                                "current_interval_remaining_percent": 60,
+                                "current_weekly_status": 3,
+                            }
+                        ],
+                        "extra_remains": bad_boost,
+                    }
+                ),
+            ).safe_error_code
+            == "contract-error"
+        )
+
+
+@given(
+    pct_5h=st.integers(min_value=0, max_value=100),
+    pct_week=st.integers(min_value=0, max_value=100),
+    rem=st.integers(min_value=0, max_value=10_000),
+    delta=st.integers(min_value=1, max_value=10_000),
+)
+def test_glm_boost_property(pct_5h: int, pct_week: int, rem: int, delta: int) -> None:
+    total = rem + delta
+    result = parse_provider_response(
+        "glm-cn",
+        200,
+        encoded(
+            {
+                "code": 200,
+                "success": True,
+                "data": {
+                    "limits": [
+                        {"type": "TOKENS_LIMIT", "unit": 3, "percentage": pct_5h},
+                        {"type": "TOKENS_LIMIT", "unit": 6, "percentage": pct_week},
+                    ],
+                    "extraPackage": {"remaining": rem, "total": total},
+                },
+            }
+        ),
+    )
+    assert result.ok
+    assert [(r["display_kind"], r["value_display"]) for r in result.rows] == [
+        ("window", f"5小时已用 {pct_5h}%"),
+        ("window", f"周已用 {pct_week}%"),
+        ("balance", f"加油包剩余 {rem} / {total}"),
+    ]

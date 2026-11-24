@@ -134,20 +134,51 @@ func minimizedProviderDocument(provider: String, document: [String: Any]) -> [St
                 maximum: 32
             )
         else { return nil }
-        return [
+        var result: [String: Any] = [
             "base_resp": selected(base, ["status_code"]),
             "model_remains": models,
         ]
+        for extraKey in ["extra_remains", "boost_remains", "package_remains", "wallet_remains"] {
+            if let extra = document[extraKey] as? [String: Any] {
+                result[extraKey] = selected(
+                    extra,
+                    [
+                        "remaining", "remain", "total", "limit", "used",
+                        "available", "balance", "remaining_percent", "unit", "currency", "name",
+                    ]
+                )
+            }
+        }
+        return result
     }
     if provider == "glm-cn" || provider == "glm-global" {
         if document["success"] as? Bool == false {
             return selected(document, ["success", "code"])
         }
         let data = document["data"] as? [String: Any] ?? document
-        guard let limits = selectedArray(data["limits"], ["type", "percentage"], maximum: 16)
+        guard let limits = selectedArray(
+            data["limits"],
+            [
+                "type", "unit", "number", "percentage", "usage",
+                "currentValue", "remaining", "limitValue", "nextResetTime",
+            ],
+            maximum: 16
+        )
         else { return nil }
+        var sanitizedData: [String: Any] = ["limits": limits]
+        if let level = boundedShortString(data["level"], maximumBytes: 32) {
+            sanitizedData["level"] = level
+        }
+        for extraKey in ["extra", "extraPackage", "boostPack", "fuelPack"] {
+            if let extra = data[extraKey] as? [String: Any] {
+                sanitizedData[extraKey] = selected(
+                    extra,
+                    ["remaining", "total", "limit", "used", "balance", "available", "unit", "currency", "type"]
+                )
+            }
+        }
         var result = selected(document, ["code", "success"])
-        result["data"] = ["limits": limits]
+        result["data"] = sanitizedData
         return result
     }
     if provider == "volc-wallet" {

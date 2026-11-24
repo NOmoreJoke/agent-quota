@@ -20,11 +20,11 @@ def test_launch_acceptance_matrix_is_closed_and_complete() -> None:
     )
     assert summary == {
         "brand_count": 8,
-        "product_card_count": 11,
+        "product_card_count": 13,
         "target_actionable_candidate_count": 8,
         "current_creatable_count": 6,
         "implementation_blocked_candidate_count": 2,
-        "disabled_information_card_count": 3,
+        "disabled_information_card_count": 5,
     }
     assert len(products) == summary["product_card_count"]
     assert len({product["brand"] for product in products}) == summary["brand_count"]
@@ -40,7 +40,7 @@ def test_launch_acceptance_matrix_is_closed_and_complete() -> None:
     )
     assert (
         sum(product["release_status"] == "blocked-out-of-release-scope" for product in products)
-        == 3
+        == 5
     )
     assert {product["adapter_id"] for product in products if product["current_creatable"]} == {
         "antigravity",

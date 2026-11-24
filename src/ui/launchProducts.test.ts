@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { filterProducts, launchProducts, productStatus } from "./launchProducts";
 
 describe("approved launch products", () => {
-  it("preserves eight candidates, six executable products including Antigravity OAuth, and three information cards", () => {
-    expect(launchProducts).toHaveLength(11);
+  it("preserves eight candidates, six executable products including Antigravity OAuth, and five information cards", () => {
+    expect(launchProducts).toHaveLength(13);
     expect(new Set(launchProducts.map((p) => p.brand)).size).toBe(8);
     expect(launchProducts.filter((p) => p.candidate)).toHaveLength(8);
     expect(launchProducts.filter((p) => p.creatable).map((p) => p.adapter_id).sort()).toEqual([
       "antigravity", "deepseek", "glm-cn", "kimi-cn", "kimi-code", "minimax-cn",
     ]);
+    expect(launchProducts.filter((p) => !p.candidate)).toHaveLength(5);
     for (const product of launchProducts.filter((p) => !p.candidate)) {
       expect(product.adapter_id).toBeNull();
       expect(product.creatable).toBe(false);

@@ -445,6 +445,52 @@ def _kimi_code(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     return tuple(rows)
 
 
+def _boost_wallet_row(provider_id: str, extra: object) -> dict[str, str]:
+    if not isinstance(extra, dict):
+        raise ValueError("boost wallet mismatch")
+    total_raw = extra.get("total")
+    if total_raw is None:
+        total_raw = extra.get("limit")
+    if total_raw is None:
+        total_raw = extra.get("limitValue")
+    if total_raw is None:
+        total_raw = extra.get("usage")
+    rem_raw = extra.get("remaining")
+    if rem_raw is None:
+        rem_raw = extra.get("remain")
+    if rem_raw is None:
+        rem_raw = extra.get("available")
+    if rem_raw is None:
+        rem_raw = extra.get("balance")
+    used_raw = extra.get("used")
+    if used_raw is None:
+        used_raw = extra.get("currentValue")
+    total = _decimal(total_raw) if total_raw is not None else None
+    if total is not None and total < 0:
+        raise ValueError("boost wallet total mismatch")
+    if rem_raw is not None:
+        remaining = _decimal(rem_raw)
+    elif total is not None and used_raw is not None:
+        used = _decimal(used_raw)
+        if used < 0 or used > total:
+            raise ValueError("boost wallet used mismatch")
+        remaining = total - used
+    else:
+        raise ValueError("boost wallet remaining mismatch")
+    if remaining < 0:
+        raise ValueError("boost wallet remaining mismatch")
+    currency = extra.get("currency")
+    prefix = ""
+    if isinstance(currency, str) and currency in {"CNY", "USD", "JPY"}:
+        prefix = f"{currency} "
+    value = (
+        f"加油包剩余 {prefix}{_decimal_display(remaining)} / {_decimal_display(total)}"
+        if total is not None and total > 0
+        else f"加油包剩余 {prefix}{_decimal_display(remaining)}"
+    )
+    return _row(provider_id, "boost-wallet", "balance", value)
+
+
 def _minimax(document: dict[str, object], provider_id: str) -> tuple[dict[str, str], ...]:
     base = document.get("base_resp")
     models = document.get("model_remains")
@@ -493,6 +539,11 @@ def _minimax(document: dict[str, object], provider_id: str) -> tuple[dict[str, s
                 f"{name} · 周剩余 {weekly_display}",
             )
         )
+    for key in ("extra_remains", "boost_remains", "package_remains", "wallet_remains"):
+        extra = document.get(key)
+        if extra is not None:
+            rows.append(_boost_wallet_row(provider_id, extra))
+            break
     return tuple(rows)
 
 
@@ -504,19 +555,42 @@ def _glm(document: dict[str, object], provider_id: str) -> tuple[dict[str, str],
     if not isinstance(limits, list) or not limits:
         raise ValueError("GLM limits mismatch")
     rows: list[dict[str, str]] = []
+    has_boost_row = False
     for index, item in enumerate(limits[:16]):
-        if not isinstance(item, dict) or item.get("type") not in {"TOKENS_LIMIT", "TIME_LIMIT"}:
+        if not isinstance(item, dict):
             continue
-        kind = str(item["type"])
-        label = "5小时已用" if kind == "TOKENS_LIMIT" else "MCP月度已用"
-        rows.append(
-            _row(
-                provider_id,
-                f"limit-{index}" + ("-5h" if kind == "TOKENS_LIMIT" else ""),
-                "window",
-                f"{label} {_percentage(item.get('percentage'))}",
+        kind = item.get("type")
+        if kind == "TOKENS_LIMIT":
+            unit = item.get("unit")
+            is_weekly = unit == 6
+            label = "周已用" if is_weekly else "5小时已用"
+            period_suffix = "-weekly" if is_weekly else "-5h"
+            rows.append(
+                _row(
+                    provider_id,
+                    f"limit-{index}{period_suffix}",
+                    "window",
+                    f"{label} {_percentage(item.get('percentage'))}",
+                )
             )
-        )
+        elif kind == "TIME_LIMIT":
+            rows.append(
+                _row(
+                    provider_id,
+                    f"limit-{index}",
+                    "window",
+                    f"MCP月度已用 {_percentage(item.get('percentage'))}",
+                )
+            )
+        elif kind in {"CREDIT_LIMIT", "EXTRA_LIMIT", "BOOST_LIMIT"} and not has_boost_row:
+            rows.append(_boost_wallet_row(provider_id, item))
+            has_boost_row = True
+    if not has_boost_row:
+        for key in ("extra", "extraPackage", "boostPack", "fuelPack"):
+            extra = data.get(key)
+            if extra is not None:
+                rows.append(_boost_wallet_row(provider_id, extra))
+                break
     if not rows:
         raise ValueError("GLM supported limits are absent")
     return tuple(rows)
