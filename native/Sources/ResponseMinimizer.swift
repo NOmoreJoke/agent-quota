@@ -208,6 +208,24 @@ func minimizedProviderDocument(provider: String, document: [String: Any]) -> [St
         )
         return result
     }
+    if provider == "workbuddy-cn" {
+        if let code = document["code"] as? Int, code != 0 {
+            return selected(document, ["code"])
+        }
+        guard
+            let data = document["data"] as? [String: Any],
+            let packages = selectedArray(
+                data["Packages"],
+                ["PackageCode", "CycleTotalCapacity", "CycleRemainCapacity", "CycleUsedCapacity"],
+                maximum: 32
+            )
+        else { return nil }
+        var sanitizedData = selected(data, ["IsPaidUser", "SubscriptionPackageCode"])
+        sanitizedData["Packages"] = packages
+        var result = selected(document, ["code"])
+        result["data"] = sanitizedData
+        return result
+    }
     return nil
 }
 

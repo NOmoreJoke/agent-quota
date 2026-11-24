@@ -1,6 +1,6 @@
 {
   "schema": "aq-launch-products-v1",
-  "source_sha256": "3e76e749a4a0863ea36bb1d18ecdf8a1250779a537b676973ae03617379ee55d",
+  "source_sha256": "8c621d86bdfb1223be997a5f986fc34ac2eb1fb644cce50875064dc63eb062bf",
   "products": [
     {
       "product_id": "deepseek-api-balance-cn",
@@ -191,6 +191,35 @@
       "wallet": true,
       "capabilities": [
         "账户余额"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "workbuddy-personal-cn",
+      "brand": "WorkBuddy",
+      "display_name": "WorkBuddy 个人版（中国区）",
+      "adapter_id": "workbuddy-cn",
+      "candidate": true,
+      "creatable": true,
+      "window": true,
+      "wallet": true,
+      "capabilities": [
+        "周期积分",
+        "额外用量 (存在时)"
+      ],
+      "state": "creatable"
+    },
+    {
+      "product_id": "qoder-personal-cn",
+      "brand": "Qoder",
+      "display_name": "Qoder 个人版（中国区）",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": false,
+      "wallet": false,
+      "capabilities": [
+        "月度 / 年度固定积分"
       ],
       "state": "information-only"
     }

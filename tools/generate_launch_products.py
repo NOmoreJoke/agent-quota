@@ -26,15 +26,16 @@ CAPABILITIES = {
     "mcp_monthly_usage": ("window", "MCP 月度用量"),
     "calls_5h_week_month": ("window", "5 小时 / 周 / 月调用量"),
     "credits_5h_7day": ("window", "5 小时 / 7 天积分"),
+    "credits_cycle": ("window", "周期积分"),
     "monthly_annual_fixed_credits": ("credits", "月度 / 年度固定积分"),
 }
 
 
 def project(document: dict[str, Any]) -> list[dict[str, Any]]:
     products = document["products"]
-    if len(products) != 13 or len({p["product_id"] for p in products}) != 13:
+    if len(products) != 15 or len({p["product_id"] for p in products}) != 15:
         raise ValueError("launch product identities mismatch")
-    if len({p["brand"] for p in products}) != 8:
+    if len({p["brand"] for p in products}) != 10:
         raise ValueError("launch brands mismatch")
     cards = []
     for product in products:
@@ -71,7 +72,7 @@ def project(document: dict[str, Any]) -> list[dict[str, Any]]:
                 else "information-only",
             }
         )
-    if (sum(c["candidate"] for c in cards), sum(c["creatable"] for c in cards)) != (8, 6):
+    if (sum(c["candidate"] for c in cards), sum(c["creatable"] for c in cards)) != (9, 7):
         raise ValueError("launch candidate/create count mismatch")
     candidate_ids = [c["adapter_id"] for c in cards if c["candidate"]]
     if len(set(candidate_ids)) != len(candidate_ids):

@@ -47,7 +47,7 @@ final class CredentialSelectorGate: NSObject {
 
     func apply(definition: ProviderDefinition?) {
         guard let definition else { return }
-        if definition.authMode == .kimiCodeOAuth {
+        if definition.authMode == .kimiCodeOAuth || definition.authMode == .workbuddyCNOAuth {
             secureField?.stringValue = ""
             cloudSecretField?.stringValue = ""
             secureField?.isHidden = true
@@ -125,7 +125,7 @@ func credentialDialog(
     alert.messageText = purpose == "replace-credential-reference" ? "替换本机凭据" : "添加本机凭据"
     alert.informativeText = purpose == "replace-credential-reference"
         ? "替换已配置 Provider 的凭据；凭据只写入 macOS 钥匙串。"
-        : "仅可添加当前 \(creatableProviders.count) 项已核验 Provider；API Key/Token 可直接粘贴，Kimi Code 与 Antigravity 使用官方 OAuth。凭据只写入 macOS 钥匙串。"
+        : "仅可添加当前 \(creatableProviders.count) 项已核验 Provider；API Key/Token 可直接粘贴，Kimi Code、Antigravity 与 WorkBuddy 使用官方 OAuth。凭据只写入 macOS 钥匙串。"
     alert.addButton(withTitle: "继续")
     alert.addButton(withTitle: "取消")
 
@@ -211,6 +211,19 @@ func credentialDialog(
             clientIDOverride: clientIDOverride,
             clientSecretOverride: clientSecretOverride
         )
+        guard let credential = login.credential else {
+            return NativeResponse(
+                status: login.errorCode == nil ? "cancelled" : "error",
+                opaqueReference: nil,
+                errorCode: login.errorCode,
+                userPresenceToken: nil
+            )
+        }
+        bytes = credential
+    } else if definition.authMode == .workbuddyCNOAuth {
+        secure.stringValue = ""
+        cloudSecret.stringValue = ""
+        let login = workbuddyCNOAuthCredential()
         guard let credential = login.credential else {
             return NativeResponse(
                 status: login.errorCode == nil ? "cancelled" : "error",

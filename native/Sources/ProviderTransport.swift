@@ -107,6 +107,25 @@ struct BoundedHTTPResult {
     let body: Data
 }
 
+func fixedHTTPSURLWithQuery(host: String, path: String, queryItems: [URLQueryItem]) -> URL? {
+    var components = URLComponents()
+    components.scheme = "https"
+    components.host = host
+    components.path = path
+    components.queryItems = queryItems
+    guard
+        let url = components.url,
+        url.scheme == "https",
+        url.host == host,
+        url.path == path,
+        url.port == nil,
+        url.user == nil,
+        url.password == nil,
+        url.fragment == nil
+    else { return nil }
+    return url
+}
+
 func fixedHTTPSURL(host: String, path: String) -> URL? {
     var components = URLComponents()
     components.scheme = "https"
@@ -1109,6 +1128,281 @@ func antigravityFetch(reference: String, provider id: String, secret: Data) -> N
     )
 }
 
+func workbuddyTokenBundle(from data: [String: Any], existingRefreshToken: String? = nil) -> WorkBuddyTokenBundle? {
+    let now = Int64(Date().timeIntervalSince1970)
+    guard
+        let accessToken = (data["accessToken"] as? String) ?? (data["access_token"] as? String),
+        isSafeCredential(accessToken)
+    else { return nil }
+    let rawRefresh = (data["refreshToken"] as? String) ?? (data["refresh_token"] as? String) ?? existingRefreshToken ?? ""
+    if !rawRefresh.isEmpty && !isSafeCredential(rawRefresh) {
+        return nil
+    }
+    let expiresIn = min(max(positiveInt64(data["expiresIn"]) ?? positiveInt64(data["expires_in"]) ?? 3600, 60), 30 * 86_400)
+    let tokenType = (data["tokenType"] as? String) ?? (data["token_type"] as? String) ?? "Bearer"
+    return WorkBuddyTokenBundle(
+        accessToken: accessToken,
+        refreshToken: rawRefresh,
+        expiresAt: now + expiresIn,
+        tokenType: tokenType
+    )
+}
+
+func encodedWorkBuddyTokenBundle(_ bundle: WorkBuddyTokenBundle) -> [UInt8]? {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    guard let data = try? encoder.encode(bundle), data.count <= 32_768 else { return nil }
+    return Array(data)
+}
+
+func workbuddyPost(path: String, headers: [String: String], body: Data) -> BoundedHTTPResult? {
+    var lastResponse: BoundedHTTPResult?
+    for host in [workbuddyCNHost, workbuddyCNBackupHost] {
+        guard let url = fixedHTTPSURL(host: host, path: path) else { continue }
+        guard let response = boundedHTTPRequest(
+            url: url,
+            method: "POST",
+            headers: headers,
+            body: body,
+            timeout: 20
+        ) else { continue }
+        if response.status < 500 {
+            return response
+        }
+        lastResponse = response
+    }
+    return lastResponse
+}
+
+@MainActor
+func workbuddyCNOAuthCredential() -> (credential: [UInt8]?, errorCode: String?) {
+    guard
+        let stateURL = fixedHTTPSURLWithQuery(
+            host: workbuddyCNHost,
+            path: "/v2/plugin/auth/state",
+            queryItems: [URLQueryItem(name: "platform", value: "workbuddy")]
+        ),
+        let stateResponse = boundedHTTPRequest(
+            url: stateURL,
+            method: "POST",
+            headers: [
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-No-Authorization": "true",
+                "X-No-User-Id": "true",
+                "X-No-Enterprise-Id": "true",
+                "X-No-Department-Info": "true",
+            ],
+            body: Data("{}".utf8),
+            timeout: 30
+        ),
+        stateResponse.status == 200,
+        let envelope = jsonObject(stateResponse.body),
+        let data = envelope["data"] as? [String: Any],
+        let state = data["state"] as? String,
+        !state.isEmpty,
+        state.utf8.count <= 512,
+        let authString = data["authUrl"] as? String,
+        let authURL = URL(string: authString),
+        authURL.scheme == "https",
+        [workbuddyCNHost, workbuddyCNBackupHost].contains(authURL.host),
+        authURL.user == nil,
+        authURL.password == nil,
+        authURL.port == nil
+    else { return (nil, "provider-unavailable") }
+
+    guard NSWorkspace.shared.open(authURL) else {
+        return (nil, "provider-unavailable")
+    }
+    let alert = NSAlert()
+    alert.alertStyle = .informational
+    alert.messageText = "登录 WorkBuddy 个人版（中国区）"
+    alert.informativeText = "已在浏览器打开腾讯 WorkBuddy 官方授权页。完成登录后，点击「我已完成授权」获取个人版凭据（只写入本机钥匙串）。"
+    alert.addButton(withTitle: "我已完成授权")
+    alert.addButton(withTitle: "取消")
+    guard alert.runModal() == .alertFirstButtonReturn else { return (nil, nil) }
+
+    guard let tokenURL = fixedHTTPSURLWithQuery(
+        host: workbuddyCNHost,
+        path: "/v2/plugin/auth/token",
+        queryItems: [URLQueryItem(name: "state", value: state)]
+    ) else { return (nil, "provider-unavailable") }
+
+    let deadline = Date().addingTimeInterval(180)
+    while Date() < deadline {
+        guard let tokenResponse = boundedHTTPRequest(
+            url: tokenURL,
+            method: "GET",
+            headers: [
+                "Accept": "application/json",
+                "X-No-Authorization": "true",
+                "X-No-User-Id": "true",
+                "X-No-Enterprise-Id": "true",
+                "X-No-Department-Info": "true",
+            ],
+            body: nil,
+            timeout: 30
+        ), let tokenEnvelope = jsonObject(tokenResponse.body)
+        else { return (nil, "provider-unavailable") }
+
+        if tokenResponse.status == 200,
+           let tokenData = tokenEnvelope["data"] as? [String: Any],
+           let bundle = workbuddyTokenBundle(from: tokenData),
+           let encoded = encodedWorkBuddyTokenBundle(bundle)
+        {
+            return (encoded, nil)
+        }
+        if let code = tokenEnvelope["code"] as? Int, code == 11217 {
+            Thread.sleep(forTimeInterval: 2)
+            continue
+        }
+        return (nil, "not-authorized")
+    }
+    return (nil, "timeout")
+}
+
+func refreshWorkBuddyBundle(reference: String, bundle: WorkBuddyTokenBundle) -> Result<WorkBuddyTokenBundle, OAuthRefreshFailure> {
+    guard isSafeCredential(bundle.refreshToken) else {
+        return .failure(.reauthRequired)
+    }
+    guard let response = workbuddyPost(
+        path: "/v2/plugin/auth/token/refresh",
+        headers: [
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Auth-Refresh-Source": "plugin",
+            "X-Refresh-Token": bundle.refreshToken,
+        ],
+        body: Data("{}".utf8)
+    ) else { return .failure(.unavailable) }
+
+    if response.status == 401 || response.status == 403 {
+        return .failure(.reauthRequired)
+    }
+    guard
+        response.status == 200,
+        let envelope = jsonObject(response.body),
+        let data = envelope["data"] as? [String: Any],
+        let refreshed = workbuddyTokenBundle(from: data, existingRefreshToken: bundle.refreshToken),
+        let encoded = encodedWorkBuddyTokenBundle(refreshed)
+    else { return .failure(.unavailable) }
+
+    var bytes = encoded
+    do {
+        try keychainUpdate(account: reference, secret: &bytes)
+    } catch NativeFailure.keychain(let status)
+        where status == errSecInteractionNotAllowed || status == errSecAuthFailed
+    {
+        return .failure(.keychainLocked)
+    } catch {
+        return .failure(.unavailable)
+    }
+    return .success(refreshed)
+}
+
+func workbuddyCNFetch(reference: String, provider id: String, secret: Data) -> NativeResponse {
+    guard var bundle = try? JSONDecoder().decode(WorkBuddyTokenBundle.self, from: secret),
+          isSafeCredential(bundle.accessToken)
+    else {
+        return NativeResponse(
+            status: "provider-response", opaqueReference: nil, errorCode: nil,
+            userPresenceToken: nil, provider: id, httpStatus: 401,
+            bodyBase64: Data("{}".utf8).base64EncodedString()
+        )
+    }
+    if bundle.expiresAt <= Int64(Date().timeIntervalSince1970) + 300 {
+        switch refreshWorkBuddyBundle(reference: reference, bundle: bundle) {
+        case .success(let refreshed):
+            bundle = refreshed
+        case .failure(.reauthRequired):
+            return NativeResponse(
+                status: "provider-response", opaqueReference: nil, errorCode: nil,
+                userPresenceToken: nil, provider: id, httpStatus: 401,
+                bodyBase64: Data("{}".utf8).base64EncodedString()
+            )
+        case .failure(.keychainLocked):
+            return NativeResponse(
+                status: "error", opaqueReference: nil, errorCode: "keychain-locked",
+                userPresenceToken: nil, provider: id
+            )
+        case .failure:
+            return NativeResponse(
+                status: "error", opaqueReference: nil, errorCode: "provider-unavailable",
+                userPresenceToken: nil, provider: id
+            )
+        }
+    }
+
+    let summaryPath = "/billing/meter/get-user-resource-summary"
+    let emptyBody = Data("{}".utf8)
+    guard var response = workbuddyPost(
+        path: summaryPath,
+        headers: [
+            "Accept": "application/json",
+            "Authorization": "Bearer \(bundle.accessToken)",
+            "Content-Type": "application/json",
+        ],
+        body: emptyBody
+    ) else {
+        return NativeResponse(
+            status: "error", opaqueReference: nil, errorCode: "provider-unavailable",
+            userPresenceToken: nil, provider: id
+        )
+    }
+    if response.status == 401 {
+        switch refreshWorkBuddyBundle(reference: reference, bundle: bundle) {
+        case .success(let refreshed):
+            bundle = refreshed
+            guard let retried = workbuddyPost(
+                path: summaryPath,
+                headers: [
+                    "Accept": "application/json",
+                    "Authorization": "Bearer \(bundle.accessToken)",
+                    "Content-Type": "application/json",
+                ],
+                body: emptyBody
+            ) else {
+                return NativeResponse(
+                    status: "error", opaqueReference: nil, errorCode: "provider-unavailable",
+                    userPresenceToken: nil, provider: id
+                )
+            }
+            response = retried
+        case .failure(.reauthRequired):
+            return NativeResponse(
+                status: "provider-response", opaqueReference: nil, errorCode: nil,
+                userPresenceToken: nil, provider: id, httpStatus: 401,
+                bodyBase64: Data("{}".utf8).base64EncodedString()
+            )
+        case .failure(.keychainLocked):
+            return NativeResponse(
+                status: "error", opaqueReference: nil, errorCode: "keychain-locked",
+                userPresenceToken: nil, provider: id
+            )
+        case .failure:
+            return NativeResponse(
+                status: "error", opaqueReference: nil, errorCode: "provider-unavailable",
+                userPresenceToken: nil, provider: id
+            )
+        }
+    }
+    guard let minimizedBody = minimizedProviderBody(
+        provider: id,
+        status: response.status,
+        body: response.body
+    ) else {
+        return NativeResponse(
+            status: "error", opaqueReference: nil, errorCode: "contract-error",
+            userPresenceToken: nil, provider: id
+        )
+    }
+    return NativeResponse(
+        status: "provider-response", opaqueReference: nil, errorCode: nil,
+        userPresenceToken: nil, provider: id, httpStatus: response.status,
+        bodyBase64: minimizedBody.base64EncodedString()
+    )
+}
+
 
 func sha256Hex(_ data: Data) -> String {
     SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -1248,6 +1542,8 @@ func providerFetch(reference: String, provider id: String) -> NativeResponse {
     switch definition.authMode {
     case .antigravityOAuth:
         return antigravityFetch(reference: reference, provider: id, secret: secret)
+    case .workbuddyCNOAuth:
+        return workbuddyCNFetch(reference: reference, provider: id, secret: secret)
     case .kimiCodeOAuth:
         switch resolveKimiCodeCredential(reference: reference, secret: secret) {
         case .ready(let accessToken):

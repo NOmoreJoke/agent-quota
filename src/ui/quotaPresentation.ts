@@ -12,7 +12,7 @@ export type Capability = {
 };
 export type Scheduler = { health: string; installed: boolean };
 
-export const providerOrder = ["Antigravity", "GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code", "Volcengine", "其他"];
+export const providerOrder = ["Antigravity", "GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code", "WorkBuddy", "Volcengine", "其他"];
 
 export function safeErrorMessage(code: string): string {
   if (code === "not-authorized") return "当前操作暂不可用，请等待正在进行的操作结束后在主窗口检查账户状态";
@@ -32,6 +32,8 @@ export function providerName(reference: string): string {
   if (value.includes("kimi")) return "Kimi";
   if (value.includes("minimax")) return "MiniMax";
   if (value.includes("glm")) return "GLM";
+  if (value.includes("workbuddy")) return "WorkBuddy";
+  if (value.includes("qoder")) return "Qoder";
   if (value.includes("volc-")) return "Volcengine";
   return "其他";
 }
@@ -44,6 +46,8 @@ export function providerFromAccount(label: string): string {
   if (value.includes("kimi")) return "Kimi";
   if (value.includes("minimax")) return "MiniMax";
   if (value.includes("glm") || value.includes("z.ai")) return "GLM";
+  if (value.includes("workbuddy")) return "WorkBuddy";
+  if (value.includes("qoder")) return "Qoder";
   if (value.includes("火山") || value.includes("volcengine")) return "Volcengine";
   return label;
 }

@@ -166,6 +166,7 @@ describe("App", () => {
       "volcengine-ark-agent-plan-personal", "volcengine-billing-balance",
       "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
       "glm-api-balance-cn", "minimax-api-balance-cn",
+      "workbuddy-personal-cn", "qoder-personal-cn",
     ]);
     expect(host.querySelector('[aria-label^="Cursor "]')).toBeNull();
 

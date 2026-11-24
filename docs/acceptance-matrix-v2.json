@@ -11,12 +11,12 @@
     "FAIL"
   ],
   "scope_summary": {
-    "brand_count": 8,
-    "product_card_count": 13,
-    "target_actionable_candidate_count": 8,
-    "current_creatable_count": 6,
+    "brand_count": 10,
+    "product_card_count": 15,
+    "target_actionable_candidate_count": 9,
+    "current_creatable_count": 7,
     "implementation_blocked_candidate_count": 2,
-    "disabled_information_card_count": 5
+    "disabled_information_card_count": 6
   },
   "formal_release_gates": [
     {
@@ -403,6 +403,53 @@
           "release_denominator": false,
           "status": "BLOCKED_OFFICIAL_API_ABSENT",
           "official_evidence": ["https://platform.minimaxi.com/docs/guides/pricing-paygo"]
+        }
+      ]
+    },
+    {
+      "product_id": "workbuddy-personal-cn",
+      "brand": "WorkBuddy",
+      "display_name": "WorkBuddy 个人版（中国区）",
+      "region": "China",
+      "adapter_id": "workbuddy-cn",
+      "target_actionable_candidate": true,
+      "current_creatable": true,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "credits_cycle",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://www.workbuddy.cn/docs/workbuddy/Overview"]
+        },
+        {
+          "capability_id": "extra_usage_wallet_when_present",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://www.workbuddy.cn/docs/workbuddy/Overview"]
+        }
+      ]
+    },
+    {
+      "product_id": "qoder-personal-cn",
+      "brand": "Qoder",
+      "display_name": "Qoder 个人版（中国区）",
+      "region": "China",
+      "adapter_id": null,
+      "target_actionable_candidate": false,
+      "current_creatable": false,
+      "evidence_tier": "experimental",
+      "release_status": "blocked-out-of-release-scope",
+      "capabilities": [
+        {
+          "capability_id": "monthly_annual_fixed_credits",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": ["https://qoder.com/docs"]
         }
       ]
     }

@@ -89,9 +89,9 @@ test("launch catalog separates creatable, blocked and information products", asy
   await page.getByRole("button", { name: "账户与 Provider" }).click();
 
   const catalog = page.locator("[data-provider-id]");
-  await expect(catalog).toHaveCount(13);
-  await expect(catalog.locator("button:enabled")).toHaveCount(6);
-  await expect(catalog.locator("button:disabled")).toHaveCount(7);
+  await expect(catalog).toHaveCount(15);
+  await expect(catalog.locator("button:enabled")).toHaveCount(7);
+  await expect(catalog.locator("button:disabled")).toHaveCount(8);
 
   expect(await catalog.evaluateAll((cards) => cards.map((card) => card.getAttribute("data-provider-id")))).toEqual([
     "deepseek-api-balance-cn", "kimi-api-balance-cn", "kimi-code-token-plan",
@@ -99,6 +99,7 @@ test("launch catalog separates creatable, blocked and information products", asy
     "volcengine-ark-agent-plan-personal", "volcengine-billing-balance",
     "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
     "glm-api-balance-cn", "minimax-api-balance-cn",
+    "workbuddy-personal-cn", "qoder-personal-cn",
   ]);
 
   const search = page.getByRole("textbox", { name: "搜索 Provider Preset" });
@@ -121,11 +122,11 @@ test("launch catalog separates creatable, blocked and information products", asy
     .toBe(true);
 
   await filter.getByRole("button", { name: "Window View" }).click();
-  await expect(catalog).toHaveCount(7);
+  await expect(catalog).toHaveCount(8);
   await expect(page.locator('[data-provider-id="xiaomi-mimo-token-plan"]')).toHaveCount(0);
 
   await filter.getByRole("button", { name: "Wallet View" }).click();
-  await expect(catalog).toHaveCount(9);
+  await expect(catalog).toHaveCount(10);
   await expect(page.locator('[data-provider-id="volcengine-billing-balance"] button')).toBeDisabled();
 
   for (const width of [1024, 390]) {

@@ -51,6 +51,7 @@ def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
         "kimi-code",
         "kimi-cn",
         "minimax-cn",
+        "workbuddy-cn",
     }
     assert {item["provider_id"] for item in recordings if item["live_verified"]} == {
         "deepseek",
@@ -68,7 +69,7 @@ def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
 
 
 def test_manifests_are_fixed_https_official_endpoints() -> None:
-    assert len(MANIFESTS) == 12
+    assert len(MANIFESTS) == 13
     assert all(item.endpoint.startswith("https://") for item in MANIFESTS.values())
     assert all("example" not in item.endpoint for item in MANIFESTS.values())
     with pytest.raises(ValueError, match="unsupported"):
@@ -1107,3 +1108,113 @@ def test_glm_boost_property(pct_5h: int, pct_week: int, rem: int, delta: int) ->
         ("window", f"周已用 {pct_week}%"),
         ("balance", f"加油包剩余 {rem} / {total}"),
     ]
+
+
+def test_workbuddy_cn_edges_and_bounds_fail_closed() -> None:
+    used_derived = parse_provider_response(
+        "workbuddy-cn",
+        200,
+        encoded(
+            {
+                "code": 0,
+                "data": {
+                    "Packages": [
+                        {
+                            "PackageCode": "TCACA_code_001",
+                            "CycleTotalCapacity": 200,
+                            "CycleUsedCapacity": 50,
+                        },
+                        {
+                            "PackageCode": "TCACA_extra_zero_total",
+                            "CycleTotalCapacity": 0,
+                            "CycleRemainCapacity": 25,
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+    assert used_derived.ok
+    assert [(r["display_kind"], r["value_display"]) for r in used_derived.rows] == [
+        ("window", "周期积分 (150 / 200) · 剩余 75%"),
+        ("balance", "加油包剩余 25"),
+    ]
+    for bad_payload in (
+        {"code": 1, "data": {"Packages": []}},
+        {"code": 0, "data": {"Packages": []}},
+        {"code": 0, "data": {"Packages": ["bad"]}},
+        {"code": 0, "data": {"Packages": [{"PackageCode": "", "CycleTotalCapacity": 100}]}},
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": -1, "CycleRemainCapacity": 0}
+                ]
+            },
+        },
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": 100, "CycleUsedCapacity": 150}
+                ]
+            },
+        },
+        {"code": 0, "data": {"Packages": [{"PackageCode": "p", "CycleTotalCapacity": 100}]}},
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": 100, "CycleRemainCapacity": -1}
+                ]
+            },
+        },
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": 0, "CycleRemainCapacity": 0}
+                ]
+            },
+        },
+    ):
+        assert (
+            parse_provider_response("workbuddy-cn", 200, encoded(bad_payload)).safe_error_code
+            == "contract-error"
+        )
+
+
+@given(
+    rem=st.integers(min_value=0, max_value=10_000),
+    delta=st.integers(min_value=1, max_value=10_000),
+    extra_rem=st.integers(min_value=1, max_value=5_000),
+)
+def test_workbuddy_cn_property(rem: int, delta: int, extra_rem: int) -> None:
+    total = rem + delta
+    result = parse_provider_response(
+        "workbuddy-cn",
+        200,
+        encoded(
+            {
+                "code": 0,
+                "data": {
+                    "Packages": [
+                        {
+                            "PackageCode": "TCACA_code_002",
+                            "CycleTotalCapacity": total,
+                            "CycleRemainCapacity": rem,
+                        },
+                        {
+                            "PackageCode": "TCACA_extra_boost",
+                            "CycleTotalCapacity": extra_rem * 2,
+                            "CycleRemainCapacity": extra_rem,
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+    assert result.ok
+    assert result.rows[0]["display_kind"] == "window"
+    assert result.rows[1]["display_kind"] == "balance"
+    assert result.rows[1]["value_display"] == f"加油包剩余 {extra_rem} / {extra_rem * 2}"

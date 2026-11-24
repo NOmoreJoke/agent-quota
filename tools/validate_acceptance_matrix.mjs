@@ -38,6 +38,8 @@ const approvedClaimedCells = new Set([
   "google-antigravity/ai_credits_balance",
   "volcengine-ark-agent-plan-personal/window_5h",
   "volcengine-ark-agent-plan-personal/window_week",
+  "workbuddy-personal-cn/credits_cycle",
+  "workbuddy-personal-cn/extra_usage_wallet_when_present",
 ]);
 const approvedRequiredGates = new Set([
   "holder_live_lifecycle",

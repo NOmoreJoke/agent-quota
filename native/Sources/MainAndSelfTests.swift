@@ -198,7 +198,7 @@ func selfTestKeychain(path: String? = nil) -> Int32 {
 func selfTestProviderMinimization() -> Int32 {
     guard
         creatableProviders.map(\.id) == creatableProviderIDs,
-        Set(creatableProviderIDs).count == 6
+        Set(creatableProviderIDs).count == 7
     else { return 9 }
     let samples = [
         ("antigravity", #"{"tier":"g1-pro-tier","aiCredits":250,"cloudaicompanionProject":"sensitive","email":"sensitive","buckets":[{"id":"gemini-5h","window":"5h","remainingFraction":0.9,"extra":"sensitive"}]}"#),
@@ -210,6 +210,7 @@ func selfTestProviderMinimization() -> Int32 {
         ("glm-cn", #"{"code":200,"success":true,"data":{"level":"pro","limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":1,"account_id":"sensitive"},{"type":"TOKENS_LIMIT","unit":6,"number":1,"percentage":5}],"extraPackage":{"remaining":640,"total":1000,"account_id":"sensitive"},"user":{"email":"sensitive"}}}"#),
         ("volc-wallet", #"{"ResponseMetadata":{"RequestId":"sensitive"},"Result":{"AccountID":210000001,"AvailableBalance":"77.01","CashBalance":"83.01","CreditLimit":"0.01","FreezeAmount":"5.01","ArrearsBalance":"1.01"}}"#),
         ("volc-plan", #"{"ResponseMetadata":{"RequestId":"sensitive"},"Result":{"PlanType":"AFP","AFPFiveHour":{"Quota":1000,"Used":250,"SubscribeTime":1,"ResetTime":2,"AccountID":"sensitive"},"AFPWeekly":{"Quota":8000,"Used":2000,"SubscribeTime":1,"ResetTime":2}}}"#),
+        ("workbuddy-cn", #"{"code":0,"data":{"IsPaidUser":true,"SubscriptionPackageCode":"TCACA_code_002","uid":"sensitive","email":"sensitive","Packages":[{"PackageCode":"TCACA_code_002","CycleTotalCapacity":1000,"CycleRemainCapacity":750,"CycleUsedCapacity":250,"accountId":"sensitive"},{"PackageCode":"TCACA_extra_001","CycleTotalCapacity":500,"CycleRemainCapacity":400,"CycleUsedCapacity":100}]}}"#),
     ]
     for (provider, source) in samples {
         guard

@@ -29,6 +29,7 @@ PROVIDER_IDS: Final = frozenset(
         "minimax-global",
         "volc-plan",
         "volc-wallet",
+        "workbuddy-cn",
     }
 )
 
@@ -150,6 +151,14 @@ MANIFESTS: Final = {
         "https://ark.cn-beijing.volces.com/?Action=GetAFPUsage&Version=2024-01-01",
         "volc-hmac-sha256",
         "https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent+Plan+API&serviceCode=ark&version=2024-01-01",
+    ),
+    "workbuddy-cn": ProviderManifest(
+        "workbuddy-cn",
+        "WorkBuddy 个人版 (中国区)",
+        "oauth-workbuddy-cn",
+        "https://www.workbuddy.cn/billing/meter/get-user-resource-summary",
+        "oauth-bearer-refreshable",
+        "https://www.workbuddy.cn/docs/workbuddy/Overview",
     ),
 }
 
@@ -835,6 +844,78 @@ def _antigravity(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     return tuple(rows)
 
 
+def _workbuddy(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    data = document.get("data")
+    if document.get("code") != 0 or not isinstance(data, dict):
+        raise ValueError("WorkBuddy response mismatch")
+    packages = data.get("Packages")
+    if not isinstance(packages, list) or not 1 <= len(packages) <= 32:
+        raise ValueError("WorkBuddy packages mismatch")
+    base_remain = Decimal(0)
+    base_total = Decimal(0)
+    extra_remain = Decimal(0)
+    extra_total = Decimal(0)
+    has_base = False
+    has_extra = False
+    for package in packages:
+        if not isinstance(package, dict):
+            raise ValueError("WorkBuddy package mismatch")
+        code = package.get("PackageCode")
+        if not isinstance(code, str) or not 1 <= len(code.encode()) <= 64:
+            raise ValueError("WorkBuddy package code mismatch")
+        total = _decimal(package.get("CycleTotalCapacity"))
+        if total < 0:
+            raise ValueError("WorkBuddy total capacity mismatch")
+        remain_raw = package.get("CycleRemainCapacity")
+        if remain_raw is not None:
+            remain = _decimal(remain_raw)
+        elif package.get("CycleUsedCapacity") is not None:
+            used = _decimal(package.get("CycleUsedCapacity"))
+            if used < 0 or used > total:
+                raise ValueError("WorkBuddy used capacity mismatch")
+            remain = total - used
+        else:
+            raise ValueError("WorkBuddy remaining capacity mismatch")
+        if remain < 0:
+            raise ValueError("WorkBuddy remaining capacity mismatch")
+        lowered = code.lower()
+        if any(tag in lowered for tag in ("extra", "boost", "addon")):
+            extra_remain += remain
+            extra_total += total
+            has_extra = True
+        else:
+            base_remain += remain
+            base_total += total
+            has_base = True
+    rows: list[dict[str, str]] = []
+    if has_base and base_total > 0:
+        pct = _percentage(min(Decimal(100), base_remain * Decimal(100) / base_total))
+        rem_str = _decimal_display(base_remain)
+        tot_str = _decimal_display(base_total)
+        rows.append(
+            _row(
+                "workbuddy-cn",
+                "credits",
+                "window",
+                f"周期积分 ({rem_str} / {tot_str}) · 剩余 {pct}",
+            )
+        )
+    if has_extra and (extra_total > 0 or extra_remain > 0):
+        rows.append(
+            _row(
+                "workbuddy-cn",
+                "boost-wallet",
+                "balance",
+                f"加油包剩余 {_decimal_display(extra_remain)} / {_decimal_display(extra_total)}"
+                if extra_total > 0
+                else f"加油包剩余 {_decimal_display(extra_remain)}",
+            )
+        )
+    if not rows:
+        raise ValueError("WorkBuddy quota is absent")
+    return tuple(rows)
+
+
 def _volc_plan(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     result = document.get("Result")
     if not isinstance(result, dict):
@@ -933,6 +1014,8 @@ def parse_provider_response(
             rows = _volc_wallet(document)
         elif provider_id == "volc-plan":
             rows = _volc_plan(document)
+        elif provider_id == "workbuddy-cn":
+            rows = _workbuddy(document)
         else:  # pragma: no cover - manifest closes this branch
             raise ValueError("unsupported provider")
         return ProviderResult(rows)
