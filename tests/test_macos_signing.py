@@ -116,6 +116,33 @@ def test_signing_does_not_resign_pinned_nested_resources(monkeypatch) -> None:
     assert "--deep" not in command
     assert command[command.index("--sign") + 1] == IDENTITY
     assert "--timestamp" in command
+    assert "--options" not in command
+    checks = [cmd[cmd.index("-R") + 1] for cmd in commands if "-R" in cmd]
+    assert len(checks) == 1
+    assert checks[0].startswith("=")
+
+
+def test_hardened_runtime_flag_and_developer_id_detection(monkeypatch) -> None:
+    commands = stub_codesign(monkeypatch, details("1" * 40))
+    signing.sign(Path("helper.app"), IDENTIFIER, IDENTITY, TEAM, hardened_runtime=True)
+    command = commands[0]
+    options_index = command.index("--options")
+    assert command[options_index + 1] == "runtime"
+    assert "--timestamp" in command
+
+    sample_identities = (
+        f'  1) {IDENTITY.upper()} "Developer ID Application: Example Corp ({TEAM})"\n'
+        f'  2) {"b" * 40} "Apple Development: Example User ({TEAM})"\n'
+        "     2 valid identities found\n"
+    )
+    monkeypatch.setattr(
+        signing,
+        "run",
+        lambda *_cmd: subprocess.CompletedProcess(_cmd, 0, stdout=sample_identities, stderr=""),
+    )
+    assert signing.is_developer_id_identity(IDENTITY) is True
+    assert signing.is_developer_id_identity("b" * 40) is False
+    assert signing.is_developer_id_identity("-") is False
 
 
 def test_unsupported_runtime_bundle_is_rejected_before_any_signature_changes(tmp_path, monkeypatch):

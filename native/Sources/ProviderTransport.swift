@@ -620,11 +620,16 @@ func antigravityOAuthCredential(
     clientIDOverride: String,
     clientSecretOverride: String
 ) -> (credential: [UInt8]?, errorCode: String?) {
-    let clientID = clientIDOverride.isEmpty ? antigravityDefaultOAuthClientID : clientIDOverride
-    let clientSecret = clientSecretOverride.isEmpty ? antigravityDefaultOAuthClientSecret : clientSecretOverride
-    guard isSafeCredential(clientID) else {
+    let savedConfig = loadAntigravityOAuthClientConfig()
+    guard let resolvedClient = resolveAntigravityOAuthClient(
+        clientIDOverride: clientIDOverride,
+        clientSecretOverride: clientSecretOverride,
+        savedConfig: savedConfig
+    ) else {
         return (nil, "oauth-client-unconfigured")
     }
+    let clientID = resolvedClient.clientID
+    let clientSecret = resolvedClient.clientSecret
     guard
         let verifier = randomBase64URL(byteCount: 32),
         let state = randomBase64URL(byteCount: 24)
@@ -731,6 +736,9 @@ func antigravityOAuthCredential(
         ),
         let encoded = encodedAntigravityTokenBundle(bundle)
     else { return (nil, "provider-unavailable") }
+    if !clientIDOverride.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        try? saveAntigravityOAuthClientConfig(resolvedClient)
+    }
     return (encoded, nil)
 }
 

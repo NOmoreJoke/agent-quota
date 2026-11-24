@@ -177,6 +177,23 @@ func selfTestKeychain(path: String? = nil) -> Int32 {
         } catch NativeFailure.keychain(let status) where status == errSecItemNotFound {}
         let metadataStatus = try selfTestKeychainMetadata(provider: provider, keychain: keychain)
         guard metadataStatus == 0 else { return metadataStatus }
+        defer { _ = keychainDelete(account: antigravityOAuthClientConfigAccount, keychain: keychain) }
+        guard loadAntigravityOAuthClientConfig(keychain: keychain) == nil else { return 39 }
+        let firstConfig = AntigravityOAuthClientConfig(
+            clientID: "test-client-id-1.apps.googleusercontent.com",
+            clientSecret: "test-client-secret-1"
+        )
+        try saveAntigravityOAuthClientConfig(firstConfig, keychain: keychain)
+        guard loadAntigravityOAuthClientConfig(keychain: keychain) == firstConfig else { return 40 }
+        let updatedConfig = AntigravityOAuthClientConfig(
+            clientID: "test-client-id-2.apps.googleusercontent.com",
+            clientSecret: ""
+        )
+        try saveAntigravityOAuthClientConfig(updatedConfig, keychain: keychain)
+        guard loadAntigravityOAuthClientConfig(keychain: keychain) == updatedConfig else { return 41 }
+        guard keychainDelete(account: antigravityOAuthClientConfigAccount, keychain: keychain) == errSecSuccess,
+              loadAntigravityOAuthClientConfig(keychain: keychain) == nil
+        else { return 42 }
         emit(
             NativeResponse(
                 status: "self-test-ok", opaqueReference: nil, errorCode: nil,
@@ -293,6 +310,61 @@ func selfTestProviderMinimization() -> Int32 {
         !isKimiCodeReauthResponse(status: 500, body: Data(#"{"error":"invalid_grant"}"#.utf8)),
         !isKimiCodeReauthResponse(status: 200, body: Data(#"{"error":"invalid_grant"}"#.utf8))
     else { return 15 }
+    let savedOAuthClient = AntigravityOAuthClientConfig(
+        clientID: "saved-client-id",
+        clientSecret: "saved-client-secret"
+    )
+    let overrideResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: "  override-id  ",
+        clientSecretOverride: " override-secret ",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let invalidOverride = resolveAntigravityOAuthClient(
+        clientIDOverride: "bad\r\nid",
+        clientSecretOverride: "override-secret",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let invalidSecretOverride = resolveAntigravityOAuthClient(
+        clientIDOverride: "override-id",
+        clientSecretOverride: "bad\nsecret",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let savedResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: " ",
+        clientSecretOverride: "",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let defaultResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: "",
+        clientSecretOverride: "",
+        savedConfig: nil,
+        defaultClientID: "default-id",
+        defaultClientSecret: ""
+    )
+    let emptyResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: "",
+        clientSecretOverride: "",
+        savedConfig: nil,
+        defaultClientID: "",
+        defaultClientSecret: ""
+    )
+    guard
+        overrideResolved == AntigravityOAuthClientConfig(clientID: "override-id", clientSecret: "override-secret"),
+        invalidOverride == nil,
+        invalidSecretOverride == nil,
+        savedResolved == savedOAuthClient,
+        defaultResolved == AntigravityOAuthClientConfig(clientID: "default-id", clientSecret: ""),
+        emptyResolved == nil,
+        !isCredentialReference(antigravityOAuthClientConfigAccount)
+    else { return 16 }
     return 0
 }
 

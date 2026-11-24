@@ -91,6 +91,17 @@ def parse_details(details: str) -> dict[str, str]:
     return result
 
 
+def is_developer_id_identity(identity: str) -> bool:
+    if identity == "-":
+        return False
+    identities = run("/usr/bin/security", "find-identity", "-v", "-p", "codesigning").stdout
+    pattern = re.compile(
+        rf'\b{re.escape(identity)}\b.*"Developer ID Application:',
+        re.IGNORECASE,
+    )
+    return any(pattern.search(line) for line in identities.splitlines())
+
+
 def verify(path: Path, identifier: str, team: str | None) -> dict[str, object]:
     run("/usr/bin/codesign", "--verify", "--strict", str(path))
     output = run("/usr/bin/codesign", "-d", "--verbose=4", "-r-", str(path))
@@ -104,7 +115,7 @@ def verify(path: Path, identifier: str, team: str | None) -> dict[str, object]:
             f'({APPLE_SIGNER_REQUIREMENT}) and identifier "{identifier}" '
             f'and certificate leaf[subject.OU] = "{team}"'
         )
-        run("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(path))
+        run("/usr/bin/codesign", "--verify", "--strict", "-R", f"={requirement}", str(path))
         if not details.get("requirement"):
             raise ValueError("Missing designated requirement")
     elif details.get("Signature") != "adhoc":
@@ -126,18 +137,33 @@ def verify(path: Path, identifier: str, team: str | None) -> dict[str, object]:
     }
 
 
-def sign(path: Path, identifier: str, identity: str, team: str | None) -> dict[str, object]:
+def sign(
+    path: Path,
+    identifier: str,
+    identity: str,
+    team: str | None,
+    *,
+    hardened_runtime: bool = False,
+) -> dict[str, object]:
     if not re.fullmatch(r"[A-Za-z0-9.-]+", identifier):
         raise ValueError("Invalid signing identifier")
     # Do not use --deep to sign: resources were signed before their manifest was pinned.
     command = ["/usr/bin/codesign", "--force", "--sign", identity, "--identifier", identifier]
     if team:
         command.append("--timestamp")
+        if hardened_runtime:
+            command.extend(["--options", "runtime"])
     run(*command, str(path))
     return verify(path, identifier, team)
 
 
-def sign_sidecar_tree(root: Path, identity: str, team: str | None) -> None:
+def sign_sidecar_tree(
+    root: Path,
+    identity: str,
+    team: str | None,
+    *,
+    hardened_runtime: bool = False,
+) -> None:
     # PyInstaller contains extension modules and a Python framework as regular files.
     # Sign each nested Mach-O first, without relaxing library or keychain permissions.
     main = root / "agent-quota-sidecar"
@@ -157,8 +183,20 @@ def sign_sidecar_tree(root: Path, identity: str, team: str | None) -> None:
             relative = path.relative_to(root).as_posix()
             # A deterministic identifier for every embedded object; no user path is embedded.
             suffix = hashlib.sha256(relative.encode()).hexdigest()[:24]
-            sign(path, f"com.agentquota.desktop.runtime.{suffix}", identity, team)
-    sign(main, "com.agentquota.desktop.sidecar", identity, team)
+            sign(
+                path,
+                f"com.agentquota.desktop.runtime.{suffix}",
+                identity,
+                team,
+                hardened_runtime=hardened_runtime,
+            )
+    sign(
+        main,
+        "com.agentquota.desktop.sidecar",
+        identity,
+        team,
+        hardened_runtime=hardened_runtime,
+    )
 
 
 def main() -> int:
@@ -175,12 +213,15 @@ def main() -> int:
         return 0
     if args.path is None:
         parser.error("--path is required")
+    hardened_runtime = bool(team) and (
+        os.environ.get("AQ_CODESIGN_HARDENED_RUNTIME") == "1" or is_developer_id_identity(identity)
+    )
     if args.action == "sign":
         if not args.identifier:
             parser.error("--identifier is required")
-        sign(args.path, args.identifier, identity, team)
+        sign(args.path, args.identifier, identity, team, hardened_runtime=hardened_runtime)
     elif args.action == "sign-sidecar":
-        sign_sidecar_tree(args.path, identity, team)
+        sign_sidecar_tree(args.path, identity, team, hardened_runtime=hardened_runtime)
     else:
         if args.output is None:
             parser.error("--output is required for audit")

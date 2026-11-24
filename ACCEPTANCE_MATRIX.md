@@ -58,3 +58,29 @@ uninstall/reinstall retention and native-confirmed purge.
 
 Machine completion additionally requires every required `formal_release_gates` row to
 be `PASS`, carry the final 40-character release commit binding, and contain evidence.
+
+### L4 Acceptance CLI Runbook
+
+1. Preflight the signed `apple-team` artifact (never touches Keychain secrets):
+   ```sh
+   uv run python tools/l4_acceptance.py preflight \
+     --app artifacts/iteration-4-<commit>-apple-team/Agent\ Quota.app \
+     --artifact-dir artifacts/iteration-4-<commit>-apple-team
+   ```
+2. Generate per-product redacted evidence templates & record completed checks:
+   ```sh
+   uv run python tools/l4_acceptance.py checklist
+   uv run python tools/l4_acceptance.py template \
+     --commit <commit> --product <product_id> --output /tmp/<product_id>.json
+   uv run python tools/l4_acceptance.py record \
+     --commit <commit> --product <product_id> \
+     --input /tmp/<product_id>.json \
+     --evidence-dir docs/audits/evidence/l4-<commit>
+   ```
+3. Preview & commit validated matrix updates (dry-run by default; `--write` invokes `./tools/validate_acceptance_matrix.sh`):
+   ```sh
+   uv run python tools/l4_acceptance.py apply-matrix \
+     --commit <commit> \
+     --evidence-dir docs/audits/evidence/l4-<commit> \
+     --artifact-dir artifacts/iteration-4-<commit>-apple-team
+   ```

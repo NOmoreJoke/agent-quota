@@ -56,9 +56,9 @@ final class CredentialSelectorGate: NSObject {
             secureField?.stringValue = ""
             cloudSecretField?.stringValue = ""
             secureField?.isHidden = false
-            secureField?.placeholderString = "OAuth Client ID（可留空使用默认）"
+            secureField?.placeholderString = "OAuth Client ID（留空复用已保存/内置默认）"
             cloudSecretField?.isHidden = false
-            cloudSecretField?.placeholderString = "OAuth Client Secret（可选）"
+            cloudSecretField?.placeholderString = "OAuth Client Secret（留空复用已保存/内置默认）"
         } else if requiresDualCloudSecret(definition.authMode) {
             secureField?.isHidden = false
             secureField?.placeholderString = "AccessKey ID"

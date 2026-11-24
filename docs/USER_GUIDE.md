@@ -10,7 +10,7 @@
 2. `Provider Preset` 展示 15 张独立产品卡（涵盖 10 个品牌），支持按关键词搜索及「全部 / Window View / Wallet View」切换筛选。
 3. 点击已开放产品的「打开原生选择器」或右上角「添加 Provider」。
 4. 在 macOS 原生 AppKit 安全弹窗中选择产品并输入凭据（单 API Key、AK/SK 双密钥、`Kimi Code` 设备授权 OAuth、`Google Antigravity` Google OAuth 或 `WorkBuddy 个人版 (中国区)` 官方无端口 OAuth）；凭据直写 macOS Keychain，绝不经过前端 WebView 或 Python 磁盘文件。
-   - **Antigravity OAuth Client 配置说明**：源码仓库不含任何硬编码 OAuth `client_secret`；构建时可通过环境变量 `AQ_ANTIGRAVITY_OAUTH_CLIENT_ID` / `AQ_ANTIGRAVITY_OAUTH_CLIENT_SECRET` 注入默认值，或在原生授权弹窗的 Client ID / Client Secret 输入框中临时指定（同样仅写入本机 Keychain）。
+   - **Antigravity OAuth Client 配置说明**：源码仓库不含任何硬编码 OAuth `client_secret`；首次在原生弹窗填入 Client ID / Client Secret 并完成登录后，该 Client 配置会自动持久化至 macOS Keychain 专用条目，后续新增账户或 `401/400 invalid_grant` 重新授权留空即可自动继承复用；亦可在构建前通过 `.env.local`（见 `.env.example`）或 `AQ_ANTIGRAVITY_OAUTH_CLIENT_ID` / `AQ_ANTIGRAVITY_OAUTH_CLIENT_SECRET` 注入构建期默认值。
 5. 返回「概览」或展开桌面悬浮胶囊，点击「全部刷新 / 刷新用量」按需拉取最新额度。
 6. **凭据过期与重新授权**：当 API Key 失效或 `Kimi Code` / `Antigravity` / `WorkBuddy` OAuth 凭据过期（含 OAuth `400 invalid_grant`、401/403）时，主窗口会自动跳出「凭据已过期，请重新授权」浮层提示，悬浮胶囊也会亮起警示并显示 `N 项需授权`。直接点击「重新授权」即可拉起 macOS 原生授权窗口完成重新登录；若先点击「稍后处理」，主窗口顶部仍保留快捷重新授权提示条，再次点击刷新会重新弹出提示。
 
