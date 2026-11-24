@@ -17,7 +17,7 @@ export const providerOrder = ["Antigravity", "GLM", "DeepSeek", "MiniMax", "Kimi
 export function safeErrorMessage(code: string): string {
   if (code === "not-authorized") return "当前操作暂不可用，请等待正在进行的操作结束后在主窗口检查账户状态";
   if (code === "keychain-locked") return "macOS 登录钥匙串已锁定；解锁后再刷新";
-  if (code === "reauth-required") return "Provider 凭据已失效；请重新认证";
+  if (code === "reauth-required") return "Provider 凭据已过期；请重新授权";
   if (code === "provider-unavailable") return "Provider 暂时不可用";
   if (code === "timeout") return "Provider 请求超时";
   if (code === "contract-error") return "Provider 响应格式不受支持";
@@ -50,6 +50,12 @@ export function providerFromAccount(label: string): string {
 
 export function isLocalBridgeAccount(label: string): boolean {
   return providerFromAccount(label) === "Antigravity";
+}
+
+export function reauthRequiredAccounts(accounts: readonly Account[]): Account[] {
+  return accounts.filter(
+    (account) => account.lifecycle === "needs-reauth" && !isLocalBridgeAccount(account.display_label),
+  );
 }
 
 type WindowMetric = { mode: "remaining" | "used"; percentage: number };

@@ -36,6 +36,7 @@ const accountRows = [
 ];
 
 const addedAccountRows: typeof accountRows = [];
+const reauthenticatedPrincipals = new Set<string>();
 
 function addFixtureAccount(): void {
   if (addedAccountRows.length > 0) return;
@@ -45,6 +46,16 @@ function addFixtureAccount(): void {
     principal_ref: "principal-fixture-test-1",
   });
 }
+
+const reauthScenarioAccounts = [
+  { display_label: "DeepSeek", lifecycle: "active", principal_ref: "principal-deepseek-1" },
+  {
+    display_label: "Kimi Code Token Plan",
+    last_error_code: "reauth-required",
+    lifecycle: "needs-reauth",
+    principal_ref: "principal-kimi-code-1",
+  },
+];
 
 const capabilityRows = [
   { capability_ref: "cap-five-hour", display_kind: "window", health: "ok", value_display: "5 小时窗口 · 72%" },
@@ -95,30 +106,54 @@ export async function fixtureInvoke(commandId: CommandId, payload: Record<string
         },
         status: "ok",
       };
-    case "accounts_read":
-      return {
-        accounts: mode === "empty" ? addedAccountRows : mode === "antigravity"
+    case "accounts_read": {
+      const baseAccounts = mode === "empty"
+        ? addedAccountRows
+        : mode === "antigravity"
           ? [{ display_label: "Google Antigravity (Pro)", lifecycle: "active", principal_ref: "principal-fedcba9876543210fedcba98" }]
           : mode === "floating"
             ? ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code"].map((name, index) => ({ display_label: name, lifecycle: "active", principal_ref: `principal-demo-${index}` }))
-            : [...accountRows, ...addedAccountRows],
+            : mode === "reauth"
+              ? reauthScenarioAccounts
+              : [...accountRows, ...addedAccountRows];
+      return {
+        accounts: baseAccounts.map((account) => {
+          if (!reauthenticatedPrincipals.has(account.principal_ref)) return account;
+          return {
+            display_label: account.display_label,
+            lifecycle: "active",
+            principal_ref: account.principal_ref,
+          };
+        }),
         status: "ok",
       };
+    }
     case "quota_overview":
       return {
         projection: {
           capability_rows:
-            mode === "antigravity" ? antigravityRows : mode === "floating" ? floatingRows : mode === "partial"
-              ? capabilityRows.map((row, index) =>
-                  index === 1 ? { ...row, health: "error", value_display: "暂时不可用" } : row,
-                )
-              : capabilityRows,
-          freshness: mode === "offline" ? "stale" : "fresh",
+            mode === "antigravity"
+              ? antigravityRows
+              : mode === "floating" || mode === "reauth"
+                ? floatingRows
+                : mode === "partial"
+                  ? capabilityRows.map((row, index) =>
+                      index === 1 ? { ...row, health: "error", value_display: "暂时不可用" } : row,
+                    )
+                  : capabilityRows,
+          freshness: mode === "offline" || (mode === "reauth" && !reauthenticatedPrincipals.has("principal-kimi-code-1")) ? "stale" : "fresh",
           scope_ref: String(payload.scope_ref ?? "scope-all"),
         },
         status: "ok",
       };
     case "refresh_scope":
+      if (mode === "reauth" && !reauthenticatedPrincipals.has("principal-kimi-code-1")) {
+        return {
+          refresh_state: { phase: "failed" },
+          safe_error: { code: "reauth-required", retryable: false },
+          status: "error",
+        };
+      }
       if (mode === "keychain-locked") {
         return {
           refresh_state: { phase: "failed" },
@@ -151,8 +186,11 @@ export async function fixtureInvoke(commandId: CommandId, payload: Record<string
       return { opaque_reference_status: "reference-created", status: "ok" };
     case "destructive_confirmation_open":
       return { status: "cancelled" };
-    case "reauthenticate":
-      return { reauth_state: mode === "reauth" ? "pending" : "succeeded", status: "ok" };
+    case "reauthenticate": {
+      const principalRef = typeof payload.principal_ref === "string" ? payload.principal_ref : "";
+      if (principalRef) reauthenticatedPrincipals.add(principalRef);
+      return { reauth_state: "succeeded", status: "ok" };
+    }
     case "export_redacted":
       return { export_status: "completed", status: "ok" };
     case "scheduler_state":

@@ -157,3 +157,40 @@ it("clicking the top title bar collapses an expanded or pinned floating window",
   await act(async () => trigger.click());
   expect(host.querySelector<HTMLButtonElement>('[aria-label="保持展开"]')!.getAttribute("aria-pressed")).toBe("false");
 });
+
+it("highlights expired credentials in the floating capsule and lets the user trigger reauthorization", async () => {
+  let expired = true;
+  invoke.mockImplementation(async (command) => {
+    if (command === "accounts_read") {
+      return {
+        status: "ok",
+        accounts: [
+          {
+            principal_ref: "p-kimi-code",
+            display_label: "Kimi Code Token Plan",
+            lifecycle: expired ? "needs-reauth" : "active",
+            last_error_code: expired ? "reauth-required" : undefined,
+          },
+        ],
+      };
+    }
+    if (command === "reauthenticate") {
+      expired = false;
+      return { status: "ok", reauth_state: "succeeded" };
+    }
+    return response(command);
+  });
+
+  await act(async () => {
+    vi.advanceTimersByTime(2200);
+    host.querySelector<HTMLButtonElement>(".floating-trigger")!.click();
+  });
+  expect(host.querySelector(".floating-summary")?.textContent).toBe("1 项需授权");
+  expect(host.querySelector(".floating-orb")?.classList.contains("needs-attention")).toBe(true);
+  const alert = host.querySelector('[data-testid="floating-reauth-alert"]');
+  expect(alert?.textContent).toContain("Kimi Code Token Plan");
+
+  await act(async () => button("重新授权").click());
+  expect(invoke).toHaveBeenCalledWith("reauthenticate", { principal_ref: "p-kimi-code" });
+  expect(host.querySelector('[data-testid="floating-reauth-alert"]')).toBeNull();
+});

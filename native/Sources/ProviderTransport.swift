@@ -326,6 +326,16 @@ enum KimiCodeCredentialResolution {
     case unavailable
 }
 
+func isKimiCodeReauthResponse(status: Int, body: Data) -> Bool {
+    if status == 401 || status == 403 {
+        return true
+    }
+    guard status == 400, let document = jsonObject(body), let error = document["error"] as? String else {
+        return false
+    }
+    return ["invalid_grant", "invalid_token", "expired_token", "access_denied"].contains(error)
+}
+
 func resolveKimiCodeCredential(reference: String, secret: Data) -> KimiCodeCredentialResolution {
     let decoder = JSONDecoder()
     guard var bundle = try? decoder.decode(KimiCodeTokenBundle.self, from: secret) else {
@@ -350,7 +360,7 @@ func resolveKimiCodeCredential(reference: String, secret: Data) -> KimiCodeCrede
                 timeout: 30
             )
         else { return .unavailable }
-        if response.status == 401 || response.status == 403 {
+        if isKimiCodeReauthResponse(status: response.status, body: response.body) {
             return .reauthRequired
         }
         guard

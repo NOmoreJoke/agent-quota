@@ -11,6 +11,7 @@
 3. 点击已开放产品的「打开原生选择器」或右上角「添加 Provider」。
 4. 在 macOS 原生 AppKit 安全弹窗中选择产品并输入凭据（单 API Key、AK/SK 双密钥或 `Kimi Code` OAuth 设备授权）；凭据直写 macOS Keychain，绝不经过前端 WebView 或 Python 磁盘文件。
 5. 返回「概览」或展开桌面悬浮胶囊，点击「全部刷新 / 刷新用量」按需拉取最新额度。
+6. **凭据过期与重新授权**：当 API Key 失效或 `Kimi Code` OAuth `refresh_token` 过期（含 OAuth `400 invalid_grant`）时，主窗口会自动跳出「凭据已过期，请重新授权」浮层提示，悬浮胶囊也会亮起警示并显示 `N 项需授权`。直接点击「重新授权」即可拉起 macOS 原生授权窗口完成重新登录；若先点击「稍后处理」，主窗口顶部仍保留快捷重新授权提示条，再次点击刷新会重新弹出提示。
 
 ## 一键接入 Google Antigravity 用量（零密钥本地桥接）
 

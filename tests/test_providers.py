@@ -869,3 +869,99 @@ def test_invalid_base64_json_scalar_and_unknown_provider_fail_closed() -> None:
     assert parse_provider_response("deepseek", 200, encoded([])).safe_error_code == "contract-error"
     with pytest.raises(ValueError, match="unsupported"):
         parse_provider_response("unknown", 200, encoded({}))
+
+
+def test_kimi_code_limits_and_booster_wallet_bounds_fail_closed() -> None:
+    valid_usage = {"remaining": 50, "limit": 100}
+    valid_5h = {
+        "window": {"duration": 5, "timeUnit": "TIME_UNIT_HOUR"},
+        "detail": {"used": 1, "limit": 10},
+    }
+    cases = [
+        {"usage": valid_usage, "limits": "bad"},
+        {"usage": {"used": 1, "remaining": 9, "limit": 10}, "limits": [valid_5h]},
+        {"usage": {"remaining": 11, "limit": 10}, "limits": [valid_5h]},
+        {"usage": {"remaining": 1, "limit": 0}, "limits": [valid_5h]},
+        {"usage": valid_usage, "limits": ["bad"]},
+        {"usage": valid_usage, "limits": [{"window": {}, "detail": "bad"}]},
+        {
+            "usage": valid_usage,
+            "limits": [
+                {
+                    "window": {"duration": 0, "timeUnit": "TIME_UNIT_HOUR"},
+                    "detail": {"used": 1, "limit": 10},
+                }
+            ],
+        },
+        {
+            "usage": valid_usage,
+            "limits": [
+                {
+                    "name": "",
+                    "window": {"duration": 1, "timeUnit": "TIME_UNIT_HOUR"},
+                    "detail": {"used": 1, "limit": 10},
+                }
+            ],
+        },
+        {"usage": valid_usage, "limits": [valid_5h], "boosterWallet": "bad"},
+        {
+            "usage": valid_usage,
+            "limits": [valid_5h],
+            "boosterWallet": {"balance": {"type": "OTHER"}},
+        },
+        {
+            "usage": valid_usage,
+            "limits": [valid_5h],
+            "boosterWallet": {"balance": {"type": "BOOSTER", "amount": 0, "amountLeft": 0}},
+        },
+    ]
+    for document in cases:
+        assert parse_provider_response("kimi-code", 200, encoded(document)).safe_error_code == (
+            "contract-error"
+        )
+
+
+def test_antigravity_edge_cases_and_bounds_fail_closed() -> None:
+    from agent_quota.providers import sanitize_antigravity_statusline
+
+    assert (
+        parse_provider_response("antigravity", 200, encoded({"product": "other"})).safe_error_code
+        == "contract-error"
+    )
+    assert (
+        parse_provider_response(
+            "antigravity", 200, encoded({"product": "antigravity", "quota": {}})
+        ).safe_error_code
+        == "contract-error"
+    )
+    for bad_entry in (
+        "bad",
+        {"remaining_fraction": 0.5, "disabled": "no"},
+        {"remaining_fraction": 0.5, "remaining_amount": 10},
+        {"remaining_fraction": 1.5},
+        {"remaining_amount": -1},
+    ):
+        assert (
+            parse_provider_response(
+                "antigravity",
+                200,
+                encoded({"product": "antigravity", "quota": {"gemini-5h": bad_entry}}),
+            ).safe_error_code
+            == "contract-error"
+        )
+    with pytest.raises(ValueError, match="product"):
+        sanitize_antigravity_statusline(json.dumps({"product": "other", "quota": {}}).encode())
+    with pytest.raises(ValueError, match="quota"):
+        sanitize_antigravity_statusline(
+            json.dumps({"product": "antigravity", "quota": {}}).encode()
+        )
+    with pytest.raises(ValueError, match="plan tier"):
+        sanitize_antigravity_statusline(
+            json.dumps(
+                {
+                    "product": "antigravity",
+                    "plan_tier": "x" * 33,
+                    "quota": {"gemini-5h": {"remaining_fraction": 0.5}},
+                }
+            ).encode()
+        )

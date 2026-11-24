@@ -268,7 +268,7 @@ describe("quota controller outcomes", () => {
     });
     expect(controller.accounts[0].principal_ref).toBe("new");
     expect(controller.accounts[0].lifecycle).toBe("needs-reauth");
-    expect(controller.notice?.text).toContain("凭据已失效");
+    expect(controller.notice?.text).toContain("凭据已过期");
     expect(controller.notice?.tone).toBe("warning");
   });
 

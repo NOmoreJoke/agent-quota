@@ -279,6 +279,18 @@ func selfTestProviderMinimization() -> Int32 {
             "Signature=45433d0b80f6e188625d2186b504f4510b5f14606220a322bf334cc189cd34e4"
         ) == true
     else { return 14 }
+    guard
+        isKimiCodeReauthResponse(status: 401, body: Data()),
+        isKimiCodeReauthResponse(status: 403, body: Data()),
+        isKimiCodeReauthResponse(
+            status: 400,
+            body: Data(#"{"error":"invalid_grant","error_description":"The provided authorization grant is invalid"}"#.utf8)
+        ),
+        isKimiCodeReauthResponse(status: 400, body: Data(#"{"error":"expired_token"}"#.utf8)),
+        !isKimiCodeReauthResponse(status: 400, body: Data(#"{"error":"invalid_request"}"#.utf8)),
+        !isKimiCodeReauthResponse(status: 500, body: Data(#"{"error":"invalid_grant"}"#.utf8)),
+        !isKimiCodeReauthResponse(status: 200, body: Data(#"{"error":"invalid_grant"}"#.utf8))
+    else { return 15 }
     return 0
 }
 

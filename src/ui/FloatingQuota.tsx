@@ -8,10 +8,11 @@ import {
   isWeeklyWindow,
   providerName,
   providerOrder,
+  reauthRequiredAccounts,
   windowFamily,
   windowMetric,
 } from "./quotaPresentation";
-import { useAppearance } from "../hooks/useAppearance";
+import { useAppearance, useMotion } from "../hooks/useAppearance";
 import { useFloatingShell } from "../hooks/useFloatingShell";
 import { useQuotaController } from "../hooks/useQuotaController";
 import "./floating.css";
@@ -33,6 +34,7 @@ const quotaViews: { id: QuotaView; label: string }[] = [
 
 export function FloatingQuota() {
   useAppearance();
+  useMotion();
   const quota = useQuotaController();
   const shell = useFloatingShell(quota);
   const [view, setView] = useState<QuotaView>("window");
@@ -85,6 +87,7 @@ export function FloatingQuota() {
   );
   const unavailable = quota.connection === "offline" || quota.connection === "unavailable";
   const stale = quota.freshness !== "fresh" || unavailable;
+  const reauthAccounts = useMemo(() => reauthRequiredAccounts(quota.accounts), [quota.accounts]);
   const issues = quota.capabilities.filter(
     (row) => effectiveHealth(row, exhausted) !== "ok",
   ).length;
@@ -94,9 +97,11 @@ export function FloatingQuota() {
       ? "连接待恢复"
       : quota.accounts.length === 0
         ? "待添加账户"
-        : issues
-          ? `${issues} 项需关注`
-          : `${allGroups.length} 个平台`;
+        : reauthAccounts.length > 0
+          ? `${reauthAccounts.length} 项需授权`
+          : issues
+            ? `${issues} 项需关注`
+            : `${allGroups.length} 个平台`;
 
   return (
     <div
@@ -119,7 +124,7 @@ export function FloatingQuota() {
           onClick={shell.toggleExpanded}
         >
           <span
-            className={`floating-orb ${unavailable || issues ? "needs-attention" : ""}`}
+            className={`floating-orb ${unavailable || issues || reauthAccounts.length > 0 ? "needs-attention" : ""} ${quota.loading || quota.busy ? "is-busy" : ""}`}
             aria-hidden="true"
           >
             <i />
@@ -202,6 +207,29 @@ export function FloatingQuota() {
               <p className="floating-notice" role="status">
                 本机服务暂不可用，已有数值仅供参考。
               </p>
+            )}
+            {reauthAccounts.length > 0 && (
+              <div className="floating-reauth-card" role="alert" data-testid="floating-reauth-alert">
+                <div className="floating-reauth-head">
+                  <strong>凭据已过期，请重新授权</strong>
+                  <span>{reauthAccounts.length} 项</span>
+                </div>
+                <ul className="floating-reauth-list">
+                  {reauthAccounts.map((account) => (
+                    <li key={account.principal_ref}>
+                      <span>{account.display_label}</span>
+                      <button
+                        type="button"
+                        className="floating-reauth-btn"
+                        disabled={quota.busy || quota.loading || quota.connection !== "ready"}
+                        onClick={() => void quota.reauthenticate(account.principal_ref)}
+                      >
+                        重新授权
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             {otherRows > 0 && quota.accounts.length > 0 && (
               <p className="floating-other-status">
@@ -295,6 +323,7 @@ export function FloatingQuota() {
               </button>
             ) : (
               <button
+                className={quota.busy ? "is-busy" : ""}
                 disabled={quota.busy || quota.loading || quota.connection !== "ready"}
                 onClick={() => void quota.refresh()}
               >

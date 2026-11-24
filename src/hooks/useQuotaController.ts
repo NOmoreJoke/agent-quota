@@ -286,20 +286,27 @@ export function useQuotaController() {
     });
 
   const reauthenticate = (principalRef: string) =>
-    runAction("重新认证", async () => {
+    runAction("重新授权", async () => {
       const result = await callHost("reauthenticate", { principal_ref: principalRef });
       const error = result.safe_error as { code?: string } | undefined;
-      if (error?.code === "outcome-unknown" && reportActionError(result, "重新认证")) return;
+      if (error?.code === "outcome-unknown" && reportActionError(result, "重新授权")) return;
       if (!(await load())) return;
-      if (reportActionError(result, "重新认证")) return;
+      if (reportActionError(result, "重新授权")) return;
       setNotice({
-        tone: result.status === "ok" ? "success" : "danger",
+        tone:
+          result.reauth_state === "cancelled"
+            ? "info"
+            : result.status === "ok"
+              ? "success"
+              : "danger",
         text:
           result.reauth_state === "pending"
-            ? "请在原生窗口完成重新认证。"
-            : result.status === "ok"
-              ? "重新认证并刷新完成。"
-              : "重新认证失败。",
+            ? "请在原生窗口完成重新授权。"
+            : result.reauth_state === "cancelled"
+              ? "已取消重新授权；凭据状态未更改。"
+              : result.status === "ok"
+                ? "重新授权并刷新完成。"
+                : "重新授权失败。",
       });
     });
 

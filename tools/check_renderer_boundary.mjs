@@ -13,11 +13,11 @@ const forbidden = [
   /\bnew\s+Function\b/,
 ];
 
-// Exact-file pins keep the exception limited to one fixed light/dark preference.
+// Exact-file pins keep the exception limited to fixed light/dark and motion on/off preferences.
 // Changes to these two audited storage adapters require an explicit boundary review.
 const appearanceStoragePins = new Map([
-  ["src/ui/appearancePreference.ts", "a037d47a1379db78278533176e793669e88bd11bc2927880f67356865162934f"],
-  ["public/appearance-bootstrap.js", "b52ed47fc6d52178de96763e6e01a7cbc494a754c06ae01bb4f4f50bffdb4c36"],
+  ["src/ui/appearancePreference.ts", "9caf163f9ec0f16bcdd310975d2df84fd1d2f8286d65b7fb2587084465e85f0a"],
+  ["public/appearance-bootstrap.js", "824db1cfa7431b511c02b2364574c4fe00ea5e6f04c0b824d9fa66ce2107919f"],
 ]);
 
 const allow = new Set(["src/host/transport.ts", "src/host/transport.test.ts"]);
