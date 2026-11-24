@@ -140,7 +140,16 @@ export function App() {
     >
       <a className="skip-link" href="#main">跳至主要内容</a>
       <aside className="sidebar" aria-label="主导航">
-        <div className="brand">Agent Quota</div>
+        <div className="brand">
+          <img
+            className="brand-icon"
+            src={theme === "dark" ? "/icon-dark-64.png" : "/icon-light-64.png"}
+            alt=""
+            width={28}
+            height={28}
+          />
+          <span>Agent Quota</span>
+        </div>
         <nav>
           {nav.map((item) => (
             <button type="button" key={item.id} className={view === item.id ? "nav-item active" : "nav-item"} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}>

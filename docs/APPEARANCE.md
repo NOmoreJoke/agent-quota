@@ -26,6 +26,7 @@
 - 同源 `storage` 事件与 Tauri `quota-appearance-changed` 事件同步偏好。事件内容仅允许 `light`/`dark`，收到后重读当前已提交偏好，防止旧事件覆盖较新的选择；接收方不重新写入或广播。异步监听注册完成后的卸载及重订阅均释放监听器。
 - 原生窗口沿用 Tauri `window.setTheme`，仅追加 `core:window:allow-set-theme` 权限。当前依赖 API 注明 macOS 上该设置作用于整个应用；两个窗口目标主题一致。原生调用失败不阻断 Renderer 外观切换，不扩大文件或凭据权限。
 - 顶部隐私边界说明（`AccountPrivacyNote`）仅在「账户与 Provider」页以中性灰底（`--note-bg` / `--note-line`）展示，右侧「安全与隐私说明 →」按钮直接切换至主窗口「设置 → 安全」区块；「概览」与「刷新队列」页不展示该静态横条，保持首屏清爽。
+- 应用图标提供浅色（暖铜琥珀）与深色（曜石暖黑）双版本（1:1 对齐 Apple HIG `824×824` 连续超椭圆网格）：macOS 安装包内通过 `actool` 编译 `Assets.car` 动态图标集（兼容 `AppIcon.icns`），随系统浅深外观自动切换 Dock / Finder 图标；主窗口左上角品牌徽章亦随应用内「浅色 / 深色」开关实时联动切换。
 
 ## 验证与限制
 

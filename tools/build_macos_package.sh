@@ -140,6 +140,22 @@ if [ ! -d "$app" ]; then
   echo "Tauri application output is incomplete" >&2
   exit 1
 fi
+if /usr/bin/xcrun --find actool >/dev/null 2>&1; then
+  actool_plist="$pyi_root/actool-partial-info.plist"
+  /usr/bin/xcrun actool "$repo_root/src-tauri/icons/Assets.xcassets" \
+    --compile "$app/Contents/Resources" \
+    --platform macosx \
+    --minimum-deployment-target "$MACOSX_DEPLOYMENT_TARGET_REQUIRED" \
+    --app-icon AppIcon \
+    --output-partial-info-plist "$actool_plist" >/dev/null
+  /bin/chmod 0644 "$app/Contents/Resources/Assets.car" "$app/Contents/Resources/AppIcon.icns"
+  /usr/bin/plutil -replace CFBundleIconFile -string AppIcon "$app/Contents/Info.plist"
+  if /usr/bin/plutil -extract CFBundleIconName raw "$app/Contents/Info.plist" >/dev/null 2>&1; then
+    /usr/bin/plutil -replace CFBundleIconName -string AppIcon "$app/Contents/Info.plist"
+  else
+    /usr/bin/plutil -insert CFBundleIconName -string AppIcon "$app/Contents/Info.plist"
+  fi
+fi
 /usr/bin/python3 -I -S "$repo_root/tools/macos_signing.py" sign \
   --path "$app" --identifier com.agentquota.desktop
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
