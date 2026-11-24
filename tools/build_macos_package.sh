@@ -130,6 +130,16 @@ rust_command_shim="$pyi_root/rust-command-shim"
 /bin/ln -s "$RUSTC" "$rust_command_shim/rustc"
 /bin/ln -s "$PNPM" "$rust_command_shim/pnpm"
 node_bin_dir=$(/usr/bin/dirname -- "$NODE")
+# Xcode 26 ld emits mis-aligned LINKEDIT string pools if host proc-macro dylibs are linked
+# under MACOSX_DEPLOYMENT_TARGET=13.0. Build dist/ and warm host proc-macros under native
+# host SDK (with tauri/custom-protocol and without CARGO_ENCODED_RUSTFLAGS so fingerprints
+# match tauri build --target 1:1); target crates still compile with MACOSX_DEPLOYMENT_TARGET=13.0.
+PATH="$rust_command_shim:$node_bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" "$PNPM" build
+env -u MACOSX_DEPLOYMENT_TARGET -u SWIFT_MACOSX_DEPLOYMENT_TARGET -u CARGO_ENCODED_RUSTFLAGS \
+  AQ_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256" \
+  PATH="$rust_command_shim:$node_bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+  "$CARGO" check --manifest-path "$repo_root/src-tauri/Cargo.toml" \
+    --release --locked --features production,tauri/custom-protocol >/dev/null
 AQ_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256" \
   PATH="$rust_command_shim:$node_bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
   "$PNPM" tauri build --runner "$CARGO" --target aarch64-apple-darwin \
