@@ -1,0 +1,62 @@
+[
+  {
+    "description": "DeepSeek wallet balance row",
+    "provider_id": "deepseek",
+    "source_ref": "cap-deepseek-balance-0",
+    "display_kind": "balance",
+    "value_display": "CNY 110 可用",
+    "expected_provider_name": "DeepSeek",
+    "expected_is_weekly": false,
+    "expected_window_metric": null
+  },
+  {
+    "description": "MiniMax model-0 5h window",
+    "provider_id": "minimax-cn",
+    "source_ref": "cap-minimax-cn-model-0-5h",
+    "display_kind": "window",
+    "value_display": "MiniMax-M1 · 5小时剩余 80%",
+    "expected_provider_name": "MiniMax",
+    "expected_is_weekly": false,
+    "expected_window_metric": { "mode": "remaining", "percentage": 80 }
+  },
+  {
+    "description": "MiniMax model-0 weekly exhausted window",
+    "provider_id": "minimax-cn",
+    "source_ref": "cap-minimax-cn-model-0-weekly",
+    "display_kind": "window",
+    "value_display": "MiniMax-M1 · 周剩余 0%",
+    "expected_provider_name": "MiniMax",
+    "expected_is_weekly": true,
+    "expected_window_metric": { "mode": "remaining", "percentage": 0 }
+  },
+  {
+    "description": "Antigravity Gemini 5h window",
+    "provider_id": "antigravity",
+    "source_ref": "cap-antigravity-model-0-5h",
+    "display_kind": "window",
+    "value_display": "Gemini · 5小时剩余 72%",
+    "expected_provider_name": "Antigravity",
+    "expected_is_weekly": false,
+    "expected_window_metric": { "mode": "remaining", "percentage": 72 }
+  },
+  {
+    "description": "Antigravity Gemini weekly window",
+    "provider_id": "antigravity",
+    "source_ref": "cap-antigravity-model-0-weekly",
+    "display_kind": "window",
+    "value_display": "Gemini · 周剩余 0%",
+    "expected_provider_name": "Antigravity",
+    "expected_is_weekly": true,
+    "expected_window_metric": { "mode": "remaining", "percentage": 0 }
+  },
+  {
+    "description": "GLM 5h used percentage window",
+    "provider_id": "glm-cn",
+    "source_ref": "cap-glm-cn-limit-0-5h",
+    "display_kind": "window",
+    "value_display": "5小时已用 25%",
+    "expected_provider_name": "GLM",
+    "expected_is_weekly": false,
+    "expected_window_metric": { "mode": "used", "percentage": 25 }
+  }
+]

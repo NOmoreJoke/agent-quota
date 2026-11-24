@@ -3,7 +3,8 @@ import { AppearanceSwitch } from "./AppearanceSwitch";
 import { transportMode } from "../host/transport";
 import { showFloatingWindow } from "../host/floatingWindow";
 import { filterProducts, productStatus } from "./launchProducts";
-import { useQuotaController } from "./useQuotaController";
+import { useAppearance } from "../hooks/useAppearance";
+import { useQuotaController } from "../hooks/useQuotaController";
 import {
   providerOrder, safeErrorMessage, providerName, providerFromAccount,
   windowMetric, displayedHealth, isWeeklyWindow, windowFamily,
@@ -94,6 +95,7 @@ export function App() {
   const [query, setQuery] = useState("");
   const [providerQuery, setProviderQuery] = useState("");
   const [providerMode, setProviderMode] = useState<"all" | OverviewMode>("all");
+  const { theme } = useAppearance();
   const {
     connection, retryLoad, loading, offline, accounts, capabilities, freshness, scheduler, notice, setNotice,
     busy, refreshState, refresh, nativeCredential, reauthenticate, destructive, exportRedacted,
@@ -240,7 +242,7 @@ export function App() {
               <div className="catalog-heading">
                 <div>
                   <h2 id="provider-catalog-title" className="section-title">Provider Preset</h2>
-                  <p>10 项产品 · 5 项可添加 · 2 项接入中 · 3 项仅展示</p>
+                  <p>11 项产品 · 5 项可添加 · 3 项桥接/接入中 · 3 项仅展示</p>
                 </div>
                 <label className="search catalog-search"><Icon name="search"/><input value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} placeholder="搜索 Provider" aria-label="搜索 Provider Preset"/></label>
               </div>
@@ -289,7 +291,7 @@ export function App() {
         ) : (
           <section className="settings-page">
             <h2 className="settings-label">显示</h2>
-            <div className="settings-panel"><div><span>主题</span><strong>浅色（固定）</strong></div><div><span>时区</span><strong>Asia/Shanghai (UTC+8)（固定）</strong></div><div><span>减少动效</span><strong>跟随系统（固定）</strong></div></div>
+            <div className="settings-panel"><div><span>主题</span><strong>{theme === "dark" ? "深色（已同步）" : "浅色（已同步）"}</strong></div><div><span>时区</span><strong>Asia/Shanghai (UTC+8)（固定）</strong></div><div><span>减少动效</span><strong>跟随系统（固定）</strong></div></div>
             <h2 className="settings-label">安全</h2>
             <div className="settings-panel"><div><span>凭据后端</span><strong>macOS Keychain（固定）</strong></div><div><span>Renderer 隔离</span><strong>已启用（默认）</strong></div><div><span>诊断日志</span><button type="button" className="text-button" disabled={actionsDisabled} onClick={() => void exportRedacted()}>导出脱敏诊断</button></div></div>
             <h2 className="settings-label">无障碍</h2>

@@ -11,11 +11,11 @@
     "FAIL"
   ],
   "scope_summary": {
-    "brand_count": 7,
-    "product_card_count": 10,
-    "target_actionable_candidate_count": 7,
+    "brand_count": 8,
+    "product_card_count": 11,
+    "target_actionable_candidate_count": 8,
     "current_creatable_count": 5,
-    "implementation_blocked_candidate_count": 2,
+    "implementation_blocked_candidate_count": 3,
     "disabled_information_card_count": 3
   },
   "formal_release_gates": [
@@ -181,6 +181,49 @@
           "release_denominator": true,
           "status": "BLOCKED_ACCOUNT",
           "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin"]
+        }
+      ]
+    },
+    {
+      "product_id": "google-antigravity",
+      "brand": "Google",
+      "display_name": "Google Antigravity",
+      "region": "Global",
+      "adapter_id": "antigravity",
+      "target_actionable_candidate": true,
+      "current_creatable": false,
+      "evidence_tier": "supported-contract",
+      "release_status": "local-statusline-bridge",
+      "capabilities": [
+        {
+          "capability_id": "window_5h",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": [
+            "https://antigravity.google/docs/cli/statusline",
+            "https://antigravity.google/docs/cli/commands/usage"
+          ]
+        },
+        {
+          "capability_id": "window_week",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": [
+            "https://antigravity.google/docs/cli/statusline",
+            "https://antigravity.google/docs/plans"
+          ]
+        },
+        {
+          "capability_id": "ai_credits_balance",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": [
+            "https://antigravity.google/docs/cli/statusline",
+            "https://antigravity.google/docs/cli/credits"
+          ]
         }
       ]
     },

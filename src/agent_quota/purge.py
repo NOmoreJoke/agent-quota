@@ -52,7 +52,14 @@ def plan_purge(data_root: Path, generation: int) -> PurgePlan:
 
 
 def _plan_from_descriptor(descriptor: int, generation: int) -> PurgePlan:
-    categories = {"database": 0, "database-sidecar": 0, "config": 0, "cache": 0, "unknown": 0}
+    categories = {
+        "database": 0,
+        "database-sidecar": 0,
+        "native-state": 0,
+        "config": 0,
+        "cache": 0,
+        "unknown": 0,
+    }
     bindings = []
     for name in sorted(os.listdir(descriptor), key=lambda value: value.encode()):
         metadata = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
@@ -72,6 +79,8 @@ def _plan_from_descriptor(descriptor: int, generation: int) -> PurgePlan:
             categories["database"] += 1
         elif name.endswith(("-wal", "-shm")) and stat.S_ISREG(metadata.st_mode):
             categories["database-sidecar"] += 1
+        elif name == "native-accounts-v1.json" and stat.S_ISREG(metadata.st_mode):
+            categories["native-state"] += 1
         elif name.endswith(".toml") and stat.S_ISREG(metadata.st_mode):
             categories["config"] += 1
         elif name == "cache" and stat.S_ISDIR(metadata.st_mode):

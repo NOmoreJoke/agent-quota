@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { filterProducts, launchProducts, productStatus } from "./launchProducts";
 
 describe("approved launch products", () => {
-  it("preserves seven candidates, five executable products, and three information cards", () => {
-    expect(launchProducts).toHaveLength(10);
-    expect(new Set(launchProducts.map((p) => p.brand)).size).toBe(7);
-    expect(launchProducts.filter((p) => p.candidate)).toHaveLength(7);
+  it("preserves eight candidates, five executable products, Antigravity bridge, and three information cards", () => {
+    expect(launchProducts).toHaveLength(11);
+    expect(new Set(launchProducts.map((p) => p.brand)).size).toBe(8);
+    expect(launchProducts.filter((p) => p.candidate)).toHaveLength(8);
     expect(launchProducts.filter((p) => p.creatable).map((p) => p.adapter_id).sort()).toEqual([
       "deepseek", "glm-cn", "kimi-cn", "kimi-code", "minimax-cn",
     ]);
@@ -15,7 +15,11 @@ describe("approved launch products", () => {
       expect(productStatus(product)).toContain("信息展示");
     }
     for (const product of launchProducts.filter((p) => p.candidate && !p.creatable)) {
-      expect(productStatus(product)).toContain("接入待完成");
+      if (product.adapter_id === "antigravity") {
+        expect(productStatus(product)).toContain("statusLine");
+      } else {
+        expect(productStatus(product)).toContain("接入待完成");
+      }
     }
   });
 

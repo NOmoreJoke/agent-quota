@@ -166,7 +166,10 @@ class SidecarSession:
             if self.native is None:
                 raise ContractViolation("native control plane is unavailable")
             return _internal_dispatch(self.native, command_id, payload)
-        return _safe_dispatch(command_id, payload, self.native)
+        try:
+            return _safe_dispatch(command_id, payload, self.native)
+        except (OSError, OverflowError, ValueError) as error:
+            raise ContractViolation("renderer operation rejected") from error
 
 
 def _safe_dispatch(

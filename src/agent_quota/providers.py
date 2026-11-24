@@ -13,8 +13,11 @@ from typing import Final
 MAX_PROVIDER_BODY_BYTES: Final = 256 * 1024
 MAX_PROVIDER_JSON_DEPTH: Final = 64
 DEEPSEEK_DECIMAL_PATTERN: Final = re.compile(r"^(0|[1-9][0-9]{0,37})(\.[0-9]{1,18})?$")
+CANONICAL_DECIMAL_PATTERN: Final = re.compile(r"^-?(0|[1-9][0-9]{0,37})(\.[0-9]{1,18})?$")
+ANTIGRAVITY_BUCKET_PATTERN: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
 PROVIDER_IDS: Final = frozenset(
     {
+        "antigravity",
         "deepseek",
         "bailian-wallet",
         "glm-cn",
@@ -142,10 +145,23 @@ MANIFESTS: Final = {
     ),
 }
 
+LOCAL_BRIDGE_MANIFESTS: Final = {
+    "antigravity": ProviderManifest(
+        "antigravity",
+        "Google Antigravity",
+        "agy-statusline-stdin",
+        "https://antigravity.google/docs/cli/statusline",
+        "local-statusline-push",
+        "https://antigravity.google/docs/cli/statusline",
+    ),
+}
+
+ALL_PROVIDER_MANIFESTS: Final = {**MANIFESTS, **LOCAL_BRIDGE_MANIFESTS}
+
 
 def manifest(provider_id: str) -> ProviderManifest:
     try:
-        return MANIFESTS[provider_id]
+        return ALL_PROVIDER_MANIFESTS[provider_id]
     except KeyError as error:
         raise ValueError("unsupported provider") from error
 
@@ -209,13 +225,7 @@ def _row(provider_id: str, suffix: str, kind: str, value: str) -> dict[str, str]
     }
 
 
-def _decode_json(body_base64: str) -> dict[str, object]:
-    if not isinstance(body_base64, str) or len(body_base64) > MAX_PROVIDER_BODY_BYTES * 2:
-        raise ValueError("provider body is oversized")
-    try:
-        raw = base64.b64decode(body_base64, validate=True)
-    except (ValueError, binascii.Error) as error:
-        raise ValueError("provider body encoding mismatch") from error
+def _decode_raw_json(raw: bytes) -> dict[str, object]:
     if not 1 <= len(raw) <= MAX_PROVIDER_BODY_BYTES:
         raise ValueError("provider body size mismatch")
     depth = 0
@@ -246,6 +256,16 @@ def _decode_json(body_base64: str) -> dict[str, object]:
     if not isinstance(document, dict):
         raise ValueError("provider JSON shape mismatch")
     return document
+
+
+def _decode_json(body_base64: str) -> dict[str, object]:
+    if not isinstance(body_base64, str) or len(body_base64) > MAX_PROVIDER_BODY_BYTES * 2:
+        raise ValueError("provider body is oversized")
+    try:
+        raw = base64.b64decode(body_base64, validate=True)
+    except (ValueError, binascii.Error) as error:
+        raise ValueError("provider body encoding mismatch") from error
+    return _decode_raw_json(raw)
 
 
 def _deepseek(document: dict[str, object]) -> tuple[dict[str, str], ...]:
@@ -494,21 +514,170 @@ def _glm(document: dict[str, object], provider_id: str) -> tuple[dict[str, str],
     return tuple(rows)
 
 
+def _canonical_decimal_string(value: object, *, allow_negative: bool = True) -> Decimal:
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value) <= 59
+        or not CANONICAL_DECIMAL_PATTERN.fullmatch(value)
+        or len(value.lstrip("-").replace(".", "").lstrip("0")) > 38
+    ):
+        raise ValueError("canonical decimal string mismatch")
+    if value.startswith("-0") and Decimal(value).is_zero():
+        raise ValueError("negative zero decimal string mismatch")
+    number = Decimal(value)
+    if not allow_negative and number < 0:
+        raise ValueError("negative decimal string is forbidden")
+    return Decimal(0) if number.is_zero() else number
+
+
 def _volc_wallet(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     result = document.get("Result")
     if not isinstance(result, dict):
         raise ValueError("Volcengine wallet response mismatch")
     fields = (
-        ("AvailableBalance", "available", "可用余额"),
-        ("CashBalance", "cash", "现金余额"),
-        ("CreditLimit", "credit", "信控额度"),
-        ("FreezeAmount", "frozen", "冻结金额"),
-        ("ArrearsBalance", "arrears", "欠费金额"),
+        ("AvailableBalance", "available", "可用余额", True),
+        ("CashBalance", "cash", "现金余额", True),
+        ("CreditLimit", "credit", "信控额度", False),
+        ("FreezeAmount", "frozen", "冻结金额", False),
+        ("ArrearsBalance", "arrears", "欠费金额", False),
     )
-    return tuple(
-        _row("volc-wallet", suffix, "balance", f"CNY {_number_display(result.get(field))} {label}")
-        for field, suffix, label in fields
-    )
+    rows: list[dict[str, str]] = []
+    for field, suffix, label, allow_negative in fields:
+        amount = _canonical_decimal_string(result.get(field), allow_negative=allow_negative)
+        row = _row("volc-wallet", suffix, "balance", f"{_decimal_display(amount)} {label}")
+        if field == "ArrearsBalance" and amount > 0:
+            row["health"] = "error"
+        rows.append(row)
+    return tuple(rows)
+
+
+_ANTIGRAVITY_FAMILY_LABELS: Final = {
+    "gemini": "Gemini",
+    "claude": "Claude",
+    "gpt": "GPT",
+    "ai-credits": "AI Credits",
+    "credits": "AI Credits",
+}
+_ANTIGRAVITY_ALLOWED_BUCKET_FIELDS: Final = frozenset(
+    {"remaining_fraction", "remaining_amount", "reset_time", "reset_in_seconds", "disabled"}
+)
+
+
+def _antigravity_bucket_parts(bucket_id: str) -> tuple[str, str, str | None]:
+    lowered = bucket_id.lower()
+    for suffix, period in (
+        ("-5h", "5h"),
+        ("_5h", "5h"),
+        ("-five-hour", "5h"),
+        ("-5hour", "5h"),
+        ("-weekly", "weekly"),
+        ("_weekly", "weekly"),
+        ("-week", "weekly"),
+        ("_week", "weekly"),
+        ("-7d", "weekly"),
+    ):
+        if lowered.endswith(suffix) and len(bucket_id) > len(suffix):
+            raw_family = bucket_id[: -len(suffix)]
+            key = raw_family.lower()
+            label = _ANTIGRAVITY_FAMILY_LABELS.get(key, raw_family)
+            return key, label, period
+    key = lowered
+    label = _ANTIGRAVITY_FAMILY_LABELS.get(key, bucket_id)
+    return key, label, None
+
+
+def sanitize_antigravity_statusline(raw: bytes) -> dict[str, object]:
+    """Strip PII/workspace fields from official `agy` statusLine JSON before processing."""
+    document = _decode_raw_json(raw)
+    if document.get("product") != "antigravity":
+        raise ValueError("Antigravity product identifier mismatch")
+    quota = document.get("quota")
+    if not isinstance(quota, dict) or not 1 <= len(quota) <= 32:
+        raise ValueError("Antigravity quota map mismatch")
+    sanitized_quota: dict[str, dict[str, object]] = {}
+    for bucket_id, entry in quota.items():
+        if (
+            not isinstance(bucket_id, str)
+            or ANTIGRAVITY_BUCKET_PATTERN.fullmatch(bucket_id) is None
+            or not isinstance(entry, dict)
+        ):
+            raise ValueError("Antigravity quota bucket mismatch")
+        sanitized_quota[bucket_id] = {
+            key: value for key, value in entry.items() if key in _ANTIGRAVITY_ALLOWED_BUCKET_FIELDS
+        }
+    output: dict[str, object] = {"product": "antigravity", "quota": sanitized_quota}
+    plan_tier = document.get("plan_tier")
+    if plan_tier is not None:
+        if not isinstance(plan_tier, str) or not 1 <= len(plan_tier.encode()) <= 32:
+            raise ValueError("Antigravity plan tier mismatch")
+        output["plan_tier"] = plan_tier
+    return output
+
+
+def _antigravity(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    if document.get("product") != "antigravity":
+        raise ValueError("Antigravity product mismatch")
+    plan_tier = document.get("plan_tier")
+    if plan_tier is not None and (
+        not isinstance(plan_tier, str) or not 1 <= len(plan_tier.encode()) <= 32
+    ):
+        raise ValueError("Antigravity plan tier mismatch")
+    quota = document.get("quota")
+    if not isinstance(quota, dict) or not 1 <= len(quota) <= 32:
+        raise ValueError("Antigravity quota mismatch")
+    rows: list[dict[str, str]] = []
+    family_indices: dict[str, int] = {}
+    for index, (bucket_id, entry) in enumerate(quota.items()):
+        if (
+            not isinstance(bucket_id, str)
+            or ANTIGRAVITY_BUCKET_PATTERN.fullmatch(bucket_id) is None
+            or not isinstance(entry, dict)
+        ):
+            raise ValueError("Antigravity bucket shape mismatch")
+        disabled = entry.get("disabled", False)
+        if not isinstance(disabled, bool):
+            raise ValueError("Antigravity disabled flag mismatch")
+        fraction = entry.get("remaining_fraction")
+        amount = entry.get("remaining_amount")
+        if (fraction is None) == (amount is None):
+            raise ValueError("Antigravity bucket counter mismatch")
+        family_key, label, period = _antigravity_bucket_parts(bucket_id)
+        if fraction is not None:
+            fraction_number = _decimal(fraction)
+            if not Decimal(0) <= fraction_number <= Decimal(1):
+                raise ValueError("Antigravity fraction out of range")
+            pct = _percentage(fraction_number * Decimal(100))
+            if period in {"5h", "weekly"}:
+                family_idx = family_indices.setdefault(family_key, len(family_indices))
+                period_label = "5小时剩余" if period == "5h" else "周剩余"
+                row = _row(
+                    "antigravity",
+                    f"model-{family_idx}-{period}",
+                    "window",
+                    f"{label} · {period_label} {pct}",
+                )
+            else:
+                row = _row(
+                    "antigravity",
+                    f"bucket-{index}",
+                    "window",
+                    f"{label} · 剩余 {pct}",
+                )
+        else:
+            amount_number = _decimal(amount)
+            if amount_number < 0:
+                raise ValueError("Antigravity remaining amount mismatch")
+            unit_suffix = "" if "credit" in label.lower() else " Credits"
+            row = _row(
+                "antigravity",
+                f"credits-{index}",
+                "balance",
+                f"{label} 剩余 {_decimal_display(amount_number)}{unit_suffix}",
+            )
+        if disabled:
+            row["health"] = "incompatible"
+        rows.append(row)
+    return tuple(rows)
 
 
 def _volc_plan(document: dict[str, object]) -> tuple[dict[str, str], ...]:
@@ -591,7 +760,9 @@ def parse_provider_response(
         document = _decode_json(body_base64)
         if provider_error := _provider_error(document, provider_id):
             return provider_error
-        if provider_id == "bailian-wallet":
+        if provider_id == "antigravity":
+            rows = _antigravity(document)
+        elif provider_id == "bailian-wallet":
             rows = _bailian_wallet(document)
         elif provider_id == "deepseek":
             rows = _deepseek(document)

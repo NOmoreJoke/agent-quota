@@ -155,8 +155,9 @@ describe("App", () => {
       node.getAttribute("data-provider-id"),
     )).toEqual([
       "deepseek-api-balance-cn", "kimi-api-balance-cn", "kimi-code-token-plan",
-      "minimax-token-plan-cn", "glm-coding-plan-cn", "volcengine-ark-agent-plan-personal",
-      "volcengine-billing-balance", "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
+      "minimax-token-plan-cn", "glm-coding-plan-cn", "google-antigravity",
+      "volcengine-ark-agent-plan-personal", "volcengine-billing-balance",
+      "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
     ]);
     expect(host.querySelector('[aria-label^="Cursor "]')).toBeNull();
 

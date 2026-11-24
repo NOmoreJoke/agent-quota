@@ -85,9 +85,11 @@ def test_purge_commits_known_empty_cache(tmp_path: Path) -> None:
     root.mkdir(parents=True)
     root.chmod(0o700)
     (root / "state.sqlite").write_bytes(b"db")
+    (root / "native-accounts-v1.json").write_text("{}\n")
     (root / "config.toml").write_text("theme='light'\n")
     (root / "cache").mkdir()
     plan = plan_purge(root, 2)
+    assert any(entry.kind == "native-state" for entry in plan.entries)
     commit_purge(
         root,
         plan,

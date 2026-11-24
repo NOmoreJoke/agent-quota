@@ -5,13 +5,13 @@ use std::io::{Read, Write};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Mutex, TryLockError, mpsc};
+use std::sync::{Condvar, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
 const MAX_REQUEST_BYTES: usize = 4096;
 const MAX_RESPONSE_BYTES: u64 = 384 * 1024;
-const CREDENTIAL_TIMEOUT: Duration = Duration::from_secs(120);
+const CREDENTIAL_TIMEOUT: Duration = Duration::from_secs(240);
 const DESTRUCTIVE_TIMEOUT: Duration = Duration::from_secs(60);
 const CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(25);
@@ -50,10 +50,55 @@ struct DialogState {
     next_allowed: Instant,
 }
 
+struct ProviderGate {
+    busy: Mutex<bool>,
+    changed: Condvar,
+}
+
+impl ProviderGate {
+    fn new() -> Self {
+        Self {
+            busy: Mutex::new(false),
+            changed: Condvar::new(),
+        }
+    }
+
+    fn acquire(&self, deadline: Instant) -> Result<ProviderGateGuard<'_>, NativeError> {
+        let mut guard = self.busy.lock().map_err(|_| NativeError::Process)?;
+        while *guard {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(NativeError::Timeout);
+            }
+            let (next_guard, wait_result) = self
+                .changed
+                .wait_timeout(guard, remaining)
+                .map_err(|_| NativeError::Process)?;
+            guard = next_guard;
+            if *guard && wait_result.timed_out() {
+                return Err(NativeError::Timeout);
+            }
+        }
+        *guard = true;
+        Ok(ProviderGateGuard(self))
+    }
+}
+
+struct ProviderGateGuard<'a>(&'a ProviderGate);
+
+impl Drop for ProviderGateGuard<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut busy) = self.0.busy.lock() {
+            *busy = false;
+            self.0.changed.notify_one();
+        }
+    }
+}
+
 pub struct NativeHost {
     executable: Option<PathBuf>,
     gate: Mutex<DialogState>,
-    provider_gate: Mutex<()>,
+    provider_gate: ProviderGate,
 }
 
 impl NativeHost {
@@ -64,7 +109,7 @@ impl NativeHost {
                 active: false,
                 next_allowed: Instant::now(),
             }),
-            provider_gate: Mutex::new(()),
+            provider_gate: ProviderGate::new(),
         }
     }
 
@@ -90,18 +135,7 @@ impl NativeHost {
         // two expired Kimi OAuth bundles from rotating the same refresh token concurrently.
         let timeout = timeout.min(PROVIDER_TIMEOUT);
         let deadline = Instant::now() + timeout;
-        let _provider_guard = loop {
-            match self.provider_gate.try_lock() {
-                Ok(guard) => break guard,
-                Err(TryLockError::Poisoned(_)) => return Err(NativeError::Process),
-                Err(TryLockError::WouldBlock) => {
-                    if Instant::now() >= deadline {
-                        return Err(NativeError::Timeout);
-                    }
-                    thread::sleep(Duration::from_millis(10));
-                }
-            }
-        };
+        let _provider_guard = self.provider_gate.acquire(deadline)?;
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
             return Err(NativeError::Timeout);
@@ -432,7 +466,10 @@ mod tests {
     #[test]
     fn provider_gate_wait_respects_the_caller_deadline() {
         let host = NativeHost::new(None);
-        let _guard = host.provider_gate.lock().unwrap();
+        let _guard = host
+            .provider_gate
+            .acquire(Instant::now() + Duration::from_secs(5))
+            .unwrap();
         let started = Instant::now();
         let result = host.provider_fetch(
             "credential-00000000-0000-4000-8000-000000000001",

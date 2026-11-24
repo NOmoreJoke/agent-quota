@@ -1,4 +1,4 @@
-import { useAppearance } from "./appearance";
+import { useAppearance } from "../hooks/useAppearance";
 
 export function AppearanceSwitch() {
   const { theme, persisted, setTheme } = useAppearance();

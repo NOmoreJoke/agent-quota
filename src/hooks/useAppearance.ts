@@ -2,8 +2,14 @@ import { useSyncExternalStore } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { transportMode } from "../host/transport";
-import { appearanceKey, isAppearance, readAppearance, writeAppearance, type Appearance } from "./appearancePreference";
-import { createAppearanceStore } from "./appearanceStore";
+import {
+  appearanceKey,
+  isAppearance,
+  readAppearance,
+  writeAppearance,
+  type Appearance,
+} from "../ui/appearancePreference";
+import { createAppearanceStore } from "../ui/appearanceStore";
 
 const appearanceEvent = "quota-appearance-changed";
 let nativeThemeQueue = Promise.resolve();
@@ -13,7 +19,9 @@ const store = createAppearanceStore({
   apply: (theme) => {
     document.documentElement.dataset.theme = theme;
     if (transportMode !== "fixture") {
-      nativeThemeQueue = nativeThemeQueue.catch(() => undefined).then(() => getCurrentWindow().setTheme(theme));
+      nativeThemeQueue = nativeThemeQueue
+        .catch(() => undefined)
+        .then(() => getCurrentWindow().setTheme(theme));
       void nativeThemeQueue.catch(() => undefined);
     }
   },
@@ -32,8 +40,13 @@ const store = createAppearanceStore({
           if (isAppearance(event.payload)) receive(event.payload);
         });
       }
-    } catch { /* Browser storage events still synchronize the persisted preference. */ }
-    return () => { window.removeEventListener("storage", onStorage); unlisten?.(); };
+    } catch {
+      /* Browser storage events still synchronize the persisted preference. */
+    }
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      unlisten?.();
+    };
   },
 });
 

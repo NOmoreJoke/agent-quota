@@ -12,7 +12,7 @@ export type Capability = {
 };
 export type Scheduler = { health: string; installed: boolean };
 
-export const providerOrder = ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code", "其他"];
+export const providerOrder = ["Antigravity", "GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code", "Volcengine", "其他"];
 
 export function safeErrorMessage(code: string): string {
   if (code === "not-authorized") return "当前操作暂不可用，请等待正在进行的操作结束后在主窗口检查账户状态";
@@ -26,21 +26,25 @@ export function safeErrorMessage(code: string): string {
 
 export function providerName(reference: string): string {
   const value = reference.toLowerCase();
+  if (value.includes("antigravity")) return "Antigravity";
   if (value.includes("deepseek")) return "DeepSeek";
   if (value.includes("kimi-code")) return "Kimi Code";
   if (value.includes("kimi")) return "Kimi";
   if (value.includes("minimax")) return "MiniMax";
   if (value.includes("glm")) return "GLM";
+  if (value.includes("volc-")) return "Volcengine";
   return "其他";
 }
 
 export function providerFromAccount(label: string): string {
   const value = label.toLowerCase();
+  if (value.includes("antigravity")) return "Antigravity";
   if (value.includes("deepseek")) return "DeepSeek";
   if (value.includes("kimi code")) return "Kimi Code";
   if (value.includes("kimi")) return "Kimi";
   if (value.includes("minimax")) return "MiniMax";
   if (value.includes("glm") || value.includes("z.ai")) return "GLM";
+  if (value.includes("火山") || value.includes("volcengine")) return "Volcengine";
   return label;
 }
 
@@ -72,9 +76,9 @@ function isFiveHourWindow(row: Capability): boolean {
 
 export function windowFamily(row: Capability): string {
   const model = row.capability_ref.match(
-    /^cap-minimax-(?:cn|global)-row-[0-9a-f]{24}-account-([0-9a-f]{24})-model-(\d+)-(?:5h|weekly)$/u,
+    /^cap-(?:minimax-(?:cn|global)|antigravity)-row-[0-9a-f]{24}-account-([0-9a-f]{24})-model-(\d+)-(?:5h|weekly)$/u,
   );
-  if (model) return `MiniMax:${model[1]}:model-${model[2]}`;
+  if (model) return `${providerName(row.capability_ref)}:${model[1]}:model-${model[2]}`;
   const account = row.capability_ref.match(
     /-row-[0-9a-f]{24}-account-([0-9a-f]{24})(?:-(?:5h|weekly))?$/u,
   );

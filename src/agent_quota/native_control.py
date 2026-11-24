@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -14,7 +15,12 @@ from pathlib import Path
 from typing import Final, cast
 
 from agent_quota.filesystem import atomic_write_private, open_directory_nofollow, read_regular_at
-from agent_quota.providers import PROVIDER_IDS, manifest, parse_provider_response
+from agent_quota.providers import (
+    PROVIDER_IDS,
+    manifest,
+    parse_provider_response,
+    sanitize_antigravity_statusline,
+)
 
 STATE_SCHEMA: Final = "aq-native-account-state-v1"
 MAX_ACCOUNTS: Final = 64
@@ -23,12 +29,14 @@ MAX_RENDERER_ROWS: Final = 256
 MAX_STATE_BYTES: Final = 16 * 1024 * 1024
 PLAN_TTL_NS: Final = 60_000_000_000
 FRESHNESS_TTL_MS: Final = 15 * 60 * 1000
+ANTIGRAVITY_DEDUP_WINDOW_MS: Final = 60 * 1000
+ANTIGRAVITY_LOCAL_REFERENCE: Final = "credential-00000000-0000-4000-8000-616e74696772"
 UUID_PATTERN: Final = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 REFERENCE_PATTERN: Final = re.compile(rf"credential-{UUID_PATTERN}\Z")
 PRINCIPAL_PATTERN: Final = re.compile(r"principal-[0-9a-f]{24}\Z")
 TOKEN_PATTERN: Final = re.compile(rf"{UUID_PATTERN}\Z")
-MINIMAX_WINDOW_REF_PATTERN: Final = re.compile(
-    r"cap-minimax-(?:cn|global)-model-(\d+)-(5h|weekly)\Z"
+MODEL_WINDOW_REF_PATTERN: Final = re.compile(
+    r"cap-(?:minimax-(?:cn|global)|antigravity)-model-(\d+)-(5h|weekly)\Z"
 )
 INTENTS: Final = {
     "cascade",
@@ -77,6 +85,7 @@ class NativeControlPlane:
         self.path = data_root / "native-accounts-v1.json"
         self._pending: dict[str, DestructivePlan] = {}
         self._used_presence_tokens: set[str] = set()
+        self._poisoned = False
         self._ensure_root()
         self._state = self._load()
 
@@ -238,7 +247,12 @@ class NativeControlPlane:
         if set(cast(list[str], pending_deletions)).intersection(seen_references):
             raise ValueError("pending keychain deletion mismatch")
 
+    def _require_healthy(self) -> None:
+        if self._poisoned or not self._state:
+            raise ValueError("native state is unavailable")
+
     def _persist(self) -> None:
+        self._require_healthy()
         try:
             self._validate_state(self._state)
             payload = json.dumps(
@@ -251,28 +265,32 @@ class NativeControlPlane:
                 raise ValueError("native state is oversized")
             atomic_write_private(self.path, payload, max_bytes=MAX_STATE_BYTES)
         except Exception:
-            # 磁盘态定权
+            # Disk remains authoritative; poison live state if reload also fails.
             try:
                 self._state = self._load()
+                self._poisoned = False
             except Exception:
-                # 状态不可用
+                self._poisoned = True
                 self._state = {}
             raise
 
     @property
     def generation(self) -> int:
+        self._require_healthy()
         value = self._state["generation"]
         assert isinstance(value, int)
         return value
 
     @property
     def accounts(self) -> list[dict[str, object]]:
+        self._require_healthy()
         value = self._state["accounts"]
         assert isinstance(value, list)
         return value
 
     @property
     def pending_keychain_deletions(self) -> list[str]:
+        self._require_healthy()
         value = self._state["pending_keychain_deletions"]
         assert isinstance(value, list)
         return cast(list[str], value)
@@ -342,11 +360,11 @@ class NativeControlPlane:
                     f"{principal}\0{source['capability_ref']}".encode()
                 ).hexdigest()[:24]
                 provider_id = cast(str, account["provider_id"])
-                minimax_window = MINIMAX_WINDOW_REF_PATTERN.fullmatch(source["capability_ref"])
-                if minimax_window is not None:
+                model_window = MODEL_WINDOW_REF_PATTERN.fullmatch(source["capability_ref"])
+                if model_window is not None:
                     row["capability_ref"] = (
                         f"cap-{provider_id}-row-{identity}-account-{account_identity}-"
-                        f"model-{minimax_window.group(1)}-{minimax_window.group(2)}"
+                        f"model-{model_window.group(1)}-{model_window.group(2)}"
                     )
                 elif source["display_kind"] == "window":
                     period = next(
@@ -571,6 +589,84 @@ class NativeControlPlane:
             self._persist()
             return
         raise ValueError("unknown principal")
+
+    def ingest_antigravity_statusline(
+        self,
+        raw_payload: bytes,
+        *,
+        now_ms: int | None = None,
+    ) -> bool:
+        """Ingest one official `agy` statusLine payload; skips disk I/O when unchanged."""
+        self._require_healthy()
+        sanitized = sanitize_antigravity_statusline(raw_payload)
+        encoded = base64.b64encode(
+            json.dumps(
+                sanitized, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            ).encode()
+        ).decode("ascii")
+        result = parse_provider_response("antigravity", 200, encoded)
+        if not result.ok:
+            raise ValueError(result.safe_error_code or "contract-error")
+        new_rows = [dict(row) for row in result.rows]
+        plan_tier = sanitized.get("plan_tier")
+        provider = manifest("antigravity")
+        display_label = (
+            f"{provider.display_name} ({plan_tier})"
+            if isinstance(plan_tier, str) and plan_tier
+            else provider.display_name
+        )
+        observed_ms = int(time.time() * 1000) if now_ms is None else now_ms
+        if observed_ms < 0 or observed_ms > 2**63 - 1:
+            raise ValueError("invalid observation timestamp")
+
+        for account in self.accounts:
+            if account["provider_id"] != "antigravity":
+                continue
+            last_ms = cast(int, account["last_refresh_epoch_ms"])
+            if (
+                account["lifecycle"] == "active"
+                and account["last_error_code"] is None
+                and account["display_label"] == display_label
+                and account["quota_projection"] == new_rows
+                and 0 <= observed_ms - last_ms < ANTIGRAVITY_DEDUP_WINDOW_MS
+            ):
+                return False
+            next_generation = self._next_generation()
+            account["display_label"] = display_label
+            account["lifecycle"] = "active"
+            account["last_error_code"] = None
+            account["last_refresh_epoch_ms"] = observed_ms
+            account["quota_projection"] = new_rows
+            account["generation"] = next_generation
+            self._state["generation"] = next_generation
+            self._persist()
+            return True
+
+        if len(self.accounts) >= MAX_ACCOUNTS:
+            raise ValueError("native account limit reached")
+        next_generation = self._next_generation()
+        if ANTIGRAVITY_LOCAL_REFERENCE in self.pending_keychain_deletions:
+            self.pending_keychain_deletions.remove(ANTIGRAVITY_LOCAL_REFERENCE)
+        principal = (
+            "principal-" + hashlib.sha256(ANTIGRAVITY_LOCAL_REFERENCE.encode()).hexdigest()[:24]
+        )
+        self.accounts.append(
+            {
+                "principal_ref": principal,
+                "credential_reference": ANTIGRAVITY_LOCAL_REFERENCE,
+                "credential_type": provider.credential_type,
+                "display_label": display_label,
+                "lifecycle": "active",
+                "generation": next_generation,
+                "last_error_code": None,
+                "last_refresh_epoch_ms": observed_ms,
+                "provider_id": "antigravity",
+                "quota_projection": new_rows,
+            }
+        )
+        self._state["generation"] = next_generation
+        self._persist()
+        return True
 
     def cleanup_pending(self) -> list[str]:
         return list(self.pending_keychain_deletions)

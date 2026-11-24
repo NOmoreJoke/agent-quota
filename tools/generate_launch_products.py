@@ -9,13 +9,14 @@ import re
 from pathlib import Path
 from typing import Any
 
-from agent_quota.providers import MANIFESTS
+from agent_quota.providers import ALL_PROVIDER_MANIFESTS
 
 ROOT = Path(__file__).resolve().parents[1]
 BEGIN = "// BEGIN GENERATED LAUNCH CREATE IDS"
 END = "// END GENERATED LAUNCH CREATE IDS"
 CAPABILITIES = {
     "wallet_balance": ("wallet", "账户余额"),
+    "ai_credits_balance": ("wallet", "AI Credits 余额"),
     "extra_usage_wallet_when_present": ("wallet", "额外用量 (存在时)"),
     "wallet_five_independent_amounts": ("wallet", "五项独立金额"),
     "window_5h": ("window", "5 小时窗口"),
@@ -31,9 +32,9 @@ CAPABILITIES = {
 
 def project(document: dict[str, Any]) -> list[dict[str, Any]]:
     products = document["products"]
-    if len(products) != 10 or len({p["product_id"] for p in products}) != 10:
+    if len(products) != 11 or len({p["product_id"] for p in products}) != 11:
         raise ValueError("launch product identities mismatch")
-    if len({p["brand"] for p in products}) != 7:
+    if len({p["brand"] for p in products}) != 8:
         raise ValueError("launch brands mismatch")
     cards = []
     for product in products:
@@ -43,7 +44,7 @@ def project(document: dict[str, Any]) -> list[dict[str, Any]]:
         if type(candidate) is not bool or type(creatable) is not bool:
             raise ValueError("launch policy flags must be booleans")
         if candidate:
-            if adapter not in MANIFESTS:
+            if adapter not in ALL_PROVIDER_MANIFESTS:
                 raise ValueError("candidate has no fixed Python adapter")
         elif adapter is not None or creatable or any(c["claimed"] for c in product["capabilities"]):
             raise ValueError("information card must have no execution mapping")
@@ -70,7 +71,7 @@ def project(document: dict[str, Any]) -> list[dict[str, Any]]:
                 else "information-only",
             }
         )
-    if (sum(c["candidate"] for c in cards), sum(c["creatable"] for c in cards)) != (7, 5):
+    if (sum(c["candidate"] for c in cards), sum(c["creatable"] for c in cards)) != (8, 5):
         raise ValueError("launch candidate/create count mismatch")
     candidate_ids = [c["adapter_id"] for c in cards if c["candidate"]]
     if len(set(candidate_ids)) != len(candidate_ids):
@@ -87,9 +88,9 @@ def outputs(root: Path) -> dict[Path, str]:
         "products": cards,
     }
     ids = sorted(card["adapter_id"] for card in cards if card["creatable"])
-    block = BEGIN + "\nprivate let creatableProviderIDs = [\n"
+    block = BEGIN + "\nlet creatableProviderIDs = [\n"
     block += "".join(f'    "{value}",\n' for value in ids) + "]\n" + END
-    swift_path = root / "native/AgentQuotaNative.swift"
+    swift_path = root / "native/Sources/Models.swift"
     swift = swift_path.read_text()
     pattern = re.escape(BEGIN) + r".*?" + re.escape(END)
     if len(re.findall(pattern, swift, flags=re.S)) != 1:

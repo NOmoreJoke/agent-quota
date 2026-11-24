@@ -3,7 +3,12 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches-ignore: []
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "!README.md"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,8 +19,8 @@ concurrency:
 
 jobs:
   core-renderer:
-    runs-on: macos-14
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -43,10 +48,14 @@ jobs:
       - run: pnpm test
       - run: pnpm boundary
       - run: pnpm build
-      - run: pnpm exec playwright install chromium
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm e2e
 
   rust-host:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
     runs-on: macos-14
     timeout-minutes: 30
     steps:

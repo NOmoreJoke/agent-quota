@@ -19,24 +19,24 @@ def test_launch_acceptance_matrix_is_closed_and_complete() -> None:
         "is PASS and every formal release gate is PASS"
     )
     assert summary == {
-        "brand_count": 7,
-        "product_card_count": 10,
-        "target_actionable_candidate_count": 7,
+        "brand_count": 8,
+        "product_card_count": 11,
+        "target_actionable_candidate_count": 8,
         "current_creatable_count": 5,
-        "implementation_blocked_candidate_count": 2,
+        "implementation_blocked_candidate_count": 3,
         "disabled_information_card_count": 3,
     }
     assert len(products) == summary["product_card_count"]
     assert len({product["brand"] for product in products}) == summary["brand_count"]
     assert len({product["product_id"] for product in products}) == len(products)
-    assert sum(product["target_actionable_candidate"] for product in products) == 7
+    assert sum(product["target_actionable_candidate"] for product in products) == 8
     assert sum(product["current_creatable"] for product in products) == 5
     assert (
         sum(
             product["target_actionable_candidate"] and not product["current_creatable"]
             for product in products
         )
-        == 2
+        == 3
     )
     assert (
         sum(product["release_status"] == "blocked-out-of-release-scope" for product in products)
@@ -53,6 +53,7 @@ def test_launch_acceptance_matrix_is_closed_and_complete() -> None:
         product["adapter_id"] for product in products if product["target_actionable_candidate"]
     }
     assert target_adapters == {
+        "antigravity",
         "deepseek",
         "glm-cn",
         "kimi-cn",
@@ -175,8 +176,8 @@ def test_current_native_create_allowlist_matches_scope_record() -> None:
     expected = {
         product["adapter_id"] for product in document["products"] if product["current_creatable"]
     }
-    swift = (root / "native/AgentQuotaNative.swift").read_text()
-    create_ids = swift.split("private let creatableProviderIDs = [", 1)[1].split("]", 1)[0]
+    swift = (root / "native/Sources/Models.swift").read_text()
+    create_ids = swift.split("let creatableProviderIDs = [", 1)[1].split("]", 1)[0]
     actual = {value.strip().strip('"') for value in create_ids.split(",") if value.strip()}
     assert actual == expected
 

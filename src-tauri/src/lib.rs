@@ -1,10 +1,14 @@
+mod commands;
 mod contract;
+mod diagnostics;
 mod instance;
 mod native;
 pub mod protocol;
+mod refresh;
 #[cfg(any(feature = "production", test))]
 mod resource;
 pub mod supervisor;
+mod window;
 
 #[cfg(all(feature = "production", feature = "development-overrides"))]
 compile_error!("production and development-overrides are mutually exclusive");
@@ -13,7 +17,6 @@ compile_error!("select exactly one Agent Quota runtime feature");
 #[cfg(all(feature = "production", debug_assertions, not(any(test, doc))))]
 compile_error!("production build must not enable debug assertions");
 
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use contract::{safe_error, validate_request, validate_response};
 use instance::{InstanceLease, InstanceLeaseError, fixed_app_data_root};
 #[cfg(feature = "development-overrides")]
@@ -28,84 +31,98 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use supervisor::{SidecarSupervisor, SupervisorError};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::Manager;
+use window::{
+    CLOSE_WINDOW_MENU_ID, application_menu, handle_window_event, position_and_show_floating,
+    restore_main_window,
+};
 
-type CommandResult = Result<Value, String>;
-const DEFAULT_BUDGET_NS: u64 = 2_000_000_000;
-const REFRESH_DEADLINE: Duration = Duration::from_secs(30);
-const CLOSE_WINDOW_MENU_ID: &str = "quota-close-window";
+pub(crate) type CommandResult = Result<Value, String>;
+pub(crate) const DEFAULT_BUDGET_NS: u64 = 2_000_000_000;
+const SIDECAR_RESPAWN_COOLDOWN: Duration = Duration::from_millis(250);
+const SIDECAR_SPAWN_FAILURE_BACKOFF: Duration = Duration::from_secs(1);
 
-fn application_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
-    #[cfg(not(target_os = "macos"))]
-    return tauri::menu::Menu::default(app);
+pub(crate) struct SidecarLaunchSpec {
+    pub executable: PathBuf,
+    pub arguments: Vec<String>,
+}
 
-    #[cfg(target_os = "macos")]
-    {
-        use tauri::menu::{
-            AboutMetadata, HELP_SUBMENU_ID, MenuBuilder, MenuItem, SubmenuBuilder,
-            WINDOW_SUBMENU_ID,
-        };
-        // AppKit's predefined performClose: ignores borderless windows. Route both
-        // menu entries through Tauri so our CloseRequested recovery also handles Cmd+W.
-        let close = MenuItem::with_id(
-            app,
-            CLOSE_WINDOW_MENU_ID,
-            "Close Window",
-            true,
-            Some("CmdOrCtrl+W"),
-        )?;
-        let package = app.package_info();
-        let about = AboutMetadata {
-            name: Some(package.name.clone()),
-            version: Some(package.version.to_string()),
-            copyright: app.config().bundle.copyright.clone(),
-            authors: app.config().bundle.publisher.clone().map(|name| vec![name]),
-            ..Default::default()
-        };
-        MenuBuilder::new(app)
-            .items(&[
-                &SubmenuBuilder::new(app, &package.name)
-                    .about(Some(about))
-                    .separator()
-                    .services()
-                    .separator()
-                    .hide()
-                    .hide_others()
-                    .separator()
-                    .quit()
-                    .build()?,
-                &SubmenuBuilder::new(app, "File").item(&close).build()?,
-                &SubmenuBuilder::new(app, "Edit")
-                    .undo()
-                    .redo()
-                    .separator()
-                    .cut()
-                    .copy()
-                    .paste()
-                    .select_all()
-                    .build()?,
-                &SubmenuBuilder::new(app, "View").fullscreen().build()?,
-                &SubmenuBuilder::with_id(app, WINDOW_SUBMENU_ID, "Window")
-                    .minimize()
-                    .maximize()
-                    .separator()
-                    .item(&close)
-                    .build()?,
-                &SubmenuBuilder::with_id(app, HELP_SUBMENU_ID, "Help").build()?,
-            ])
-            .build()
+pub(crate) struct SidecarSlot {
+    pub active: Option<SidecarSupervisor>,
+    pub spec: Option<SidecarLaunchSpec>,
+    pub next_respawn_at: Instant,
+}
+
+impl SidecarSlot {
+    fn new(spec: Option<SidecarLaunchSpec>, native: &NativeHost) -> Self {
+        let mut active = spec
+            .as_ref()
+            .and_then(|item| SidecarSupervisor::spawn(&item.executable, &item.arguments).ok());
+        if let Some(supervisor) = active.as_mut() {
+            reconcile_pending_cleanup(supervisor, native);
+        }
+        Self {
+            active,
+            spec,
+            next_respawn_at: Instant::now(),
+        }
+    }
+
+    fn ensure_connected(&mut self, native: &NativeHost) -> Option<&mut SidecarSupervisor> {
+        if self.active.is_none()
+            && let Some(spec) = self.spec.as_ref()
+            && Instant::now() >= self.next_respawn_at
+        {
+            match SidecarSupervisor::spawn(&spec.executable, &spec.arguments) {
+                Ok(mut supervisor) => {
+                    reconcile_pending_cleanup(&mut supervisor, native);
+                    self.active = Some(supervisor);
+                }
+                Err(_) => {
+                    self.next_respawn_at = Instant::now() + SIDECAR_SPAWN_FAILURE_BACKOFF;
+                }
+            }
+        }
+        self.active.as_mut()
+    }
+
+    fn invalidate(&mut self) {
+        self.active = None;
+        self.next_respawn_at = Instant::now() + SIDECAR_RESPAWN_COOLDOWN;
     }
 }
 
-struct HostState {
-    _instance_lease: InstanceLease,
-    credential_destructive_transaction: Mutex<()>,
-    refresh_transaction: Mutex<()>,
-    sidecar: Mutex<Option<SidecarSupervisor>>,
-    native: NativeHost,
+pub(crate) struct HostState {
+    pub _instance_lease: InstanceLease,
+    pub credential_destructive_transaction: Mutex<()>,
+    pub refresh_transaction: Mutex<()>,
+    pub sidecar: Mutex<SidecarSlot>,
+    pub native: NativeHost,
 }
 
-fn unavailable(command_id: &str, request: &Value, code: &str) -> Value {
+fn reconcile_pending_cleanup(sidecar: &mut SidecarSupervisor, native: &NativeHost) {
+    if let Ok(pending) = sidecar.call_internal(
+        "host_internal.cleanup_pending",
+        json!({}),
+        DEFAULT_BUDGET_NS,
+    ) && let Some(references) = pending["references"].as_array()
+    {
+        let acknowledged: Vec<&str> = references
+            .iter()
+            .filter_map(Value::as_str)
+            .filter(|reference| native.delete_reference(reference).is_ok())
+            .collect();
+        if !acknowledged.is_empty() {
+            let _ = sidecar.call_internal(
+                "host_internal.cleanup_ack",
+                json!({"references": acknowledged}),
+                DEFAULT_BUDGET_NS,
+            );
+        }
+    }
+}
+
+pub(crate) fn unavailable(command_id: &str, request: &Value, code: &str) -> Value {
     let error = safe_error(code, code == "provider-unavailable");
     match command_id {
         "bootstrap_state" => json!({
@@ -160,23 +177,23 @@ fn unavailable(command_id: &str, request: &Value, code: &str) -> Value {
     }
 }
 
-fn call_sidecar(
-    state: &State<'_, HostState>,
+pub(crate) fn call_sidecar(
+    state: &HostState,
     command_id: &str,
     request: Value,
     budget_ns: u64,
 ) -> CommandResult {
     validate_request(command_id, &request).map_err(|_| "request rejected".to_owned())?;
     let response = match state.sidecar.lock() {
-        Ok(mut guard) => match guard.as_mut() {
+        Ok(mut slot) => match slot.ensure_connected(&state.native) {
             Some(sidecar) => match sidecar.call(command_id, request.clone(), budget_ns) {
                 Ok(response) => response,
                 Err(SupervisorError::OutcomeUnknown) => {
-                    *guard = None;
+                    slot.invalidate();
                     unavailable(command_id, &request, "outcome-unknown")
                 }
                 Err(_) => {
-                    *guard = None;
+                    slot.invalidate();
                     unavailable(command_id, &request, "provider-unavailable")
                 }
             },
@@ -187,26 +204,28 @@ fn call_sidecar(
     validate_response(command_id, response).map_err(|_| "response rejected".to_owned())
 }
 
-fn call_internal(
-    state: &State<'_, HostState>,
+pub(crate) fn call_internal(
+    state: &HostState,
     command_id: &str,
     request: Value,
 ) -> Result<Value, SupervisorError> {
-    let mut guard = state
+    let mut slot = state
         .sidecar
         .lock()
         .map_err(|_| SupervisorError::Protocol)?;
-    let sidecar = guard.as_mut().ok_or(SupervisorError::Spawn)?;
+    let sidecar = slot
+        .ensure_connected(&state.native)
+        .ok_or(SupervisorError::Spawn)?;
     match sidecar.call_internal(command_id, request, DEFAULT_BUDGET_NS) {
         Ok(response) => Ok(response),
         Err(error) => {
-            *guard = None;
+            slot.invalidate();
             Err(error)
         }
     }
 }
 
-fn native_error_code(error: &NativeError) -> &'static str {
+pub(crate) fn native_error_code(error: &NativeError) -> &'static str {
     match error {
         NativeError::Timeout => "timeout",
         NativeError::Busy | NativeError::Unavailable => "not-authorized",
@@ -214,28 +233,11 @@ fn native_error_code(error: &NativeError) -> &'static str {
     }
 }
 
-fn window_ready(app: &AppHandle) -> bool {
-    let Some(window) = app.get_webview_window("main") else {
-        return false;
-    };
-    window.is_visible().ok() == Some(true)
-        && window.is_minimized().ok() == Some(false)
-        && window.is_focused().ok() == Some(true)
-}
-
-fn restore_main_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
-}
-
-fn validated(command_id: &str, response: Value) -> CommandResult {
+pub(crate) fn validated(command_id: &str, response: Value) -> CommandResult {
     validate_response(command_id, response).map_err(|_| "response rejected".to_owned())
 }
 
-fn cleanup_references(state: &State<'_, HostState>, references: &Value) -> bool {
+pub(crate) fn cleanup_references(state: &HostState, references: &Value) -> bool {
     let Some(references) = references.as_array() else {
         return false;
     };
@@ -298,7 +300,7 @@ fn bind_credential_candidate(reference: &str, result: &Value) -> Result<(), Supe
     Ok(())
 }
 
-fn create_credential_candidate(state: &State<'_, HostState>) -> Result<String, SupervisorError> {
+pub(crate) fn create_credential_candidate(state: &HostState) -> Result<String, SupervisorError> {
     let reference = host_credential_candidate()?;
     let result = call_internal(
         state,
@@ -312,705 +314,8 @@ fn create_credential_candidate(state: &State<'_, HostState>) -> Result<String, S
     Ok(reference)
 }
 
-fn cleanup_credential_candidate(state: &State<'_, HostState>, reference: &str) -> bool {
+pub(crate) fn cleanup_credential_candidate(state: &HostState, reference: &str) -> bool {
     cleanup_references(state, &json!([reference]))
-}
-
-fn bounded_provider_error(code: Option<&str>) -> &'static str {
-    match code {
-        Some("keychain-locked") => "keychain-locked",
-        Some("reauth-required") => "reauth-required",
-        Some("contract-error") => "contract-error",
-        Some("timeout") => "timeout",
-        _ => "provider-unavailable",
-    }
-}
-
-fn commit_provider_failure(
-    state: &State<'_, HostState>,
-    principal: &str,
-    generation: u64,
-    provider: &str,
-    code: &'static str,
-) {
-    let _ = call_internal(
-        state,
-        "host_internal.provider_failure_commit",
-        json!({
-            "expected_generation": generation,
-            "principal_ref": principal,
-            "provider_id": provider,
-            "safe_error_code": code
-        }),
-    );
-}
-
-fn refresh_principal(
-    state: &State<'_, HostState>,
-    principal: &str,
-    timeout: Duration,
-) -> Result<(), &'static str> {
-    let context = call_internal(
-        state,
-        "host_internal.credential_context",
-        json!({"principal_ref": principal}),
-    )
-    .map_err(|_| "provider-unavailable")?;
-    let reference = context["credential_reference"]
-        .as_str()
-        .ok_or("contract-error")?;
-    let generation = context["generation"].as_u64().ok_or("contract-error")?;
-    let provider = context["provider_id"].as_str().ok_or("contract-error")?;
-    let response = match state.native.provider_fetch(reference, provider, timeout) {
-        Ok(response) => response,
-        Err(error) => {
-            let code = native_error_code(&error);
-            commit_provider_failure(state, principal, generation, provider, code);
-            return Err(code);
-        }
-    };
-    if response.status != "provider-response" {
-        let code = bounded_provider_error(response.error_code.as_deref());
-        commit_provider_failure(state, principal, generation, provider, code);
-        return Err(code);
-    }
-    if response.provider.as_deref() != Some(provider) {
-        return Err("contract-error");
-    }
-    let committed = call_internal(
-        state,
-        "host_internal.provider_response_commit",
-        json!({
-            "body_base64": response.body_base64.ok_or("contract-error")?,
-            "expected_generation": generation,
-            "http_status": response.http_status.ok_or("contract-error")?,
-            "principal_ref": principal,
-            "provider_id": provider
-        }),
-    )
-    .map_err(|_| "provider-unavailable")?;
-    if committed["status"] == "committed" {
-        Ok(())
-    } else {
-        Err(bounded_provider_error(
-            committed["safe_error_code"].as_str(),
-        ))
-    }
-}
-
-fn select_refresh_principals(accounts: &Value, scope: &str) -> Result<Vec<String>, &'static str> {
-    let principals: Vec<String> = accounts["accounts"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|account| account["lifecycle"].as_str() == Some("active"))
-        .filter_map(|account| account["principal_ref"].as_str().map(str::to_owned))
-        .filter(|principal| scope == "scope-all" || principal == scope)
-        .collect();
-    if scope != "scope-all" && principals.is_empty() {
-        return Err("contract-error");
-    }
-    Ok(principals)
-}
-
-fn refresh_accounts_error(accounts: &Value) -> Option<&str> {
-    (accounts["status"].as_str() != Some("ok")).then(|| {
-        accounts["safe_error"]["code"]
-            .as_str()
-            .unwrap_or("provider-unavailable")
-    })
-}
-
-#[tauri::command]
-async fn bootstrap_state(app: AppHandle, request: Value) -> CommandResult {
-    read_projection(app, "bootstrap_state", request).await
-}
-
-#[tauri::command]
-async fn accounts_read(app: AppHandle, request: Value) -> CommandResult {
-    read_projection(app, "accounts_read", request).await
-}
-
-#[tauri::command]
-async fn quota_overview(app: AppHandle, request: Value) -> CommandResult {
-    read_projection(app, "quota_overview", request).await
-}
-
-async fn read_projection(app: AppHandle, command: &'static str, request: Value) -> CommandResult {
-    // Waiting for the shared sidecar must not freeze dragging or hover on the UI thread.
-    tauri::async_runtime::spawn_blocking(move || {
-        call_sidecar(&app.state(), command, request, DEFAULT_BUDGET_NS)
-    })
-    .await
-    .map_err(|_| "projection task unavailable".to_owned())?
-}
-
-#[tauri::command]
-async fn refresh_scope(window: tauri::WebviewWindow, request: Value) -> CommandResult {
-    let app = window.app_handle().clone();
-    let source = window.label().to_owned();
-    tauri::async_runtime::spawn_blocking(move || {
-        let response = refresh_scope_inner(app.state(), request)?;
-        if response["refresh_state"]["phase"] != "running" {
-            let outcome = if response["safe_error"]["code"] == "outcome-unknown" {
-                "unknown"
-            } else if response["status"] == "ok" {
-                "success"
-            } else {
-                "warning"
-            };
-            let _ = app.emit(
-                "quota-projection-changed",
-                json!({"source": source, "refreshOutcome": outcome}),
-            );
-        }
-        Ok(response)
-    })
-    .await
-    .map_err(|_| "refresh task unavailable".to_owned())?
-}
-
-fn refresh_scope_inner(state: State<'_, HostState>, request: Value) -> CommandResult {
-    validate_request("refresh_scope", &request).map_err(|_| "request rejected".to_owned())?;
-    let Ok(_refresh_guard) = state.refresh_transaction.try_lock() else {
-        return validated(
-            "refresh_scope",
-            json!({"refresh_state": {"phase": "running"}, "status": "running"}),
-        );
-    };
-    // Account generations must stay stable from fetch-plan through commit.
-    // Native account dialogs use the same gate without blocking the UI thread.
-    let Ok(_account_guard) = state.credential_destructive_transaction.try_lock() else {
-        return validated(
-            "refresh_scope",
-            unavailable("refresh_scope", &request, "not-authorized"),
-        );
-    };
-    let scope = request["scope_ref"].as_str().unwrap_or_default();
-    let accounts = call_sidecar(
-        &state,
-        "accounts_read",
-        json!({"scope_ref": "scope-all"}),
-        DEFAULT_BUDGET_NS,
-    )?;
-    if let Some(code) = refresh_accounts_error(&accounts) {
-        return validated(
-            "refresh_scope",
-            unavailable("refresh_scope", &request, code),
-        );
-    }
-    let principals = match select_refresh_principals(&accounts, scope) {
-        Ok(principals) => principals,
-        Err(code) => {
-            return validated(
-                "refresh_scope",
-                unavailable("refresh_scope", &request, code),
-            );
-        }
-    };
-    let deadline = Instant::now() + REFRESH_DEADLINE;
-    let mut first_error = None;
-    for principal in principals {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            first_error.get_or_insert("timeout");
-            break;
-        }
-        if let Err(code) = refresh_principal(&state, &principal, remaining) {
-            first_error.get_or_insert(code);
-        }
-    }
-    let response = match first_error {
-        Some(code) => unavailable("refresh_scope", &request, code),
-        None => json!({"refresh_state": {"phase": "completed"}, "status": "ok"}),
-    };
-    validated("refresh_scope", response)
-}
-
-#[tauri::command]
-fn config_validate_apply(state: State<'_, HostState>, request: Value) -> CommandResult {
-    let Ok(_transaction) = state.credential_destructive_transaction.try_lock() else {
-        return validated(
-            "config_validate_apply",
-            unavailable("config_validate_apply", &request, "not-authorized"),
-        );
-    };
-    call_sidecar(&state, "config_validate_apply", request, DEFAULT_BUDGET_NS)
-}
-
-#[tauri::command]
-fn credential_dialog_open(
-    app: AppHandle,
-    state: State<'_, HostState>,
-    request: Value,
-) -> CommandResult {
-    validate_request("credential_dialog_open", &request)
-        .map_err(|_| "request rejected".to_owned())?;
-    if !window_ready(&app)
-        || request["dialog_purpose"].as_str() != Some("create-credential-reference")
-    {
-        return validated(
-            "credential_dialog_open",
-            unavailable("credential_dialog_open", &request, "not-authorized"),
-        );
-    }
-    let _transaction = match state.credential_destructive_transaction.try_lock() {
-        Ok(transaction) => transaction,
-        Err(_) => {
-            return validated(
-                "credential_dialog_open",
-                unavailable("credential_dialog_open", &request, "not-authorized"),
-            );
-        }
-    };
-    let reference = match create_credential_candidate(&state) {
-        Ok(reference) => reference,
-        Err(error) => {
-            return validated(
-                "credential_dialog_open",
-                unavailable(
-                    "credential_dialog_open",
-                    &request,
-                    if matches!(error, SupervisorError::OutcomeUnknown) {
-                        "outcome-unknown"
-                    } else {
-                        "provider-unavailable"
-                    },
-                ),
-            );
-        }
-    };
-    let response = match state.native.credential(json!({
-        "action": "credential",
-        "dialogPurpose": "create-credential-reference",
-        "opaqueReference": reference
-    })) {
-        Ok(response) if response.status == "cancelled" => {
-            if cleanup_credential_candidate(&state, &reference) {
-                json!({"opaque_reference_status": "cancelled", "status": "cancelled"})
-            } else {
-                unavailable("credential_dialog_open", &request, "provider-unavailable")
-            }
-        }
-        Ok(response) if response.status == "reference-created" => {
-            let (Some(returned_reference), Some(provider)) =
-                (response.opaque_reference, response.provider)
-            else {
-                let _ = cleanup_credential_candidate(&state, &reference);
-                restore_main_window(&app);
-                return validated(
-                    "credential_dialog_open",
-                    unavailable("credential_dialog_open", &request, "provider-unavailable"),
-                );
-            };
-            if returned_reference != reference {
-                let _ = cleanup_credential_candidate(&state, &reference);
-                restore_main_window(&app);
-                return validated(
-                    "credential_dialog_open",
-                    unavailable("credential_dialog_open", &request, "provider-unavailable"),
-                );
-            }
-            match call_internal(
-                &state,
-                "host_internal.credential_commit",
-                json!({
-                    "credential_reference": reference,
-                    "expected_generation": null,
-                    "principal_ref": null,
-                    "provider_id": provider,
-                    "purpose": "create-credential-reference"
-                }),
-            ) {
-                Ok(result) if result["status"] == "committed" => {
-                    let principal = result["principal_ref"].as_str().unwrap_or_default();
-                    match refresh_principal(&state, principal, REFRESH_DEADLINE) {
-                        Ok(()) => json!({
-                            "opaque_reference_status": "reference-created",
-                            "status": "ok"
-                        }),
-                        Err(code) => json!({
-                            "opaque_reference_status": "reference-created",
-                            "safe_error": safe_error(code, code == "provider-unavailable"),
-                            "status": "error"
-                        }),
-                    }
-                }
-                Err(SupervisorError::OutcomeUnknown) => {
-                    unavailable("credential_dialog_open", &request, "outcome-unknown")
-                }
-                _ => {
-                    let _ = cleanup_credential_candidate(&state, &reference);
-                    unavailable("credential_dialog_open", &request, "provider-unavailable")
-                }
-            }
-        }
-        Ok(response) => {
-            let _ = response.error_code;
-            let code = if cleanup_credential_candidate(&state, &reference) {
-                "not-authorized"
-            } else {
-                "provider-unavailable"
-            };
-            unavailable("credential_dialog_open", &request, code)
-        }
-        Err(error) => {
-            let code = if cleanup_credential_candidate(&state, &reference) {
-                native_error_code(&error)
-            } else {
-                "provider-unavailable"
-            };
-            unavailable("credential_dialog_open", &request, code)
-        }
-    };
-    restore_main_window(&app);
-    let _ = app.emit("quota-projection-changed", json!({"source": "main"}));
-    validated("credential_dialog_open", response)
-}
-
-#[tauri::command]
-fn destructive_confirmation_open(
-    app: AppHandle,
-    state: State<'_, HostState>,
-    request: Value,
-) -> CommandResult {
-    validate_request("destructive_confirmation_open", &request)
-        .map_err(|_| "request rejected".to_owned())?;
-    if !window_ready(&app) {
-        return validated(
-            "destructive_confirmation_open",
-            unavailable("destructive_confirmation_open", &request, "not-authorized"),
-        );
-    }
-    let _transaction = match state.credential_destructive_transaction.try_lock() {
-        Ok(transaction) => transaction,
-        Err(_) => {
-            return validated(
-                "destructive_confirmation_open",
-                unavailable("destructive_confirmation_open", &request, "not-authorized"),
-            );
-        }
-    };
-    let plan = match call_internal(&state, "host_internal.destructive_prepare", request.clone()) {
-        Ok(plan) => plan,
-        Err(_) => {
-            return validated(
-                "destructive_confirmation_open",
-                unavailable(
-                    "destructive_confirmation_open",
-                    &request,
-                    "provider-unavailable",
-                ),
-            );
-        }
-    };
-    let plan_id = plan["plan_id"].as_str().unwrap_or_default().to_owned();
-    let native_response = state.native.destructive(json!({
-        "action": "destructive",
-        "operationIntent": plan["operation_intent"],
-        "planSummary": plan["summary"],
-        "planDigest": plan["digest"],
-        "generation": plan["generation"],
-        "nonce": plan["nonce"]
-    }));
-    restore_main_window(&app);
-    let response = match native_response {
-        Ok(response) if response.status == "cancelled" => {
-            let _ = call_internal(
-                &state,
-                "host_internal.destructive_cancel",
-                json!({"plan_id": plan_id}),
-            );
-            json!({"status": "cancelled"})
-        }
-        Ok(response) if response.status == "confirmed" => {
-            let Some(token) = response.user_presence_token else {
-                restore_main_window(&app);
-                return validated(
-                    "destructive_confirmation_open",
-                    unavailable(
-                        "destructive_confirmation_open",
-                        &request,
-                        "provider-unavailable",
-                    ),
-                );
-            };
-            match call_internal(
-                &state,
-                "host_internal.destructive_commit",
-                json!({
-                    "digest": plan["digest"],
-                    "generation": plan["generation"],
-                    "nonce": plan["nonce"],
-                    "plan_id": plan_id,
-                    "user_presence_token": token
-                }),
-            ) {
-                Ok(result) if result["status"] == "committed" => {
-                    if cleanup_references(&state, &result["cleanup_references"]) {
-                        json!({"status": "committed"})
-                    } else {
-                        unavailable(
-                            "destructive_confirmation_open",
-                            &request,
-                            "provider-unavailable",
-                        )
-                    }
-                }
-                Err(SupervisorError::OutcomeUnknown) => {
-                    unavailable("destructive_confirmation_open", &request, "outcome-unknown")
-                }
-                _ => unavailable(
-                    "destructive_confirmation_open",
-                    &request,
-                    "provider-unavailable",
-                ),
-            }
-        }
-        Ok(_) => {
-            let _ = call_internal(
-                &state,
-                "host_internal.destructive_cancel",
-                json!({"plan_id": plan_id}),
-            );
-            unavailable("destructive_confirmation_open", &request, "not-authorized")
-        }
-        Err(error) => {
-            let _ = call_internal(
-                &state,
-                "host_internal.destructive_cancel",
-                json!({"plan_id": plan_id}),
-            );
-            unavailable(
-                "destructive_confirmation_open",
-                &request,
-                native_error_code(&error),
-            )
-        }
-    };
-    let _ = app.emit("quota-projection-changed", json!({"source": "main"}));
-    validated("destructive_confirmation_open", response)
-}
-
-#[tauri::command]
-fn reauthenticate(app: AppHandle, state: State<'_, HostState>, request: Value) -> CommandResult {
-    validate_request("reauthenticate", &request).map_err(|_| "request rejected".to_owned())?;
-    if !window_ready(&app) {
-        return validated(
-            "reauthenticate",
-            unavailable("reauthenticate", &request, "not-authorized"),
-        );
-    }
-    let _transaction = match state.credential_destructive_transaction.try_lock() {
-        Ok(transaction) => transaction,
-        Err(_) => {
-            return validated(
-                "reauthenticate",
-                unavailable("reauthenticate", &request, "not-authorized"),
-            );
-        }
-    };
-    let principal = request["principal_ref"].as_str().unwrap_or_default();
-    let context = match call_internal(
-        &state,
-        "host_internal.credential_context",
-        json!({"principal_ref": principal}),
-    ) {
-        Ok(context) => context,
-        Err(_) => {
-            return validated(
-                "reauthenticate",
-                unavailable("reauthenticate", &request, "not-authorized"),
-            );
-        }
-    };
-    let reference = match create_credential_candidate(&state) {
-        Ok(reference) => reference,
-        Err(error) => {
-            return validated(
-                "reauthenticate",
-                unavailable(
-                    "reauthenticate",
-                    &request,
-                    if matches!(error, SupervisorError::OutcomeUnknown) {
-                        "outcome-unknown"
-                    } else {
-                        "provider-unavailable"
-                    },
-                ),
-            );
-        }
-    };
-    let native_response = state.native.credential(json!({
-        "action": "credential",
-        "dialogPurpose": "replace-credential-reference",
-        "opaqueReference": reference,
-        "provider": context["provider_id"]
-    }));
-    restore_main_window(&app);
-    let response = match native_response {
-        Ok(response) if response.status == "cancelled" => {
-            if cleanup_credential_candidate(&state, &reference) {
-                json!({"reauth_state": "cancelled", "status": "ok"})
-            } else {
-                unavailable("reauthenticate", &request, "provider-unavailable")
-            }
-        }
-        Ok(response) if response.status == "reference-replaced" => {
-            let Some(returned_reference) = response.opaque_reference else {
-                let _ = cleanup_credential_candidate(&state, &reference);
-                restore_main_window(&app);
-                return validated(
-                    "reauthenticate",
-                    unavailable("reauthenticate", &request, "provider-unavailable"),
-                );
-            };
-            if returned_reference != reference {
-                let _ = cleanup_credential_candidate(&state, &reference);
-                return validated(
-                    "reauthenticate",
-                    unavailable("reauthenticate", &request, "provider-unavailable"),
-                );
-            }
-            match call_internal(
-                &state,
-                "host_internal.credential_commit",
-                json!({
-                    "credential_reference": reference,
-                    "expected_generation": context["generation"],
-                    "principal_ref": principal,
-                    "provider_id": context["provider_id"],
-                    "purpose": "replace-credential-reference"
-                }),
-            ) {
-                Ok(result) if result["status"] == "committed" => {
-                    if let Some(old) = result["old_reference"].as_str() {
-                        if state.native.delete_reference(old).is_ok() {
-                            let _ = call_internal(
-                                &state,
-                                "host_internal.cleanup_ack",
-                                json!({"references": [old]}),
-                            );
-                        }
-                    }
-                    match refresh_principal(&state, principal, REFRESH_DEADLINE) {
-                        Ok(()) => json!({"reauth_state": "succeeded", "status": "ok"}),
-                        Err(code) => json!({
-                            "reauth_state": "failed",
-                            "safe_error": safe_error(code, code == "provider-unavailable"),
-                            "status": "error"
-                        }),
-                    }
-                }
-                Err(SupervisorError::OutcomeUnknown) => {
-                    unavailable("reauthenticate", &request, "outcome-unknown")
-                }
-                _ => {
-                    let _ = cleanup_credential_candidate(&state, &reference);
-                    unavailable("reauthenticate", &request, "provider-unavailable")
-                }
-            }
-        }
-        Ok(_) => {
-            let code = if cleanup_credential_candidate(&state, &reference) {
-                "not-authorized"
-            } else {
-                "provider-unavailable"
-            };
-            unavailable("reauthenticate", &request, code)
-        }
-        Err(error) => {
-            let code = if cleanup_credential_candidate(&state, &reference) {
-                native_error_code(&error)
-            } else {
-                "provider-unavailable"
-            };
-            unavailable("reauthenticate", &request, code)
-        }
-    };
-    let _ = app.emit("quota-projection-changed", json!({"source": "main"}));
-    validated("reauthenticate", response)
-}
-
-#[tauri::command]
-fn export_redacted(state: State<'_, HostState>, request: Value) -> CommandResult {
-    validate_request("export_redacted", &request).map_err(|_| "request rejected".to_owned())?;
-    let accounts = call_sidecar(
-        &state,
-        "accounts_read",
-        json!({"scope_ref": request["scope_ref"]}),
-        DEFAULT_BUDGET_NS,
-    )?;
-    let quota = call_sidecar(
-        &state,
-        "quota_overview",
-        json!({"scope_ref": request["scope_ref"]}),
-        DEFAULT_BUDGET_NS,
-    )?;
-    let scheduler = call_sidecar(&state, "scheduler_state", json!({}), DEFAULT_BUDGET_NS)?;
-    let response = if [&accounts, &quota, &scheduler]
-        .iter()
-        .any(|value| value["status"].as_str() != Some("ok"))
-    {
-        unavailable("export_redacted", &request, "provider-unavailable")
-    } else {
-        let diagnostics = redacted_diagnostics(&accounts, &quota, &scheduler);
-        let content = serde_json::to_vec_pretty(&diagnostics).map_err(|_| "export failed")?;
-        match state.native.export_redacted(json!({
-            "action": "export-redacted",
-            "exportContentBase64": BASE64.encode(content),
-            "exportFilename": "agent-quota-diagnostics.json"
-        })) {
-            Ok(native) if native.status == "exported" => {
-                json!({"export_status": "completed", "status": "ok"})
-            }
-            Ok(native) if native.status == "cancelled" => {
-                json!({"export_status": "cancelled", "status": "ok"})
-            }
-            Ok(_) => unavailable("export_redacted", &request, "provider-unavailable"),
-            Err(error) => unavailable("export_redacted", &request, native_error_code(&error)),
-        }
-    };
-    validated("export_redacted", response)
-}
-
-fn redacted_diagnostics(accounts: &Value, quota: &Value, scheduler: &Value) -> Value {
-    let summaries = accounts["accounts"]
-        .as_array()
-        .map(Vec::as_slice)
-        .unwrap_or(&[]);
-    let lifecycle_count = |lifecycle: &str| {
-        summaries
-            .iter()
-            .filter(|account| account["lifecycle"].as_str() == Some(lifecycle))
-            .count()
-    };
-    json!({
-        "account_count": summaries.len(),
-        "lifecycle_counts": {
-            "active": lifecycle_count("active"),
-            "disabled": lifecycle_count("disabled"),
-            "needs_reauth": lifecycle_count("needs-reauth")
-        },
-        "quota": {
-            "freshness": quota["projection"]["freshness"],
-            "row_count": quota["projection"]["capability_rows"]
-                .as_array()
-                .map(Vec::len)
-                .unwrap_or(0)
-        },
-        "scheduler": scheduler["scheduler_state"],
-        "schema": "agent-quota-redacted-diagnostics-v1",
-        "security": {
-            "credential_backend": "macOS Keychain",
-            "renderer_secret_material": false
-        }
-    })
-}
-
-#[tauri::command]
-async fn scheduler_state(app: AppHandle, request: Value) -> CommandResult {
-    read_projection(app, "scheduler_state", request).await
 }
 
 fn app_data_root() -> Result<PathBuf, InstanceLeaseError> {
@@ -1021,16 +326,22 @@ fn app_data_root() -> Result<PathBuf, InstanceLeaseError> {
     fixed_app_data_root()
 }
 
-fn sidecar_spec(executable: Option<PathBuf>, data_root: &Path) -> Option<(PathBuf, Vec<String>)> {
+fn sidecar_spec(executable: Option<PathBuf>, data_root: &Path) -> Option<SidecarLaunchSpec> {
     let arguments = vec![
         "--data-root".to_owned(),
         data_root.to_string_lossy().into_owned(),
     ];
     #[cfg(feature = "development-overrides")]
     if let Some(path) = std::env::var_os("AQ_SIDECAR_EXECUTABLE") {
-        return Some((PathBuf::from(path), arguments));
+        return Some(SidecarLaunchSpec {
+            executable: PathBuf::from(path),
+            arguments,
+        });
     }
-    executable.map(|path| (path, arguments))
+    executable.map(|executable| SidecarLaunchSpec {
+        executable,
+        arguments,
+    })
 }
 
 #[cfg(feature = "development-overrides")]
@@ -1091,30 +402,8 @@ pub fn run() {
         })
         .setup(move |app| {
             let (sidecar_executable, native_executable) = runtime_resources(app);
-            let mut sidecar = sidecar_spec(sidecar_executable, &data_root)
-                .and_then(|(path, arguments)| SidecarSupervisor::spawn(&path, &arguments).ok());
             let native = NativeHost::new(native_executable);
-            if let Some(active) = sidecar.as_mut()
-                && let Ok(pending) = active.call_internal(
-                    "host_internal.cleanup_pending",
-                    json!({}),
-                    DEFAULT_BUDGET_NS,
-                )
-                && let Some(references) = pending["references"].as_array()
-            {
-                let acknowledged: Vec<&str> = references
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .filter(|reference| native.delete_reference(reference).is_ok())
-                    .collect();
-                if !acknowledged.is_empty() {
-                    let _ = active.call_internal(
-                        "host_internal.cleanup_ack",
-                        json!({"references": acknowledged}),
-                        DEFAULT_BUDGET_NS,
-                    );
-                }
-            }
+            let sidecar = SidecarSlot::new(sidecar_spec(sidecar_executable, &data_root), &native);
             app.manage(HostState {
                 _instance_lease: instance_lease,
                 credential_destructive_transaction: Mutex::new(()),
@@ -1122,48 +411,21 @@ pub fn run() {
                 sidecar: Mutex::new(sidecar),
                 native,
             });
-            if let Some(floating) = app.get_webview_window("floating") {
-                if let Ok(Some(monitor)) = floating.primary_monitor() {
-                    let area = monitor.work_area();
-                    let scale = monitor.scale_factor();
-                    let _ = floating.set_position(tauri::PhysicalPosition::new(
-                        area.position.x
-                            + (f64::from(area.size.width) - 404.0 * scale).max(0.0) as i32,
-                        area.position.y + (24.0 * scale) as i32,
-                    ));
-                }
-                let _ = floating.show();
-            }
+            position_and_show_floating(app);
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if window.label() == "floating"
-                && let tauri::WindowEvent::CloseRequested { api, .. } = event
-            {
-                api.prevent_close();
-                restore_main_window(window.app_handle());
-                let _ = window.hide();
-            }
-            if window.label() == "main"
-                && let tauri::WindowEvent::CloseRequested { api, .. } = event
-                && let Some(floating) = window.app_handle().get_webview_window("floating")
-                && floating.show().is_ok()
-            {
-                api.prevent_close();
-                let _ = window.hide();
-            }
-        })
+        .on_window_event(handle_window_event)
         .invoke_handler(tauri::generate_handler![
-            bootstrap_state,
-            accounts_read,
-            quota_overview,
-            refresh_scope,
-            config_validate_apply,
-            credential_dialog_open,
-            destructive_confirmation_open,
-            reauthenticate,
-            export_redacted,
-            scheduler_state
+            commands::bootstrap_state,
+            commands::accounts_read,
+            commands::quota_overview,
+            commands::refresh_scope,
+            commands::config_validate_apply,
+            commands::credential_dialog_open,
+            commands::destructive_confirmation_open,
+            commands::reauthenticate,
+            commands::export_redacted,
+            commands::scheduler_state
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Agent Quota desktop host")
@@ -1243,70 +505,35 @@ mod tests {
     }
 
     #[test]
-    fn keychain_locked_refresh_remains_actionable_and_non_retryable() {
-        let response = unavailable(
-            "refresh_scope",
-            &json!({"scope_ref": "scope"}),
-            bounded_provider_error(Some("keychain-locked")),
-        );
-        assert_eq!(response["safe_error"]["code"], "keychain-locked");
-        assert_eq!(response["safe_error"]["retryable"], false);
-        validate_response("refresh_scope", response).unwrap();
-    }
-
-    #[test]
-    fn refresh_selection_skips_disabled_and_rejects_unknown_scope() {
-        let accounts = json!({"accounts": [
-            {"principal_ref": "active", "lifecycle": "active"},
-            {"principal_ref": "disabled", "lifecycle": "disabled"}
-        ]});
-        assert_eq!(
-            select_refresh_principals(&accounts, "scope-all").unwrap(),
-            ["active"]
-        );
-        assert_eq!(
-            select_refresh_principals(&accounts, "disabled"),
-            Err("contract-error")
-        );
-        assert_eq!(
-            select_refresh_principals(&accounts, "missing"),
-            Err("contract-error")
-        );
-    }
-
-    #[test]
-    fn refresh_rejects_failed_accounts_snapshot() {
-        let unavailable_accounts = unavailable(
-            "accounts_read",
-            &json!({"scope_ref": "scope-all"}),
-            "provider-unavailable",
-        );
-        assert_eq!(
-            refresh_accounts_error(&unavailable_accounts),
-            Some("provider-unavailable")
-        );
-        assert_eq!(
-            refresh_accounts_error(&json!({"accounts": [], "status": "ok"})),
-            None
-        );
-    }
-
-    #[test]
-    fn diagnostics_export_contains_counts_without_identifiers() {
-        let document = redacted_diagnostics(
-            &json!({"accounts": [
-                {"principal_ref": "secret-ref", "display_label": "private", "lifecycle": "active"},
-                {"principal_ref": "other", "display_label": "private", "lifecycle": "needs-reauth"}
-            ], "status": "ok"}),
-            &json!({"projection": {"capability_rows": [{"capability_ref": "secret-cap"}], "freshness": "stale"}, "status": "ok"}),
-            &json!({"scheduler_state": {"health": "absent", "installed": false}, "status": "ok"}),
-        );
-        let encoded = serde_json::to_string(&document).unwrap();
-        assert_eq!(document["account_count"], 2);
-        assert_eq!(document["quota"]["row_count"], 1);
-        assert_eq!(document["lifecycle_counts"]["needs_reauth"], 1);
-        assert!(!encoded.contains("secret-ref"));
-        assert!(!encoded.contains("secret-cap"));
-        assert!(!encoded.contains("private"));
+    fn sidecar_slot_recovers_on_subsequent_request_without_replaying_failed_call() {
+        let Some(executable) = std::env::var_os("AQ_SIDECAR_TEST_EXECUTABLE") else {
+            return;
+        };
+        let temporary = tempfile::tempdir().expect("temp dir");
+        let root = std::fs::canonicalize(temporary.path())
+            .expect("canonical root")
+            .join("app-data");
+        let lease = InstanceLease::acquire(&root).expect("instance lease");
+        let native = NativeHost::new(None);
+        let spec = SidecarLaunchSpec {
+            executable: PathBuf::from(executable),
+            arguments: vec![
+                "--data-root".to_owned(),
+                root.to_string_lossy().into_owned(),
+            ],
+        };
+        let state = HostState {
+            _instance_lease: lease,
+            credential_destructive_transaction: Mutex::new(()),
+            refresh_transaction: Mutex::new(()),
+            sidecar: Mutex::new(SidecarSlot::new(Some(spec), &native)),
+            native,
+        };
+        // Simulate a terminated/timed-out sidecar session.
+        state.sidecar.lock().unwrap().active = None;
+        state.sidecar.lock().unwrap().next_respawn_at = Instant::now();
+        let recovered = call_sidecar(&state, "bootstrap_state", json!({}), DEFAULT_BUDGET_NS)
+            .expect("on-demand respawn");
+        assert_eq!(recovered["status"], "ok");
     }
 }

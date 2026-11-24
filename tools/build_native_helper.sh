@@ -26,7 +26,7 @@ xcrun swiftc \
   -framework UniformTypeIdentifiers \
   -import-objc-header "$repo_root/native/KeychainMetadata.h" \
   "$repo_root/build/native/KeychainMetadata.o" \
-  "$repo_root/native/AgentQuotaNative.swift" \
+  "$repo_root"/native/Sources/*.swift \
   -o "$app_binary"
 load_commands=$(/usr/bin/otool -l "$app_binary")
 if printf '%s\n' "$load_commands" | /usr/bin/awk '

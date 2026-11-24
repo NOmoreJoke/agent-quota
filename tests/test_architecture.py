@@ -31,7 +31,9 @@ def test_production_package_has_no_network_or_http_server_imports() -> None:
 
 def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> None:
     root = Path(__file__).resolve().parents[1]
-    swift = (root / "native/AgentQuotaNative.swift").read_text()
+    swift_sources = sorted((root / "native/Sources").glob("*.swift"))
+    assert len(swift_sources) >= 5
+    swift = "\n".join(path.read_text(encoding="utf-8") for path in swift_sources)
     for host in (
         "api.deepseek.com",
         "api.moonshot.cn",
@@ -71,18 +73,18 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert "keychainRead(account: reference)" in swift
     assert 'var requestMethod = "GET"' in swift
     assert 'host: "auth.kimi.com"' not in swift
-    assert 'private let kimiCodeOAuthHost = "auth.kimi.com"' in swift
+    assert 'let kimiCodeOAuthHost = "auth.kimi.com"' in swift
     assert 'path: "/coding/v1/usages"' in swift
     assert 'path: "/api/oauth/device_authorization"' in swift
     assert 'path: "/api/oauth/token"' in swift
     assert "expiresIn <= 86_400" not in swift
-    assert 'positiveInt64(document["expires_in"]) ?? 300' in swift
+    assert 'positiveInt64(document["expires_in"]) ?? 180' in swift
     assert "TimeInterval(authorizationLifetime)" in swift
-    assert "private func minimizedProviderDocument" in swift
+    assert "func minimizedProviderDocument" in swift
     for provider in ("deepseek", "kimi-cn", "kimi-code", "minimax-cn", "glm-cn"):
         assert f'provider == "{provider}"' in swift
     assert 'selected(balance, ["type", "amount", "amountLeft"])' in swift
-    assert "private func isSafeCredential" in swift
+    assert "func isSafeCredential" in swift
     assert '!isSafeCredential("injected\\r\\nHeader: value")' in swift
     assert 'case "keychain-prune"' not in swift
     assert "pruneReferences" not in swift
@@ -97,18 +99,21 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert "#selector(NSText.paste(_:))" in swift
     assert 'keyEquivalent: "v"' in swift
     assert "pasteItem.keyEquivalentModifierMask = [.command]" in swift
-    assert swift.index("application.finishLaunching()") < swift.index("let pasteItem")
-    assert 'NSMenuItem(title: "Edit"' in swift
-    assert "final class PasteSecureTextField" in swift
-    assert 'event.charactersIgnoringModifiers?.lowercased() == "v"' in swift
-    assert "editor.paste(nil)" in swift
-    assert "secure.menu = secureMenu" in swift
-    assert "private let creatableProviderIDs = [" in swift
+    dialogs_swift = (root / "native/Sources/Dialogs.swift").read_text(encoding="utf-8")
+    assert dialogs_swift.index("application.finishLaunching()") < dialogs_swift.index(
+        "let pasteItem"
+    )
+    assert 'NSMenuItem(title: "Edit"' in dialogs_swift
+    assert "final class PasteSecureTextField" in dialogs_swift
+    assert 'event.charactersIgnoringModifiers?.lowercased() == "v"' in dialogs_swift
+    assert "editor.paste(nil)" in dialogs_swift
+    assert "secure.menu = secureMenu" in dialogs_swift
+    assert "let creatableProviderIDs = [" in swift
     assert "creatableProviders.map(\\.id) == creatableProviderIDs" in swift
     assert "Set(creatableProviderIDs).count == 5" in swift
     assert "for item in creatableProviders" in swift
     assert "creatableProviders[selector.indexOfSelectedItem].id" in swift
-    create_ids = swift.split("private let creatableProviderIDs = [", 1)[1].split("]", 1)[0]
+    create_ids = swift.split("let creatableProviderIDs = [", 1)[1].split("]", 1)[0]
     assert {value.strip().strip('"') for value in create_ids.split(",") if value.strip()} == {
         "deepseek",
         "glm-cn",
@@ -132,6 +137,7 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert '["action", "dialogPurpose", "opaqueReference"]' in swift
     assert "isCredentialReference(reference)" in swift
     rust_host = (root / "src-tauri" / "src" / "lib.rs").read_text()
+    rust_commands = (root / "src-tauri" / "src" / "commands.rs").read_text()
     lease = rust_host.index("InstanceLease::acquire(&data_root)")
     builder = rust_host.index("tauri::Builder::default()")
     assert "app.path().app_data_dir()" not in rust_host
@@ -139,24 +145,29 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert "Err(InstanceLeaseError::AlreadyRunning) => return" in rust_host
     assert lease < builder
     assert lease < rust_host.index("runtime_resources(app)")
-    assert lease < rust_host.index("SidecarSupervisor::spawn")
+    assert lease < rust_host.index("SidecarSlot::new")
     assert lease < rust_host.index("NativeHost::new")
-    assert "prune_references" not in rust_host
-    assert "host_internal.credential_references" not in rust_host
-    credential_flow = rust_host[
-        rust_host.index("fn credential_dialog_open") : rust_host.index(
-            "fn destructive_confirmation_open"
+    assert "prune_references" not in rust_host and "prune_references" not in rust_commands
+    assert (
+        "host_internal.credential_references" not in rust_host
+        and "host_internal.credential_references" not in rust_commands
+    )
+    credential_flow = rust_commands[
+        rust_commands.index("fn credential_dialog_open_inner") : rust_commands.index(
+            "pub(crate) async fn destructive_confirmation_open"
         )
     ]
-    assert credential_flow.index("create_credential_candidate(&state)") < credential_flow.index(
+    assert credential_flow.index("create_credential_candidate(state)") < credential_flow.index(
         "state.native.credential"
     )
     assert '"opaqueReference": reference' in credential_flow
-    destructive_flow = rust_host[
-        rust_host.index("fn destructive_confirmation_open") : rust_host.index("fn reauthenticate")
+    destructive_flow = rust_commands[
+        rust_commands.index("fn destructive_confirmation_open_inner") : rust_commands.index(
+            "pub(crate) async fn reauthenticate"
+        )
     ]
     for flow, command, protected_action in (
-        (credential_flow, "credential_dialog_open", "create_credential_candidate(&state)"),
+        (credential_flow, "credential_dialog_open", "create_credential_candidate(state)"),
         (destructive_flow, "destructive_confirmation_open", "host_internal.destructive_prepare"),
     ):
         guard = flow.index(
@@ -235,7 +246,7 @@ def test_production_renderer_has_only_hover_delays_and_no_loopback_patterns() ->
     ]
     for path in production:
         text = path.read_text(encoding="utf-8", errors="strict")
-        if path == root / "ui/FloatingQuota.tsx":
+        if path == root / "hooks/useFloatingShell.ts":
             text = "".join(text.split())
             # Only these user-triggered, one-shot UI delays may use a timer.
             for hover_delay in (

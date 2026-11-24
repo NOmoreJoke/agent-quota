@@ -13,5 +13,6 @@ export function filterProducts(query: string, mode: "all" | "window" | "wallet")
 
 export function productStatus(product: LaunchProduct): string {
   if (product.creatable) return "可添加 · 实机验收待完成";
+  if (product.adapter_id === "antigravity") return "通过 agy statusLine 本地桥接接入";
   return product.candidate ? "接入待完成 · 暂不可添加" : "信息展示 · 暂无已核验查询接口";
 }

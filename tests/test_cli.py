@@ -52,3 +52,43 @@ def test_cli_invalid_scope_returns_safe_error(tmp_path: Path, capsys: object) ->
     )
     assert code == 1
     assert output == {"status": "error", "error": "invalid_request"}
+
+
+def test_cli_ingest_antigravity_and_desktop_status(
+    tmp_path: Path,
+    capsys: object,
+    monkeypatch: object,
+) -> None:
+    import io
+
+    data_root = tmp_path / "desktop"
+    payload = json.dumps(
+        {
+            "product": "antigravity",
+            "plan_tier": "Pro",
+            "email": "hidden@example.com",
+            "quota": {"gemini-weekly": {"remaining_fraction": 0.75}},
+        }
+    ).encode()
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "sys.stdin",
+        type("FakeStdin", (), {"buffer": io.BytesIO(payload)})(),
+    )
+    code, ingested = invoke(
+        capsys,
+        ["--data-root", str(data_root), "ingest-antigravity-statusline"],
+    )
+    assert code == 0 and ingested == {"status": "ok", "updated": True}
+
+    code, status = invoke(capsys, ["--data-root", str(data_root), "desktop-status"])
+    assert code == 0
+    assert len(status["accounts"]) == 1  # type: ignore[arg-type]
+    assert "hidden@example.com" not in json.dumps(status)
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "sys.stdin",
+        type("FakeStdin", (), {"buffer": io.BytesIO(payload)})(),
+    )
+    quiet_code = main(["--data-root", str(data_root), "ingest-antigravity-statusline", "--quiet"])
+    assert quiet_code == 0
+    assert capsys.readouterr().out == ""  # type: ignore[attr-defined]

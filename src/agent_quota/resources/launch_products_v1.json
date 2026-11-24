@@ -1,6 +1,6 @@
 {
   "schema": "aq-launch-products-v1",
-  "source_sha256": "e2c8dad17c4da7153aa8a460d7f573302a27a2c5f67572b7018f0368ed177f90",
+  "source_sha256": "cafcad91eccd66beaeddd25759027e9f469f2e40db0e7a427e89f8d58ee35c15",
   "products": [
     {
       "product_id": "deepseek-api-balance-cn",
@@ -75,6 +75,22 @@
         "MCP 月度用量"
       ],
       "state": "creatable"
+    },
+    {
+      "product_id": "google-antigravity",
+      "brand": "Google",
+      "display_name": "Google Antigravity",
+      "adapter_id": "antigravity",
+      "candidate": true,
+      "creatable": false,
+      "window": true,
+      "wallet": true,
+      "capabilities": [
+        "5 小时窗口",
+        "周窗口",
+        "AI Credits 余额"
+      ],
+      "state": "implementation-blocked"
     },
     {
       "product_id": "volcengine-ark-agent-plan-personal",

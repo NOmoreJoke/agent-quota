@@ -8,6 +8,7 @@ export default defineConfig({
   build: { target: "safari15", sourcemap: false },
   test: {
     environment: "jsdom",
+    execArgv: ["--no-experimental-webstorage"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     coverage: { provider: "v8", reporter: ["text", "json-summary"] },
   },

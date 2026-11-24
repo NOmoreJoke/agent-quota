@@ -22,7 +22,7 @@ def test_generated_launch_policy_is_current() -> None:
     for path, expected in outputs(ROOT).items():
         assert path.read_text() == expected
     subprocess.run(
-        [str(ROOT / ".venv/bin/python"), "tools/generate_launch_products.py", "--check"],
+        [sys.executable, "tools/generate_launch_products.py", "--check"],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -30,7 +30,7 @@ def test_generated_launch_policy_is_current() -> None:
 
 
 def test_native_python_endpoints_remain_aligned() -> None:
-    swift = (ROOT / "native/AgentQuotaNative.swift").read_text()
+    swift = (ROOT / "native/Sources/Models.swift").read_text()
     native = dict(
         (provider, (host, path))
         for provider, host, path in re.findall(

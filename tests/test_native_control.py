@@ -390,8 +390,84 @@ def test_failed_state_write_and_reload_poison_live_state(
             provider_id=provider,
             safe_error_code="timeout",
         )
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError, match="unavailable"):
         control.renderer_accounts()
+
+
+def test_antigravity_ingest_deduplicates_identical_snapshots_within_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = (tmp_path / "private-antigravity").absolute()
+    control = NativeControlPlane(root)
+    payload = json.dumps(
+        {
+            "product": "antigravity",
+            "plan_tier": "Pro",
+            "email": "redact@example.com",
+            "quota": {
+                "gemini-5h": {"remaining_fraction": 0.5},
+                "gemini-weekly": {"remaining_fraction": 0.8},
+                "ai-credits": {"remaining_amount": 25},
+            },
+        }
+    ).encode()
+    assert control.ingest_antigravity_statusline(payload, now_ms=10_000) is True
+    assert control.renderer_accounts()[0]["display_label"] == "Google Antigravity (Pro)"
+    assert "redact@example.com" not in control.path.read_text()
+
+    writes = 0
+    original_write = __import__(
+        "agent_quota.filesystem", fromlist=["atomic_write_private"]
+    ).atomic_write_private
+
+    def counting_write(*args: object, **kwargs: object) -> None:
+        nonlocal writes
+        writes += 1
+        original_write(*args, **kwargs)
+
+    monkeypatch.setattr("agent_quota.native_control.atomic_write_private", counting_write)
+    assert control.ingest_antigravity_statusline(payload, now_ms=25_000) is False
+    assert writes == 0
+    assert control.ingest_antigravity_statusline(payload, now_ms=75_000) is True
+    assert writes == 1
+
+
+def test_shared_capability_ref_golden_vectors(tmp_path: Path) -> None:
+    vectors = json.loads(
+        (Path(__file__).parent / "fixtures/capability_ref_vectors.json").read_text()
+    )
+    control = NativeControlPlane((tmp_path / "private-vectors").absolute())
+    for index, vector in enumerate(vectors, start=1):
+        principal = f"principal-{index:024x}"
+        control.accounts.append(
+            {
+                "principal_ref": principal,
+                "credential_reference": reference(100 + index),
+                "credential_type": "agy-statusline-stdin"
+                if vector["provider_id"] == "antigravity"
+                else "api-key",
+                "display_label": vector["expected_provider_name"],
+                "lifecycle": "active",
+                "generation": 1,
+                "last_error_code": None,
+                "last_refresh_epoch_ms": 1_000,
+                "provider_id": vector["provider_id"],
+                "quota_projection": [
+                    {
+                        "capability_ref": vector["source_ref"],
+                        "display_kind": vector["display_kind"],
+                        "health": "ok",
+                        "value_display": vector["value_display"],
+                    }
+                ],
+            }
+        )
+        projected = control.quota_projection(principal)["capability_rows"]
+        assert isinstance(projected, list) and len(projected) == 1
+        ref = projected[0]["capability_ref"]
+        assert ref.startswith(f"cap-{vector['provider_id']}-")
+        if vector["expected_is_weekly"]:
+            assert ref.endswith("-weekly")
 
 
 def test_valid_state_over_one_megabyte_mutates_persists_and_restarts(tmp_path: Path) -> None:

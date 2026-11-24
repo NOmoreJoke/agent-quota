@@ -315,12 +315,108 @@ def test_volcengine_wallet_projection() -> None:
     )
     assert result.ok
     assert [row["value_display"] for row in result.rows] == [
-        "CNY 77.01 可用余额",
-        "CNY 83.01 现金余额",
-        "CNY 0.01 信控额度",
-        "CNY 5.01 冻结金额",
-        "CNY 1.01 欠费金额",
+        "77.01 可用余额",
+        "83.01 现金余额",
+        "0.01 信控额度",
+        "5.01 冻结金额",
+        "1.01 欠费金额",
     ]
+    assert [row["health"] for row in result.rows] == ["ok", "ok", "ok", "ok", "error"]
+    zero_arrears = parse_provider_response(
+        "volc-wallet",
+        200,
+        encoded(
+            {
+                "Result": {
+                    "AvailableBalance": "-2.50",
+                    "CashBalance": "0.00",
+                    "CreditLimit": "0",
+                    "FreezeAmount": "0",
+                    "ArrearsBalance": "0.00",
+                }
+            }
+        ),
+    )
+    assert zero_arrears.ok
+    assert zero_arrears.rows[0]["value_display"] == "-2.5 可用余额"
+    assert all(row["health"] == "ok" for row in zero_arrears.rows)
+    for invalid_result in (
+        {
+            "AvailableBalance": 77.01,
+            "CashBalance": "0",
+            "CreditLimit": "0",
+            "FreezeAmount": "0",
+            "ArrearsBalance": "0",
+        },
+        {
+            "AvailableBalance": "0",
+            "CashBalance": "0",
+            "CreditLimit": "0",
+            "FreezeAmount": "0",
+            "ArrearsBalance": "-0.01",
+        },
+    ):
+        rejected = parse_provider_response("volc-wallet", 200, encoded({"Result": invalid_result}))
+        assert not rejected.ok
+        assert rejected.safe_error_code == "contract-error"
+
+
+def test_antigravity_statusline_projection_and_pii_stripping() -> None:
+    from agent_quota.providers import sanitize_antigravity_statusline
+
+    raw = json.dumps(
+        {
+            "cwd": "/Users/secret/private-repo",
+            "email": "secret-user@example.com",
+            "transcript_path": "/Users/secret/.gemini/transcript.jsonl",
+            "product": "antigravity",
+            "plan_tier": "Pro",
+            "quota": {
+                "gemini-5h": {"remaining_fraction": 0.72, "reset_in_seconds": 3600},
+                "gemini-weekly": {
+                    "remaining_fraction": 0.9378,
+                    "reset_time": "2026-07-06T07:50:32Z",
+                },
+                "ai-credits": {"remaining_amount": 42},
+            },
+        }
+    ).encode()
+    sanitized = sanitize_antigravity_statusline(raw)
+    serialized = json.dumps(sanitized)
+    assert "secret" not in serialized
+    assert "email" not in serialized
+    result = parse_provider_response("antigravity", 200, encoded(sanitized))
+    assert result.ok
+    assert [
+        (row["capability_ref"], row["display_kind"], row["value_display"]) for row in result.rows
+    ] == [
+        ("cap-antigravity-model-0-5h", "window", "Gemini · 5小时剩余 72%"),
+        ("cap-antigravity-model-0-weekly", "window", "Gemini · 周剩余 93.78%"),
+        ("cap-antigravity-credits-2", "balance", "AI Credits 剩余 42"),
+    ]
+
+
+def test_native_minimizer_output_round_trips_through_python_parsers() -> None:
+    import subprocess
+
+    root = Path(__file__).parent.parent
+    helper = root / "src-tauri/bin/AgentQuotaNative.app/Contents/MacOS/AgentQuotaNative"
+    if not helper.is_file():
+        pytest.skip("native helper binary not built")
+    fixture_root = Path(__file__).parent / "fixtures/providers"
+    for path in sorted(fixture_root.glob("*.json")):
+        recording = json.loads(path.read_text())
+        provider_id = recording["provider_id"]
+        raw = json.dumps(recording["response"]).encode()
+        completed = subprocess.run(
+            [str(helper), "--self-test-minimize-stdin", provider_id],
+            input=raw,
+            check=True,
+            capture_output=True,
+        )
+        result = parse_provider_response(provider_id, 200, encoded_raw(completed.stdout))
+        assert result.ok, f"minimized {provider_id} failed Python parser: {result.safe_error_code}"
+        assert [row["value_display"] for row in result.rows] == recording["expected_projection"]
 
 
 def test_bailian_wallet_projection() -> None:

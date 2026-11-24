@@ -1,5 +1,5 @@
 use crate::contract::{validate_request, validate_response};
-use crate::protocol::{Sequence, read_frame, write_frame};
+use crate::protocol::{ProtocolError, Sequence, read_frame, write_frame};
 use hmac::{Hmac, Mac};
 use serde_json::{Value, json};
 use sha2::Sha256;
@@ -10,8 +10,8 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::mpsc;
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::time::{Duration, Instant};
 
 const SECRET_FD: i32 = 3;
@@ -103,7 +103,8 @@ fn check_executable(path: &Path) -> Result<std::path::PathBuf, SupervisorError> 
 pub struct SidecarSupervisor {
     child: Child,
     stdin: ChildStdin,
-    stdout: Option<ChildStdout>,
+    read_trigger: Option<SyncSender<()>>,
+    read_result: Receiver<Result<Value, ProtocolError>>,
     sequence: Sequence,
     secret: [u8; SECRET_BYTES],
 }
@@ -144,11 +145,27 @@ impl SidecarSupervisor {
             .shutdown(std::net::Shutdown::Write)
             .map_err(|_| SupervisorError::Io)?;
         let stdin = child.stdin.take().ok_or(SupervisorError::Spawn)?;
-        let stdout = child.stdout.take().ok_or(SupervisorError::Spawn)?;
+        let mut stdout = child.stdout.take().ok_or(SupervisorError::Spawn)?;
+        let (trigger_tx, trigger_rx) = mpsc::sync_channel::<()>(1);
+        let (result_tx, result_rx) = mpsc::sync_channel::<Result<Value, ProtocolError>>(1);
+        // One persistent reader per sidecar session avoids spawning an OS thread per IPC call.
+        std::thread::Builder::new()
+            .name("aq-sidecar-reader".to_owned())
+            .spawn(move || {
+                while trigger_rx.recv().is_ok() {
+                    let frame = read_frame(&mut stdout);
+                    let failed = frame.is_err();
+                    if result_tx.send(frame).is_err() || failed {
+                        break;
+                    }
+                }
+            })
+            .map_err(|_| SupervisorError::Spawn)?;
         Ok(Self {
             child,
             stdin,
-            stdout: Some(stdout),
+            read_trigger: Some(trigger_tx),
+            read_result: result_rx,
             sequence: Sequence::default(),
             secret,
         })
@@ -210,23 +227,32 @@ impl SidecarSupervisor {
         });
         write_frame(&mut self.stdin, &request).map_err(|_| SupervisorError::Io)?;
 
-        let mut stdout = self.stdout.take().ok_or(SupervisorError::OutcomeUnknown)?;
-        let (sender, receiver) = mpsc::sync_channel(1);
-        std::thread::spawn(move || {
-            let result = read_frame(&mut stdout);
-            let _ = sender.send((result, stdout));
-        });
+        let trigger = self
+            .read_trigger
+            .as_ref()
+            .ok_or(SupervisorError::OutcomeUnknown)?;
+        if trigger.send(()).is_err() {
+            self.read_trigger = None;
+            self.terminate_and_reap()?;
+            return Err(SupervisorError::OutcomeUnknown);
+        }
         let timeout = Duration::from_nanos(remaining_budget_ns);
-        let received = receiver.recv_timeout(timeout);
-        let (response, stdout) = match received {
+        let response = match self.read_result.recv_timeout(timeout) {
             Ok(value) => value,
             Err(_) => {
+                self.read_trigger = None;
                 self.terminate_and_reap()?;
                 return Err(SupervisorError::OutcomeUnknown);
             }
         };
-        self.stdout = Some(stdout);
-        let response = response.map_err(|_| SupervisorError::OutcomeUnknown)?;
+        let response = match response {
+            Ok(response) => response,
+            Err(_) => {
+                self.read_trigger = None;
+                self.terminate_and_reap()?;
+                return Err(SupervisorError::OutcomeUnknown);
+            }
+        };
         let object = response
             .as_object()
             .ok_or(SupervisorError::OutcomeUnknown)?;
@@ -259,6 +285,7 @@ impl SidecarSupervisor {
     }
 
     pub fn terminate_and_reap(&mut self) -> Result<(), SupervisorError> {
+        self.read_trigger = None;
         if self
             .child
             .try_wait()
