@@ -20,7 +20,59 @@ func selectedArray(_ value: Any?, _ keys: [String], maximum: Int) -> [[String: A
     return result
 }
 
+func isSafeFiniteNumber(_ value: Any?) -> Bool {
+    if let number = value as? NSNumber {
+        return CFGetTypeID(number) != CFBooleanGetTypeID() && number.doubleValue.isFinite
+    }
+    if let text = value as? String, !text.isEmpty, text.utf8.count <= 64, let number = Double(text) {
+        return number.isFinite
+    }
+    return false
+}
+
+func boundedShortString(_ value: Any?, maximumBytes: Int) -> String? {
+    guard let text = value as? String, !text.isEmpty, text.utf8.count <= maximumBytes else {
+        return nil
+    }
+    return text
+}
+
 func minimizedProviderDocument(provider: String, document: [String: Any]) -> [String: Any]? {
+    if provider == "antigravity" {
+        var result: [String: Any] = [:]
+        if let tier = boundedShortString(document["tier"], maximumBytes: 48) {
+            result["tier"] = tier
+        }
+        if isSafeFiniteNumber(document["aiCredits"]), let credits = document["aiCredits"] {
+            result["aiCredits"] = credits
+        }
+        if let rawBuckets = document["buckets"] as? [Any] {
+            guard rawBuckets.count <= 16 else { return nil }
+            var sanitizedBuckets: [[String: Any]] = []
+            for item in rawBuckets {
+                guard
+                    let bucket = item as? [String: Any],
+                    let bucketID = boundedShortString(bucket["id"], maximumBytes: 64),
+                    isSafeFiniteNumber(bucket["remainingFraction"])
+                else { return nil }
+                var entry: [String: Any] = [
+                    "id": bucketID,
+                    "remainingFraction": bucket["remainingFraction"] as Any,
+                ]
+                if let window = boundedShortString(bucket["window"], maximumBytes: 16) {
+                    entry["window"] = window
+                }
+                if let resetTime = boundedShortString(bucket["resetTime"], maximumBytes: 48) {
+                    entry["resetTime"] = resetTime
+                }
+                sanitizedBuckets.append(entry)
+            }
+            result["buckets"] = sanitizedBuckets
+        }
+        let nonEmptyBuckets = (result["buckets"] as? [[String: Any]])?.isEmpty == false
+        guard nonEmptyBuckets || result["aiCredits"] != nil else { return nil }
+        return result
+    }
     if provider == "deepseek" {
         guard let balances = selectedArray(
             document["balance_infos"],

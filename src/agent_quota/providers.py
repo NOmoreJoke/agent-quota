@@ -55,6 +55,14 @@ class ProviderResult:
 
 
 MANIFESTS: Final = {
+    "antigravity": ProviderManifest(
+        "antigravity",
+        "Google Antigravity",
+        "oauth-google-cloudcode",
+        "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+        "oauth-bearer-refreshable",
+        "https://antigravity.google/docs/cli/statusline",
+    ),
     "bailian-wallet": ProviderManifest(
         "bailian-wallet",
         "阿里云账户余额 (百炼)",
@@ -156,7 +164,7 @@ LOCAL_BRIDGE_MANIFESTS: Final = {
     ),
 }
 
-ALL_PROVIDER_MANIFESTS: Final = {**MANIFESTS, **LOCAL_BRIDGE_MANIFESTS}
+ALL_PROVIDER_MANIFESTS: Final = {**LOCAL_BRIDGE_MANIFESTS, **MANIFESTS}
 
 
 def manifest(provider_id: str) -> ProviderManifest:
@@ -615,7 +623,79 @@ def sanitize_antigravity_statusline(raw: bytes) -> dict[str, object]:
     return output
 
 
+def _antigravity_cloudcode(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    tier = document.get("tier")
+    if tier is not None and (not isinstance(tier, str) or not 1 <= len(tier.encode()) <= 48):
+        raise ValueError("Antigravity plan tier mismatch")
+    rows: list[dict[str, str]] = []
+    raw_buckets = document.get("buckets")
+    if raw_buckets is not None:
+        if not isinstance(raw_buckets, list) or len(raw_buckets) > 16:
+            raise ValueError("Antigravity CloudCode buckets mismatch")
+        family_indices: dict[str, int] = {}
+        for index, bucket in enumerate(raw_buckets):
+            if not isinstance(bucket, dict):
+                raise ValueError("Antigravity CloudCode bucket mismatch")
+            bucket_id = bucket.get("id")
+            if (
+                not isinstance(bucket_id, str)
+                or ANTIGRAVITY_BUCKET_PATTERN.fullmatch(bucket_id) is None
+            ):
+                raise ValueError("Antigravity CloudCode bucket id mismatch")
+            fraction = _decimal(bucket.get("remainingFraction"))
+            if not Decimal(0) <= fraction <= Decimal(1):
+                raise ValueError("Antigravity CloudCode fraction out of range")
+            pct = _percentage(fraction * Decimal(100))
+            family_key, label, inferred_period = _antigravity_bucket_parts(bucket_id)
+            if bucket_id.lower().startswith("3p"):
+                label = "Claude / 3P"
+            window_value = bucket.get("window")
+            period = (
+                window_value
+                if isinstance(window_value, str) and window_value in {"5h", "weekly"}
+                else inferred_period
+            )
+            if period in {"5h", "weekly"}:
+                family_idx = family_indices.setdefault(family_key, len(family_indices))
+                period_label = "5小时剩余" if period == "5h" else "周剩余"
+                rows.append(
+                    _row(
+                        "antigravity",
+                        f"model-{family_idx}-{period}",
+                        "window",
+                        f"{label} · {period_label} {pct}",
+                    )
+                )
+            else:
+                rows.append(
+                    _row(
+                        "antigravity",
+                        f"bucket-{index}",
+                        "window",
+                        f"{label} · 剩余 {pct}",
+                    )
+                )
+    ai_credits = document.get("aiCredits")
+    if ai_credits is not None:
+        credits_number = _decimal(ai_credits)
+        if credits_number < 0:
+            raise ValueError("Antigravity AI Credits mismatch")
+        rows.append(
+            _row(
+                "antigravity",
+                "ai-credits",
+                "balance",
+                f"AI Credits 剩余 {_decimal_display(credits_number)}",
+            )
+        )
+    if not rows:
+        raise ValueError("Antigravity CloudCode quota is absent")
+    return tuple(rows)
+
+
 def _antigravity(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    if "product" not in document and ("buckets" in document or "aiCredits" in document):
+        return _antigravity_cloudcode(document)
     if document.get("product") != "antigravity":
         raise ValueError("Antigravity product mismatch")
     plan_tier = document.get("plan_tier")

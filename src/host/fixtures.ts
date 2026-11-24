@@ -110,7 +110,7 @@ export async function fixtureInvoke(commandId: CommandId, payload: Record<string
       const baseAccounts = mode === "empty"
         ? addedAccountRows
         : mode === "antigravity"
-          ? [{ display_label: "Google Antigravity (Pro)", lifecycle: "active", principal_ref: "principal-fedcba9876543210fedcba98" }]
+          ? [{ display_label: "Google Antigravity (CLI Bridge · Pro)", lifecycle: "active", principal_ref: "principal-fedcba9876543210fedcba98" }]
           : mode === "floating"
             ? ["GLM", "DeepSeek", "MiniMax", "Kimi", "Kimi Code"].map((name, index) => ({ display_label: name, lifecycle: "active", principal_ref: `principal-demo-${index}` }))
             : mode === "reauth"

@@ -49,7 +49,7 @@ export function providerFromAccount(label: string): string {
 }
 
 export function isLocalBridgeAccount(label: string): boolean {
-  return providerFromAccount(label) === "Antigravity";
+  return label.includes("CLI Bridge");
 }
 
 export function reauthRequiredAccounts(accounts: readonly Account[]): Account[] {

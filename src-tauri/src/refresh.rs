@@ -54,7 +54,7 @@ pub(crate) fn refresh_principal(
     let generation = context["generation"].as_u64().ok_or("contract-error")?;
     let provider = context["provider_id"].as_str().ok_or("contract-error")?;
     // Local statusLine push accounts have no remote HTTP endpoint; preserve their latest local snapshot.
-    if provider == "antigravity" {
+    if context["credential_type"].as_str() == Some("agy-statusline-stdin") {
         return Ok(());
     }
     let response = match state.native.provider_fetch(reference, provider, timeout) {
@@ -244,6 +244,32 @@ mod tests {
         assert_eq!(
             refresh_accounts_error(&json!({"accounts": [], "status": "ok"})),
             None
+        );
+    }
+
+    #[test]
+    fn local_bridge_credential_type_is_distinguished_from_oauth() {
+        let bridge_ctx = json!({
+            "credential_reference": "credential-00000000-0000-4000-8000-616e74696772",
+            "credential_type": "agy-statusline-stdin",
+            "generation": 1,
+            "provider_id": "antigravity",
+            "status": "ok"
+        });
+        let oauth_ctx = json!({
+            "credential_reference": "credential-00000000-0000-4000-8000-000000000001",
+            "credential_type": "oauth-google-cloudcode",
+            "generation": 2,
+            "provider_id": "antigravity",
+            "status": "ok"
+        });
+        assert_eq!(
+            bridge_ctx["credential_type"].as_str(),
+            Some("agy-statusline-stdin")
+        );
+        assert_ne!(
+            oauth_ctx["credential_type"].as_str(),
+            Some("agy-statusline-stdin")
         );
     }
 }

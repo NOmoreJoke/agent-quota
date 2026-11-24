@@ -71,7 +71,7 @@ def project(document: dict[str, Any]) -> list[dict[str, Any]]:
                 else "information-only",
             }
         )
-    if (sum(c["candidate"] for c in cards), sum(c["creatable"] for c in cards)) != (8, 5):
+    if (sum(c["candidate"] for c in cards), sum(c["creatable"] for c in cards)) != (8, 6):
         raise ValueError("launch candidate/create count mismatch")
     candidate_ids = [c["adapter_id"] for c in cards if c["candidate"]]
     if len(set(candidate_ids)) != len(candidate_ids):

@@ -36,6 +36,7 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert len(swift_sources) >= 5
     swift = "\n".join(path.read_text(encoding="utf-8") for path in swift_sources)
     expected_native_endpoints = {
+        "antigravity": ("daily-cloudcode-pa.googleapis.com", "/v1internal:fetchAvailableModels"),
         "bailian-wallet": ("business.aliyuncs.com", "/"),
         "deepseek": ("api.deepseek.com", "/user/balance"),
         "glm-cn": ("open.bigmodel.cn", "/api/monitor/usage/quota/limit"),
@@ -120,11 +121,12 @@ def test_native_provider_transport_is_fixed_keychain_owned_and_nonproxying() -> 
     assert "secure.menu = secureMenu" in dialogs_swift
     assert "let creatableProviderIDs = [" in swift
     assert "creatableProviders.map(\\.id) == creatableProviderIDs" in swift
-    assert "Set(creatableProviderIDs).count == 5" in swift
+    assert "Set(creatableProviderIDs).count == 6" in swift
     assert "for item in creatableProviders" in swift
     assert "creatableProviders[selector.indexOfSelectedItem].id" in swift
     create_ids = swift.split("let creatableProviderIDs = [", 1)[1].split("]", 1)[0]
     assert {value.strip().strip('"') for value in create_ids.split(",") if value.strip()} == {
+        "antigravity",
         "deepseek",
         "glm-cn",
         "kimi-cn",

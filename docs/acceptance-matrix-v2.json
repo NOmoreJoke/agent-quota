@@ -14,8 +14,8 @@
     "brand_count": 8,
     "product_card_count": 11,
     "target_actionable_candidate_count": 8,
-    "current_creatable_count": 5,
-    "implementation_blocked_candidate_count": 3,
+    "current_creatable_count": 6,
+    "implementation_blocked_candidate_count": 2,
     "disabled_information_card_count": 3
   },
   "formal_release_gates": [
@@ -191,15 +191,15 @@
       "region": "Global",
       "adapter_id": "antigravity",
       "target_actionable_candidate": true,
-      "current_creatable": false,
+      "current_creatable": true,
       "evidence_tier": "supported-contract",
-      "release_status": "local-statusline-bridge",
+      "release_status": "blocked-holder-live-acceptance",
       "capabilities": [
         {
           "capability_id": "window_5h",
-          "claimed": false,
-          "release_denominator": false,
-          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
           "official_evidence": [
             "https://antigravity.google/docs/cli/statusline",
             "https://antigravity.google/docs/cli/commands/usage"
@@ -207,9 +207,9 @@
         },
         {
           "capability_id": "window_week",
-          "claimed": false,
-          "release_denominator": false,
-          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
           "official_evidence": [
             "https://antigravity.google/docs/cli/statusline",
             "https://antigravity.google/docs/plans"
@@ -217,9 +217,9 @@
         },
         {
           "capability_id": "ai_credits_balance",
-          "claimed": false,
-          "release_denominator": false,
-          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
           "official_evidence": [
             "https://antigravity.google/docs/cli/statusline",
             "https://antigravity.google/docs/cli/credits"

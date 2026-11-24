@@ -90,8 +90,8 @@ test("launch catalog separates creatable, blocked and information products", asy
 
   const catalog = page.locator("[data-provider-id]");
   await expect(catalog).toHaveCount(11);
-  await expect(catalog.locator("button:enabled")).toHaveCount(5);
-  await expect(catalog.locator("button:disabled")).toHaveCount(6);
+  await expect(catalog.locator("button:enabled")).toHaveCount(6);
+  await expect(catalog.locator("button:disabled")).toHaveCount(5);
 
   expect(await catalog.evaluateAll((cards) => cards.map((card) => card.getAttribute("data-provider-id")))).toEqual([
     "deepseek-api-balance-cn", "kimi-api-balance-cn", "kimi-code-token-plan",

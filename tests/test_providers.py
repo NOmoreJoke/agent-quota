@@ -43,6 +43,7 @@ def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
     fixture_root = Path(__file__).parent / "fixtures/providers"
     recordings = [json.loads(path.read_text()) for path in sorted(fixture_root.glob("*.json"))]
     assert {item["provider_id"] for item in recordings} == {
+        "antigravity",
         "deepseek",
         "glm-cn",
         "kimi-code",
@@ -65,7 +66,7 @@ def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
 
 
 def test_manifests_are_fixed_https_official_endpoints() -> None:
-    assert len(MANIFESTS) == 11
+    assert len(MANIFESTS) == 12
     assert all(item.endpoint.startswith("https://") for item in MANIFESTS.values())
     assert all("example" not in item.endpoint for item in MANIFESTS.values())
     with pytest.raises(ValueError, match="unsupported"):
@@ -964,4 +965,33 @@ def test_antigravity_edge_cases_and_bounds_fail_closed() -> None:
                     "quota": {"gemini-5h": {"remaining_fraction": 0.5}},
                 }
             ).encode()
+        )
+
+
+def test_antigravity_cloudcode_projection_and_bounds() -> None:
+    valid_generic = parse_provider_response(
+        "antigravity",
+        200,
+        encoded({"buckets": [{"id": "custom-bucket", "remainingFraction": 0.4}], "aiCredits": 12}),
+    )
+    assert valid_generic.ok
+    assert [
+        (r["capability_ref"], r["display_kind"], r["value_display"]) for r in valid_generic.rows
+    ] == [
+        ("cap-antigravity-bucket-0", "window", "custom-bucket · 剩余 40%"),
+        ("cap-antigravity-ai-credits", "balance", "AI Credits 剩余 12"),
+    ]
+    for bad_payload in (
+        {"tier": 123, "buckets": [{"id": "gemini-5h", "remainingFraction": 0.5}]},
+        {"tier": "x" * 49, "buckets": [{"id": "gemini-5h", "remainingFraction": 0.5}]},
+        {"buckets": "not-list"},
+        {"buckets": []},
+        {"buckets": ["bad-item"]},
+        {"buckets": [{"id": "bad id!", "remainingFraction": 0.5}]},
+        {"buckets": [{"id": "gemini-5h", "remainingFraction": 1.2}]},
+        {"aiCredits": -5},
+    ):
+        assert (
+            parse_provider_response("antigravity", 200, encoded(bad_payload)).safe_error_code
+            == "contract-error"
         )

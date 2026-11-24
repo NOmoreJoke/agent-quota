@@ -198,9 +198,10 @@ func selfTestKeychain(path: String? = nil) -> Int32 {
 func selfTestProviderMinimization() -> Int32 {
     guard
         creatableProviders.map(\.id) == creatableProviderIDs,
-        Set(creatableProviderIDs).count == 5
+        Set(creatableProviderIDs).count == 6
     else { return 9 }
     let samples = [
+        ("antigravity", #"{"tier":"g1-pro-tier","aiCredits":250,"cloudaicompanionProject":"sensitive","email":"sensitive","buckets":[{"id":"gemini-5h","window":"5h","remainingFraction":0.9,"extra":"sensitive"}]}"#),
         ("deepseek", #"{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"1","granted_balance":"0","topped_up_balance":"1","account_id":"sensitive"}],"user":{"email":"sensitive"}}"#),
         ("bailian-wallet", #"{"Code":"200","Success":true,"RequestId":"sensitive","Data":{"AvailableAmount":"100","AvailableCashAmount":"90","CreditAmount":"10","MybankCreditAmount":"0","Currency":"CNY","AccountID":"sensitive"}}"#),
         ("kimi-cn", #"{"code":0,"data":{"available_balance":1,"cash_balance":1,"voucher_balance":0,"account_id":"sensitive"},"user":{"email":"sensitive"}}"#),

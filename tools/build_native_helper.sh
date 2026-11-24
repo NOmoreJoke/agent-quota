@@ -11,6 +11,17 @@ mkdir -p "$output_dir"
 /bin/rm -rf "$app_dir"
 mkdir -p "$app_dir/Contents/MacOS"
 mkdir -p "$repo_root/build/native"
+AQ_ANTIGRAVITY_OAUTH_CLIENT_ID="${AQ_ANTIGRAVITY_OAUTH_CLIENT_ID:-}" \
+AQ_ANTIGRAVITY_OAUTH_CLIENT_SECRET="${AQ_ANTIGRAVITY_OAUTH_CLIENT_SECRET:-}" \
+/usr/bin/python3 -I -S -c '
+import json, os, sys
+client_id = json.dumps(os.environ.get("AQ_ANTIGRAVITY_OAUTH_CLIENT_ID", ""))
+client_secret = json.dumps(os.environ.get("AQ_ANTIGRAVITY_OAUTH_CLIENT_SECRET", ""))
+sys.stdout.write(
+    f"let antigravityDefaultOAuthClientID = {client_id}\n"
+    f"let antigravityDefaultOAuthClientSecret = {client_secret}\n"
+)
+' > "$repo_root/build/native/GeneratedOAuthConfig.swift"
 xcrun clang -target arm64-apple-macosx13.0 -Wall -Wextra -Werror \
   -c "$repo_root/native/KeychainMetadata.c" \
   -o "$repo_root/build/native/KeychainMetadata.o"
@@ -22,10 +33,12 @@ xcrun swiftc \
   -warnings-as-errors \
   -O \
   -framework AppKit \
+  -framework Network \
   -framework Security \
   -framework UniformTypeIdentifiers \
   -import-objc-header "$repo_root/native/KeychainMetadata.h" \
   "$repo_root/build/native/KeychainMetadata.o" \
+  "$repo_root/build/native/GeneratedOAuthConfig.swift" \
   "$repo_root"/native/Sources/*.swift \
   -o "$app_binary"
 load_commands=$(/usr/bin/otool -l "$app_binary")

@@ -102,7 +102,7 @@ def test_cli_ingest_antigravity_and_desktop_status(
     )
     rendered = capsys.readouterr().out.strip()  # type: ignore[attr-defined]
     assert render_code == 0
-    assert "Antigravity (Pro)" in rendered
+    assert "Antigravity (CLI Bridge · Pro)" in rendered
     assert "75%" in rendered
     assert "hidden@example.com" not in rendered
 

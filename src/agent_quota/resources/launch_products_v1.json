@@ -1,6 +1,6 @@
 {
   "schema": "aq-launch-products-v1",
-  "source_sha256": "cafcad91eccd66beaeddd25759027e9f469f2e40db0e7a427e89f8d58ee35c15",
+  "source_sha256": "029150330dfbc6ee713d5ac5ad8b8fc810befdfe883e75ce16d61b0d24774308",
   "products": [
     {
       "product_id": "deepseek-api-balance-cn",
@@ -82,7 +82,7 @@
       "display_name": "Google Antigravity",
       "adapter_id": "antigravity",
       "candidate": true,
-      "creatable": false,
+      "creatable": true,
       "window": true,
       "wallet": true,
       "capabilities": [
@@ -90,7 +90,7 @@
         "周窗口",
         "AI Credits 余额"
       ],
-      "state": "implementation-blocked"
+      "state": "creatable"
     },
     {
       "product_id": "volcengine-ark-agent-plan-personal",

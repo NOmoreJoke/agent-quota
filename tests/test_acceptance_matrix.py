@@ -22,27 +22,28 @@ def test_launch_acceptance_matrix_is_closed_and_complete() -> None:
         "brand_count": 8,
         "product_card_count": 11,
         "target_actionable_candidate_count": 8,
-        "current_creatable_count": 5,
-        "implementation_blocked_candidate_count": 3,
+        "current_creatable_count": 6,
+        "implementation_blocked_candidate_count": 2,
         "disabled_information_card_count": 3,
     }
     assert len(products) == summary["product_card_count"]
     assert len({product["brand"] for product in products}) == summary["brand_count"]
     assert len({product["product_id"] for product in products}) == len(products)
     assert sum(product["target_actionable_candidate"] for product in products) == 8
-    assert sum(product["current_creatable"] for product in products) == 5
+    assert sum(product["current_creatable"] for product in products) == 6
     assert (
         sum(
             product["target_actionable_candidate"] and not product["current_creatable"]
             for product in products
         )
-        == 3
+        == 2
     )
     assert (
         sum(product["release_status"] == "blocked-out-of-release-scope" for product in products)
         == 3
     )
     assert {product["adapter_id"] for product in products if product["current_creatable"]} == {
+        "antigravity",
         "deepseek",
         "glm-cn",
         "kimi-cn",

@@ -30,6 +30,9 @@ const approvedClaimedCells = new Set([
   "minimax-token-plan-cn/window_week",
   "glm-coding-plan-cn/token_window_5h",
   "glm-coding-plan-cn/mcp_monthly_usage",
+  "google-antigravity/window_5h",
+  "google-antigravity/window_week",
+  "google-antigravity/ai_credits_balance",
   "volcengine-ark-agent-plan-personal/window_5h",
   "volcengine-ark-agent-plan-personal/window_week",
 ]);
