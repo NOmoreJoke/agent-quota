@@ -21,13 +21,25 @@ AQ_CODESIGN_AUTO=1 AQ_RUST_BIN='/absolute/persistent/path/rust-1.97.1/bin' \
   ./tools/build_macos_package.sh
 ```
 
-也可显式将选中的证书 40 位 SHA-1 和 10 位 `OU` Apple Team ID 作为构建环境变量传入：
+也可显式将选中的证书 40 位 SHA-1 和 10 位 `OU` Apple Team ID 作为构建环境变量传入，或使用便捷封装脚本自动加载已被 `.gitignore` 忽略的 `.env.local` 并从本机钥匙串解析单一证书：
 
 ```sh
 export AQ_CODESIGN_IDENTITY='<40-character certificate SHA-1>'
 export AQ_CODESIGN_TEAM_ID='<10-character Apple Team ID (subject.OU)>'
 export AQ_RUST_BIN='/absolute/persistent/path/rust-1.97.1/bin'
 ./tools/build_macos_package.sh
+
+# 或：复制 `.env.example` 为 `.env.local`（不入库）后直接执行：
+./tools/build_apple_signed_package.sh
+```
+
+当检测到 `Developer ID Application:` 证书（或显式设置 `AQ_CODESIGN_HARDENED_RUNTIME=1`）时，`tools/macos_signing.py` 会自动附带 `--options runtime` 启用 Hardened Runtime。取得 `Developer ID Application` 证书并在钥匙串配置 `xcrun notarytool store-credentials <profile>` 后，可执行公开公证与 Stapling 闭环脚本：
+
+```sh
+./tools/notarize_macos_package.sh \
+  --artifact-dir artifacts/iteration-4-<commit>-apple-team \
+  --profile <notarytool-keychain-profile> \
+  --dry-run
 ```
 
 构建签名使用系统生成的 designated requirement，不固定叶证书哈希，不弱化为仅

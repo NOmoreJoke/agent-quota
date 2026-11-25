@@ -177,6 +177,23 @@ func selfTestKeychain(path: String? = nil) -> Int32 {
         } catch NativeFailure.keychain(let status) where status == errSecItemNotFound {}
         let metadataStatus = try selfTestKeychainMetadata(provider: provider, keychain: keychain)
         guard metadataStatus == 0 else { return metadataStatus }
+        defer { _ = keychainDelete(account: antigravityOAuthClientConfigAccount, keychain: keychain) }
+        guard loadAntigravityOAuthClientConfig(keychain: keychain) == nil else { return 39 }
+        let firstConfig = AntigravityOAuthClientConfig(
+            clientID: "test-client-id-1.apps.googleusercontent.com",
+            clientSecret: "test-client-secret-1"
+        )
+        try saveAntigravityOAuthClientConfig(firstConfig, keychain: keychain)
+        guard loadAntigravityOAuthClientConfig(keychain: keychain) == firstConfig else { return 40 }
+        let updatedConfig = AntigravityOAuthClientConfig(
+            clientID: "test-client-id-2.apps.googleusercontent.com",
+            clientSecret: ""
+        )
+        try saveAntigravityOAuthClientConfig(updatedConfig, keychain: keychain)
+        guard loadAntigravityOAuthClientConfig(keychain: keychain) == updatedConfig else { return 41 }
+        guard keychainDelete(account: antigravityOAuthClientConfigAccount, keychain: keychain) == errSecSuccess,
+              loadAntigravityOAuthClientConfig(keychain: keychain) == nil
+        else { return 42 }
         emit(
             NativeResponse(
                 status: "self-test-ok", opaqueReference: nil, errorCode: nil,
@@ -198,17 +215,19 @@ func selfTestKeychain(path: String? = nil) -> Int32 {
 func selfTestProviderMinimization() -> Int32 {
     guard
         creatableProviders.map(\.id) == creatableProviderIDs,
-        Set(creatableProviderIDs).count == 5
+        Set(creatableProviderIDs).count == 7
     else { return 9 }
     let samples = [
+        ("antigravity", #"{"tier":"g1-pro-tier","aiCredits":250,"cloudaicompanionProject":"sensitive","email":"sensitive","buckets":[{"id":"gemini-5h","window":"5h","remainingFraction":0.9,"extra":"sensitive"}]}"#),
         ("deepseek", #"{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"1","granted_balance":"0","topped_up_balance":"1","account_id":"sensitive"}],"user":{"email":"sensitive"}}"#),
         ("bailian-wallet", #"{"Code":"200","Success":true,"RequestId":"sensitive","Data":{"AvailableAmount":"100","AvailableCashAmount":"90","CreditAmount":"10","MybankCreditAmount":"0","Currency":"CNY","AccountID":"sensitive"}}"#),
         ("kimi-cn", #"{"code":0,"data":{"available_balance":1,"cash_balance":1,"voucher_balance":0,"account_id":"sensitive"},"user":{"email":"sensitive"}}"#),
         ("kimi-code", #"{"usage":{"limit":"10","remaining":"9","userId":"sensitive"},"limits":[{"window":{"duration":300,"timeUnit":"TIME_UNIT_MINUTE","region":"sensitive"},"detail":{"limit":"10","remaining":"9","businessId":"sensitive"}}],"authentication":{"scope":"sensitive"},"user":{"email":"sensitive"}}"#),
-        ("minimax-cn", #"{"base_resp":{"status_code":0,"trace_id":"sensitive"},"model_remains":[{"model_name":"general","current_interval_remaining_percent":90,"current_weekly_remaining_percent":80,"current_weekly_status":1,"account_id":"sensitive"}],"user":{"email":"sensitive"}}"#),
-        ("glm-cn", #"{"code":200,"success":true,"data":{"limits":[{"type":"TOKENS_LIMIT","percentage":1,"account_id":"sensitive"}],"user":{"email":"sensitive"}}}"#),
+        ("minimax-cn", #"{"base_resp":{"status_code":0,"trace_id":"sensitive"},"model_remains":[{"model_name":"general","current_interval_remaining_percent":90,"current_weekly_remaining_percent":80,"current_weekly_status":1,"account_id":"sensitive"}],"extra_remains":{"remaining":500,"total":1000,"account_id":"sensitive"},"user":{"email":"sensitive"}}"#),
+        ("glm-cn", #"{"code":200,"success":true,"data":{"level":"pro","limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":1,"account_id":"sensitive"},{"type":"TOKENS_LIMIT","unit":6,"number":1,"percentage":5}],"extraPackage":{"remaining":640,"total":1000,"account_id":"sensitive"},"user":{"email":"sensitive"}}}"#),
         ("volc-wallet", #"{"ResponseMetadata":{"RequestId":"sensitive"},"Result":{"AccountID":210000001,"AvailableBalance":"77.01","CashBalance":"83.01","CreditLimit":"0.01","FreezeAmount":"5.01","ArrearsBalance":"1.01"}}"#),
         ("volc-plan", #"{"ResponseMetadata":{"RequestId":"sensitive"},"Result":{"PlanType":"AFP","AFPFiveHour":{"Quota":1000,"Used":250,"SubscribeTime":1,"ResetTime":2,"AccountID":"sensitive"},"AFPWeekly":{"Quota":8000,"Used":2000,"SubscribeTime":1,"ResetTime":2}}}"#),
+        ("workbuddy-cn", #"{"code":0,"data":{"IsPaidUser":true,"SubscriptionPackageCode":"TCACA_code_002","uid":"sensitive","email":"sensitive","Packages":[{"PackageCode":"TCACA_code_002","CycleTotalCapacity":1000,"CycleRemainCapacity":750,"CycleUsedCapacity":250,"accountId":"sensitive"},{"PackageCode":"TCACA_extra_001","CycleTotalCapacity":500,"CycleRemainCapacity":400,"CycleUsedCapacity":100}]}}"#),
     ]
     for (provider, source) in samples {
         guard
@@ -279,6 +298,73 @@ func selfTestProviderMinimization() -> Int32 {
             "Signature=45433d0b80f6e188625d2186b504f4510b5f14606220a322bf334cc189cd34e4"
         ) == true
     else { return 14 }
+    guard
+        isKimiCodeReauthResponse(status: 401, body: Data()),
+        isKimiCodeReauthResponse(status: 403, body: Data()),
+        isKimiCodeReauthResponse(
+            status: 400,
+            body: Data(#"{"error":"invalid_grant","error_description":"The provided authorization grant is invalid"}"#.utf8)
+        ),
+        isKimiCodeReauthResponse(status: 400, body: Data(#"{"error":"expired_token"}"#.utf8)),
+        !isKimiCodeReauthResponse(status: 400, body: Data(#"{"error":"invalid_request"}"#.utf8)),
+        !isKimiCodeReauthResponse(status: 500, body: Data(#"{"error":"invalid_grant"}"#.utf8)),
+        !isKimiCodeReauthResponse(status: 200, body: Data(#"{"error":"invalid_grant"}"#.utf8))
+    else { return 15 }
+    let savedOAuthClient = AntigravityOAuthClientConfig(
+        clientID: "saved-client-id",
+        clientSecret: "saved-client-secret"
+    )
+    let overrideResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: "  override-id  ",
+        clientSecretOverride: " override-secret ",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let invalidOverride = resolveAntigravityOAuthClient(
+        clientIDOverride: "bad\r\nid",
+        clientSecretOverride: "override-secret",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let invalidSecretOverride = resolveAntigravityOAuthClient(
+        clientIDOverride: "override-id",
+        clientSecretOverride: "bad\nsecret",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let savedResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: " ",
+        clientSecretOverride: "",
+        savedConfig: savedOAuthClient,
+        defaultClientID: "default-id",
+        defaultClientSecret: "default-secret"
+    )
+    let defaultResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: "",
+        clientSecretOverride: "",
+        savedConfig: nil,
+        defaultClientID: "default-id",
+        defaultClientSecret: ""
+    )
+    let emptyResolved = resolveAntigravityOAuthClient(
+        clientIDOverride: "",
+        clientSecretOverride: "",
+        savedConfig: nil,
+        defaultClientID: "",
+        defaultClientSecret: ""
+    )
+    guard
+        overrideResolved == AntigravityOAuthClientConfig(clientID: "override-id", clientSecret: "override-secret"),
+        invalidOverride == nil,
+        invalidSecretOverride == nil,
+        savedResolved == savedOAuthClient,
+        defaultResolved == AntigravityOAuthClientConfig(clientID: "default-id", clientSecret: ""),
+        emptyResolved == nil,
+        !isCredentialReference(antigravityOAuthClientConfigAccount)
+    else { return 16 }
     return 0
 }
 

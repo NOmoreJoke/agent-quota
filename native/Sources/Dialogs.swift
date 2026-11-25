@@ -47,11 +47,18 @@ final class CredentialSelectorGate: NSObject {
 
     func apply(definition: ProviderDefinition?) {
         guard let definition else { return }
-        if definition.authMode == .kimiCodeOAuth {
+        if definition.authMode == .kimiCodeOAuth || definition.authMode == .workbuddyCNOAuth {
             secureField?.stringValue = ""
             cloudSecretField?.stringValue = ""
             secureField?.isHidden = true
             cloudSecretField?.isHidden = true
+        } else if definition.authMode == .antigravityOAuth {
+            secureField?.stringValue = ""
+            cloudSecretField?.stringValue = ""
+            secureField?.isHidden = false
+            secureField?.placeholderString = "OAuth Client ID（留空复用已保存/内置默认）"
+            cloudSecretField?.isHidden = false
+            cloudSecretField?.placeholderString = "OAuth Client Secret（留空复用已保存/内置默认）"
         } else if requiresDualCloudSecret(definition.authMode) {
             secureField?.isHidden = false
             secureField?.placeholderString = "AccessKey ID"
@@ -118,7 +125,7 @@ func credentialDialog(
     alert.messageText = purpose == "replace-credential-reference" ? "替换本机凭据" : "添加本机凭据"
     alert.informativeText = purpose == "replace-credential-reference"
         ? "替换已配置 Provider 的凭据；凭据只写入 macOS 钥匙串。"
-        : "仅可添加当前 5 项 Provider；API Key/Token 可直接粘贴，Kimi Code 使用官方 OAuth。凭据只写入 macOS 钥匙串。"
+        : "仅可添加当前 \(creatableProviders.count) 项已核验 Provider；API Key/Token 可直接粘贴，Kimi Code、Antigravity 与 WorkBuddy 使用官方 OAuth。凭据只写入 macOS 钥匙串。"
     alert.addButton(withTitle: "继续")
     alert.addButton(withTitle: "取消")
 
@@ -186,6 +193,37 @@ func credentialDialog(
         secure.stringValue = ""
         cloudSecret.stringValue = ""
         let login = kimiCodeOAuthCredential()
+        guard let credential = login.credential else {
+            return NativeResponse(
+                status: login.errorCode == nil ? "cancelled" : "error",
+                opaqueReference: nil,
+                errorCode: login.errorCode,
+                userPresenceToken: nil
+            )
+        }
+        bytes = credential
+    } else if definition.authMode == .antigravityOAuth {
+        let clientIDOverride = secure.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clientSecretOverride = cloudSecret.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        secure.stringValue = ""
+        cloudSecret.stringValue = ""
+        let login = antigravityOAuthCredential(
+            clientIDOverride: clientIDOverride,
+            clientSecretOverride: clientSecretOverride
+        )
+        guard let credential = login.credential else {
+            return NativeResponse(
+                status: login.errorCode == nil ? "cancelled" : "error",
+                opaqueReference: nil,
+                errorCode: login.errorCode,
+                userPresenceToken: nil
+            )
+        }
+        bytes = credential
+    } else if definition.authMode == .workbuddyCNOAuth {
+        secure.stringValue = ""
+        cloudSecret.stringValue = ""
+        let login = workbuddyCNOAuthCredential()
         guard let credential = login.credential else {
             return NativeResponse(
                 status: login.errorCode == nil ? "cancelled" : "error",

@@ -29,6 +29,7 @@ PROVIDER_IDS: Final = frozenset(
         "minimax-global",
         "volc-plan",
         "volc-wallet",
+        "workbuddy-cn",
     }
 )
 
@@ -55,6 +56,14 @@ class ProviderResult:
 
 
 MANIFESTS: Final = {
+    "antigravity": ProviderManifest(
+        "antigravity",
+        "Google Antigravity",
+        "oauth-google-cloudcode",
+        "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+        "oauth-bearer-refreshable",
+        "https://antigravity.google/docs/cli/statusline",
+    ),
     "bailian-wallet": ProviderManifest(
         "bailian-wallet",
         "阿里云账户余额 (百炼)",
@@ -143,6 +152,14 @@ MANIFESTS: Final = {
         "volc-hmac-sha256",
         "https://api.volcengine.com/api-explorer/?action=GetAFPUsage&groupName=Agent+Plan+API&serviceCode=ark&version=2024-01-01",
     ),
+    "workbuddy-cn": ProviderManifest(
+        "workbuddy-cn",
+        "WorkBuddy 个人版 (中国区)",
+        "oauth-workbuddy-cn",
+        "https://www.workbuddy.cn/billing/meter/get-user-resource-summary",
+        "oauth-bearer-refreshable",
+        "https://www.workbuddy.cn/docs/workbuddy/Overview",
+    ),
 }
 
 LOCAL_BRIDGE_MANIFESTS: Final = {
@@ -156,7 +173,7 @@ LOCAL_BRIDGE_MANIFESTS: Final = {
     ),
 }
 
-ALL_PROVIDER_MANIFESTS: Final = {**MANIFESTS, **LOCAL_BRIDGE_MANIFESTS}
+ALL_PROVIDER_MANIFESTS: Final = {**LOCAL_BRIDGE_MANIFESTS, **MANIFESTS}
 
 
 def manifest(provider_id: str) -> ProviderManifest:
@@ -437,6 +454,52 @@ def _kimi_code(document: dict[str, object]) -> tuple[dict[str, str], ...]:
     return tuple(rows)
 
 
+def _boost_wallet_row(provider_id: str, extra: object) -> dict[str, str]:
+    if not isinstance(extra, dict):
+        raise ValueError("boost wallet mismatch")
+    total_raw = extra.get("total")
+    if total_raw is None:
+        total_raw = extra.get("limit")
+    if total_raw is None:
+        total_raw = extra.get("limitValue")
+    if total_raw is None:
+        total_raw = extra.get("usage")
+    rem_raw = extra.get("remaining")
+    if rem_raw is None:
+        rem_raw = extra.get("remain")
+    if rem_raw is None:
+        rem_raw = extra.get("available")
+    if rem_raw is None:
+        rem_raw = extra.get("balance")
+    used_raw = extra.get("used")
+    if used_raw is None:
+        used_raw = extra.get("currentValue")
+    total = _decimal(total_raw) if total_raw is not None else None
+    if total is not None and total < 0:
+        raise ValueError("boost wallet total mismatch")
+    if rem_raw is not None:
+        remaining = _decimal(rem_raw)
+    elif total is not None and used_raw is not None:
+        used = _decimal(used_raw)
+        if used < 0 or used > total:
+            raise ValueError("boost wallet used mismatch")
+        remaining = total - used
+    else:
+        raise ValueError("boost wallet remaining mismatch")
+    if remaining < 0:
+        raise ValueError("boost wallet remaining mismatch")
+    currency = extra.get("currency")
+    prefix = ""
+    if isinstance(currency, str) and currency in {"CNY", "USD", "JPY"}:
+        prefix = f"{currency} "
+    value = (
+        f"加油包剩余 {prefix}{_decimal_display(remaining)} / {_decimal_display(total)}"
+        if total is not None and total > 0
+        else f"加油包剩余 {prefix}{_decimal_display(remaining)}"
+    )
+    return _row(provider_id, "boost-wallet", "balance", value)
+
+
 def _minimax(document: dict[str, object], provider_id: str) -> tuple[dict[str, str], ...]:
     base = document.get("base_resp")
     models = document.get("model_remains")
@@ -485,6 +548,11 @@ def _minimax(document: dict[str, object], provider_id: str) -> tuple[dict[str, s
                 f"{name} · 周剩余 {weekly_display}",
             )
         )
+    for key in ("extra_remains", "boost_remains", "package_remains", "wallet_remains"):
+        extra = document.get(key)
+        if extra is not None:
+            rows.append(_boost_wallet_row(provider_id, extra))
+            break
     return tuple(rows)
 
 
@@ -496,19 +564,42 @@ def _glm(document: dict[str, object], provider_id: str) -> tuple[dict[str, str],
     if not isinstance(limits, list) or not limits:
         raise ValueError("GLM limits mismatch")
     rows: list[dict[str, str]] = []
+    has_boost_row = False
     for index, item in enumerate(limits[:16]):
-        if not isinstance(item, dict) or item.get("type") not in {"TOKENS_LIMIT", "TIME_LIMIT"}:
+        if not isinstance(item, dict):
             continue
-        kind = str(item["type"])
-        label = "5小时已用" if kind == "TOKENS_LIMIT" else "MCP月度已用"
-        rows.append(
-            _row(
-                provider_id,
-                f"limit-{index}" + ("-5h" if kind == "TOKENS_LIMIT" else ""),
-                "window",
-                f"{label} {_percentage(item.get('percentage'))}",
+        kind = item.get("type")
+        if kind == "TOKENS_LIMIT":
+            unit = item.get("unit")
+            is_weekly = unit == 6
+            label = "周已用" if is_weekly else "5小时已用"
+            period_suffix = "-weekly" if is_weekly else "-5h"
+            rows.append(
+                _row(
+                    provider_id,
+                    f"limit-{index}{period_suffix}",
+                    "window",
+                    f"{label} {_percentage(item.get('percentage'))}",
+                )
             )
-        )
+        elif kind == "TIME_LIMIT":
+            rows.append(
+                _row(
+                    provider_id,
+                    f"limit-{index}",
+                    "window",
+                    f"MCP月度已用 {_percentage(item.get('percentage'))}",
+                )
+            )
+        elif kind in {"CREDIT_LIMIT", "EXTRA_LIMIT", "BOOST_LIMIT"} and not has_boost_row:
+            rows.append(_boost_wallet_row(provider_id, item))
+            has_boost_row = True
+    if not has_boost_row:
+        for key in ("extra", "extraPackage", "boostPack", "fuelPack"):
+            extra = data.get(key)
+            if extra is not None:
+                rows.append(_boost_wallet_row(provider_id, extra))
+                break
     if not rows:
         raise ValueError("GLM supported limits are absent")
     return tuple(rows)
@@ -615,7 +706,79 @@ def sanitize_antigravity_statusline(raw: bytes) -> dict[str, object]:
     return output
 
 
+def _antigravity_cloudcode(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    tier = document.get("tier")
+    if tier is not None and (not isinstance(tier, str) or not 1 <= len(tier.encode()) <= 48):
+        raise ValueError("Antigravity plan tier mismatch")
+    rows: list[dict[str, str]] = []
+    raw_buckets = document.get("buckets")
+    if raw_buckets is not None:
+        if not isinstance(raw_buckets, list) or len(raw_buckets) > 16:
+            raise ValueError("Antigravity CloudCode buckets mismatch")
+        family_indices: dict[str, int] = {}
+        for index, bucket in enumerate(raw_buckets):
+            if not isinstance(bucket, dict):
+                raise ValueError("Antigravity CloudCode bucket mismatch")
+            bucket_id = bucket.get("id")
+            if (
+                not isinstance(bucket_id, str)
+                or ANTIGRAVITY_BUCKET_PATTERN.fullmatch(bucket_id) is None
+            ):
+                raise ValueError("Antigravity CloudCode bucket id mismatch")
+            fraction = _decimal(bucket.get("remainingFraction"))
+            if not Decimal(0) <= fraction <= Decimal(1):
+                raise ValueError("Antigravity CloudCode fraction out of range")
+            pct = _percentage(fraction * Decimal(100))
+            family_key, label, inferred_period = _antigravity_bucket_parts(bucket_id)
+            if bucket_id.lower().startswith("3p"):
+                label = "Claude / 3P"
+            window_value = bucket.get("window")
+            period = (
+                window_value
+                if isinstance(window_value, str) and window_value in {"5h", "weekly"}
+                else inferred_period
+            )
+            if period in {"5h", "weekly"}:
+                family_idx = family_indices.setdefault(family_key, len(family_indices))
+                period_label = "5小时剩余" if period == "5h" else "周剩余"
+                rows.append(
+                    _row(
+                        "antigravity",
+                        f"model-{family_idx}-{period}",
+                        "window",
+                        f"{label} · {period_label} {pct}",
+                    )
+                )
+            else:
+                rows.append(
+                    _row(
+                        "antigravity",
+                        f"bucket-{index}",
+                        "window",
+                        f"{label} · 剩余 {pct}",
+                    )
+                )
+    ai_credits = document.get("aiCredits")
+    if ai_credits is not None:
+        credits_number = _decimal(ai_credits)
+        if credits_number < 0:
+            raise ValueError("Antigravity AI Credits mismatch")
+        rows.append(
+            _row(
+                "antigravity",
+                "ai-credits",
+                "balance",
+                f"AI Credits 剩余 {_decimal_display(credits_number)}",
+            )
+        )
+    if not rows:
+        raise ValueError("Antigravity CloudCode quota is absent")
+    return tuple(rows)
+
+
 def _antigravity(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    if "product" not in document and ("buckets" in document or "aiCredits" in document):
+        return _antigravity_cloudcode(document)
     if document.get("product") != "antigravity":
         raise ValueError("Antigravity product mismatch")
     plan_tier = document.get("plan_tier")
@@ -678,6 +841,78 @@ def _antigravity(document: dict[str, object]) -> tuple[dict[str, str], ...]:
         if disabled:
             row["health"] = "incompatible"
         rows.append(row)
+    return tuple(rows)
+
+
+def _workbuddy(document: dict[str, object]) -> tuple[dict[str, str], ...]:
+    data = document.get("data")
+    if document.get("code") != 0 or not isinstance(data, dict):
+        raise ValueError("WorkBuddy response mismatch")
+    packages = data.get("Packages")
+    if not isinstance(packages, list) or not 1 <= len(packages) <= 32:
+        raise ValueError("WorkBuddy packages mismatch")
+    base_remain = Decimal(0)
+    base_total = Decimal(0)
+    extra_remain = Decimal(0)
+    extra_total = Decimal(0)
+    has_base = False
+    has_extra = False
+    for package in packages:
+        if not isinstance(package, dict):
+            raise ValueError("WorkBuddy package mismatch")
+        code = package.get("PackageCode")
+        if not isinstance(code, str) or not 1 <= len(code.encode()) <= 64:
+            raise ValueError("WorkBuddy package code mismatch")
+        total = _decimal(package.get("CycleTotalCapacity"))
+        if total < 0:
+            raise ValueError("WorkBuddy total capacity mismatch")
+        remain_raw = package.get("CycleRemainCapacity")
+        if remain_raw is not None:
+            remain = _decimal(remain_raw)
+        elif package.get("CycleUsedCapacity") is not None:
+            used = _decimal(package.get("CycleUsedCapacity"))
+            if used < 0 or used > total:
+                raise ValueError("WorkBuddy used capacity mismatch")
+            remain = total - used
+        else:
+            raise ValueError("WorkBuddy remaining capacity mismatch")
+        if remain < 0:
+            raise ValueError("WorkBuddy remaining capacity mismatch")
+        lowered = code.lower()
+        if any(tag in lowered for tag in ("extra", "boost", "addon")):
+            extra_remain += remain
+            extra_total += total
+            has_extra = True
+        else:
+            base_remain += remain
+            base_total += total
+            has_base = True
+    rows: list[dict[str, str]] = []
+    if has_base and base_total > 0:
+        pct = _percentage(min(Decimal(100), base_remain * Decimal(100) / base_total))
+        rem_str = _decimal_display(base_remain)
+        tot_str = _decimal_display(base_total)
+        rows.append(
+            _row(
+                "workbuddy-cn",
+                "credits",
+                "window",
+                f"周期积分 ({rem_str} / {tot_str}) · 剩余 {pct}",
+            )
+        )
+    if has_extra and (extra_total > 0 or extra_remain > 0):
+        rows.append(
+            _row(
+                "workbuddy-cn",
+                "boost-wallet",
+                "balance",
+                f"加油包剩余 {_decimal_display(extra_remain)} / {_decimal_display(extra_total)}"
+                if extra_total > 0
+                else f"加油包剩余 {_decimal_display(extra_remain)}",
+            )
+        )
+    if not rows:
+        raise ValueError("WorkBuddy quota is absent")
     return tuple(rows)
 
 
@@ -779,6 +1014,8 @@ def parse_provider_response(
             rows = _volc_wallet(document)
         elif provider_id == "volc-plan":
             rows = _volc_plan(document)
+        elif provider_id == "workbuddy-cn":
+            rows = _workbuddy(document)
         else:  # pragma: no cover - manifest closes this branch
             raise ValueError("unsupported provider")
         return ProviderResult(rows)

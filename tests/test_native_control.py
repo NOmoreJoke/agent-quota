@@ -412,7 +412,9 @@ def test_antigravity_ingest_deduplicates_identical_snapshots_within_window(
         }
     ).encode()
     assert control.ingest_antigravity_statusline(payload, now_ms=10_000) is True
-    assert control.renderer_accounts()[0]["display_label"] == "Google Antigravity (Pro)"
+    assert (
+        control.renderer_accounts()[0]["display_label"] == "Google Antigravity (CLI Bridge · Pro)"
+    )
     assert "redact@example.com" not in control.path.read_text()
 
     writes = 0
@@ -1394,3 +1396,45 @@ def test_expired_plan_bad_presence_and_generation_overflow(
             principal_ref=None,
             expected_generation=None,
         )
+
+
+def test_antigravity_oauth_and_cli_bridge_coexist_and_cleanup(tmp_path: Path) -> None:
+    import uuid
+
+    control = NativeControlPlane((tmp_path / "coexist").absolute())
+    bridge_payload = json.dumps(
+        {"product": "antigravity", "quota": {"gemini-5h": {"remaining_fraction": 0.5}}}
+    ).encode()
+    assert control.ingest_antigravity_statusline(bridge_payload, now_ms=10_000) is True
+    oauth_commit = control.commit_credential(
+        purpose="create-credential-reference",
+        credential_reference=reference(9),
+        principal_ref=None,
+        expected_generation=None,
+        provider_id="antigravity",
+    )
+    assert control.ingest_antigravity_statusline(bridge_payload, now_ms=25_000) is False
+    accounts = control.renderer_accounts()
+    assert len(accounts) == 2
+    assert accounts[0]["display_label"] == "Google Antigravity (CLI Bridge)"
+    assert accounts[1]["display_label"] == "Google Antigravity"
+    bridge_principal = str(accounts[0]["principal_ref"])
+    assert control.credential_type(bridge_principal) == "agy-statusline-stdin"
+    assert control.credential_type(oauth_commit.principal_ref) == "oauth-google-cloudcode"
+    with pytest.raises(ValueError, match="unknown principal"):
+        control.credential_type("principal-000000000000000000000000")
+
+    plan = control.prepare_destructive(
+        operation_intent="delete",
+        opaque_selection_handle=oauth_commit.principal_ref,
+    )
+    removed = control.commit_destructive(
+        plan_id=plan.plan_id,
+        digest=plan.digest,
+        generation=plan.generation,
+        nonce=plan.nonce,
+        user_presence_token=str(uuid.uuid4()),
+    )
+    assert removed == (reference(9),)
+    assert len(control.renderer_accounts()) == 1
+    assert control.renderer_accounts()[0]["principal_ref"] == bridge_principal

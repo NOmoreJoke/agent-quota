@@ -1,0 +1,40 @@
+{
+  "schema": "aq-provider-recording-v1",
+  "provider_id": "antigravity",
+  "source_kind": "official-schema",
+  "live_verified": false,
+  "recorded_at": null,
+  "evidence_url": "https://antigravity.google/docs/cli/statusline",
+  "sanitization": "Synthetic contract fixture derived from minimized CloudCode quota + AI Credits schema; no live account response was used.",
+  "response_sha256": "75915462cb067f9f7a597f73528bea0011276e9cb315eb7a27ee11de5f573dfe",
+  "response": {
+    "tier": "g1-pro-tier",
+    "aiCredits": 250,
+    "buckets": [
+      {
+        "id": "gemini-5h",
+        "window": "5h",
+        "remainingFraction": 0.92,
+        "resetTime": "2026-11-24T20:00:00Z"
+      },
+      {
+        "id": "gemini-weekly",
+        "window": "weekly",
+        "remainingFraction": 0.85,
+        "resetTime": "2026-11-30T00:00:00Z"
+      },
+      {
+        "id": "3p-5h",
+        "window": "5h",
+        "remainingFraction": 0.8,
+        "resetTime": "2026-11-24T20:00:00Z"
+      }
+    ]
+  },
+  "expected_projection": [
+    "Gemini · 5小时剩余 92%",
+    "Gemini · 周剩余 85%",
+    "Claude / 3P · 5小时剩余 80%",
+    "AI Credits 剩余 250"
+  ]
+}

@@ -11,12 +11,12 @@
     "FAIL"
   ],
   "scope_summary": {
-    "brand_count": 8,
-    "product_card_count": 11,
-    "target_actionable_candidate_count": 8,
-    "current_creatable_count": 5,
-    "implementation_blocked_candidate_count": 3,
-    "disabled_information_card_count": 3
+    "brand_count": 10,
+    "product_card_count": 15,
+    "target_actionable_candidate_count": 9,
+    "current_creatable_count": 7,
+    "implementation_blocked_candidate_count": 2,
+    "disabled_information_card_count": 6
   },
   "formal_release_gates": [
     {
@@ -154,6 +154,13 @@
           "release_denominator": true,
           "status": "BLOCKED_ACCOUNT",
           "official_evidence": ["https://platform.minimaxi.com/docs/token-plan/faq"]
+        },
+        {
+          "capability_id": "extra_usage_wallet_when_present",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://platform.minimaxi.com/docs/token-plan/faq"]
         }
       ]
     },
@@ -176,7 +183,21 @@
           "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin"]
         },
         {
+          "capability_id": "window_week",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin"]
+        },
+        {
           "capability_id": "mcp_monthly_usage",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://docs.bigmodel.cn/cn/coding-plan/extension/usage-query-plugin"]
+        },
+        {
+          "capability_id": "extra_usage_wallet_when_present",
           "claimed": true,
           "release_denominator": true,
           "status": "BLOCKED_ACCOUNT",
@@ -191,15 +212,15 @@
       "region": "Global",
       "adapter_id": "antigravity",
       "target_actionable_candidate": true,
-      "current_creatable": false,
+      "current_creatable": true,
       "evidence_tier": "supported-contract",
-      "release_status": "local-statusline-bridge",
+      "release_status": "blocked-holder-live-acceptance",
       "capabilities": [
         {
           "capability_id": "window_5h",
-          "claimed": false,
-          "release_denominator": false,
-          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
           "official_evidence": [
             "https://antigravity.google/docs/cli/statusline",
             "https://antigravity.google/docs/cli/commands/usage"
@@ -207,9 +228,9 @@
         },
         {
           "capability_id": "window_week",
-          "claimed": false,
-          "release_denominator": false,
-          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
           "official_evidence": [
             "https://antigravity.google/docs/cli/statusline",
             "https://antigravity.google/docs/plans"
@@ -217,9 +238,9 @@
         },
         {
           "capability_id": "ai_credits_balance",
-          "claimed": false,
-          "release_denominator": false,
-          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
           "official_evidence": [
             "https://antigravity.google/docs/cli/statusline",
             "https://antigravity.google/docs/cli/credits"
@@ -342,6 +363,93 @@
           "release_denominator": false,
           "status": "NOT_APPLICABLE_OUT_OF_RELEASE_SCOPE",
           "official_evidence": ["https://mimo.mi.com/docs/en-US/news/latest/token-plan-release"]
+        }
+      ]
+    },
+    {
+      "product_id": "glm-api-balance-cn",
+      "brand": "Zhipu GLM",
+      "display_name": "智谱 GLM API 账户余额",
+      "region": "China",
+      "adapter_id": null,
+      "target_actionable_candidate": false,
+      "current_creatable": false,
+      "evidence_tier": "experimental",
+      "release_status": "blocked-out-of-release-scope",
+      "capabilities": [
+        {
+          "capability_id": "wallet_balance",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": ["https://docs.bigmodel.cn/"]
+        }
+      ]
+    },
+    {
+      "product_id": "minimax-api-balance-cn",
+      "brand": "MiniMax",
+      "display_name": "MiniMax API 账户余额",
+      "region": "China",
+      "adapter_id": null,
+      "target_actionable_candidate": false,
+      "current_creatable": false,
+      "evidence_tier": "experimental",
+      "release_status": "blocked-out-of-release-scope",
+      "capabilities": [
+        {
+          "capability_id": "wallet_balance",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": ["https://platform.minimaxi.com/docs/guides/pricing-paygo"]
+        }
+      ]
+    },
+    {
+      "product_id": "workbuddy-personal-cn",
+      "brand": "WorkBuddy",
+      "display_name": "WorkBuddy 个人版（中国区）",
+      "region": "China",
+      "adapter_id": "workbuddy-cn",
+      "target_actionable_candidate": true,
+      "current_creatable": true,
+      "evidence_tier": "supported-contract",
+      "release_status": "blocked-holder-live-acceptance",
+      "capabilities": [
+        {
+          "capability_id": "credits_cycle",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://www.workbuddy.cn/docs/workbuddy/Overview"]
+        },
+        {
+          "capability_id": "extra_usage_wallet_when_present",
+          "claimed": true,
+          "release_denominator": true,
+          "status": "BLOCKED_ACCOUNT",
+          "official_evidence": ["https://www.workbuddy.cn/docs/workbuddy/Overview"]
+        }
+      ]
+    },
+    {
+      "product_id": "qoder-personal-cn",
+      "brand": "Qoder",
+      "display_name": "Qoder 个人版（中国区）",
+      "region": "China",
+      "adapter_id": null,
+      "target_actionable_candidate": false,
+      "current_creatable": false,
+      "evidence_tier": "experimental",
+      "release_status": "blocked-out-of-release-scope",
+      "capabilities": [
+        {
+          "capability_id": "monthly_annual_fixed_credits",
+          "claimed": false,
+          "release_denominator": false,
+          "status": "BLOCKED_OFFICIAL_API_ABSENT",
+          "official_evidence": ["https://qoder.com/docs"]
         }
       ]
     }

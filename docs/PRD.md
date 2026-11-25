@@ -25,7 +25,7 @@
 - 无公开稳定机器合同 => 不得 Supported。
 - 自定义 URL、Cookie、浏览器状态、私有 CLI 文件 => 不得读取。
 - fixture/mock => 只算合同与 UI 验证，不算 live/production。
-- Provider 401/403 => reauth；429/5xx => bounded retryable error；未知 schema => fail closed。
+- Provider 401/403 及 OAuth 刷新 `400 invalid_grant` / `expired_token` / `invalid_token` / `access_denied` => reauth（主窗口跳出凭据过期提示弹窗、悬浮窗胶囊亮灯并展示一键重新授权入口）；429/5xx => bounded retryable error；未知 schema => fail closed。
 - 低电量/thermal 后台调度未实现 => 不得宣称已优化运行时调度。
 - 自动刷新未来启用条件 => Low Power/thermal 暂停、15 分钟最短周期、单并发合并、
   失败退避/熔断、退出释放、10 分钟空闲 wakeups/RSS/网络证据全部通过。

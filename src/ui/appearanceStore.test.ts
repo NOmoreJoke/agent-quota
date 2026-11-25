@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAppearanceStore, type AppearancePorts } from "./appearanceStore";
-import { type Appearance } from "./appearancePreference";
+import {
+  createAppearanceStore,
+  createMotionStore,
+  type AppearancePorts,
+  type MotionPorts,
+} from "./appearanceStore";
+import { type Appearance, type MotionPreference } from "./appearancePreference";
 
 function harness(saved: Appearance | null = null) {
   let persisted = saved;
@@ -122,5 +127,35 @@ describe("appearance store", () => {
     store.setTheme("dark");
     expect(store.getSnapshot()).toEqual({ theme: "dark", persisted: false });
     expect(ports.broadcast).not.toHaveBeenCalled();
+  });
+});
+
+describe("motion store", () => {
+  it("defaults to on, synchronizes across windows, and rejects invalid motion payloads", async () => {
+    let persisted: MotionPreference | null = null;
+    const receivers = new Set<(value: unknown) => void>();
+    const ports: MotionPorts = {
+      read: () => persisted,
+      write: vi.fn((value) => { persisted = value; return true; }),
+      apply: vi.fn(),
+      broadcast: vi.fn(async (value) => { receivers.forEach((receive) => receive(value)); }),
+      listen: vi.fn(async (receive) => { receivers.add(receive); return () => { receivers.delete(receive); }; }),
+    };
+    const first = createMotionStore(ports);
+    const second = createMotionStore(ports);
+    const stopFirst = first.subscribe(vi.fn());
+    const stopSecond = second.subscribe(vi.fn());
+    await Promise.resolve();
+
+    expect(first.getSnapshot()).toEqual({ motion: "on", persisted: true });
+    first.setMotion("off");
+    expect(first.getSnapshot().motion).toBe("off");
+    expect(second.getSnapshot().motion).toBe("off");
+    first.setMotion("invalid");
+    expect(first.getSnapshot().motion).toBe("off");
+    expect(ports.write).toHaveBeenCalledExactlyOnceWith("off");
+
+    stopFirst();
+    stopSecond();
   });
 });

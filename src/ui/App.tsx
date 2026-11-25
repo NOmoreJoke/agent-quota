@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { AppearanceSwitch } from "./AppearanceSwitch";
 import { transportMode } from "../host/transport";
 import { showFloatingWindow } from "../host/floatingWindow";
-import { filterProducts, productStatus } from "./launchProducts";
-import { useAppearance } from "../hooks/useAppearance";
+import { filterProducts, launchProducts, productStatus } from "./launchProducts";
+import { useAppearance, useMotion } from "../hooks/useAppearance";
 import { useQuotaController } from "../hooks/useQuotaController";
 import {
   providerOrder, safeErrorMessage, providerName, providerFromAccount, isLocalBridgeAccount,
-  windowMetric, displayedHealth, isWeeklyWindow, windowFamily,
-  compareWindowOrder, effectiveHealth,
+  reauthRequiredAccounts, windowMetric, displayedHealth, isWeeklyWindow, windowFamily,
+  compareWindowOrder, effectiveHealth, type Account,
 } from "./quotaPresentation";
 
 type View = "overview" | "accounts" | "queue" | "status" | "settings";
@@ -45,7 +45,7 @@ function Icon({ name }: { name: string }) {
 const STATUS_LABELS: Readonly<Record<string, string>> = {
     active: "已配置",
     disabled: "已停用",
-    "needs-reauth": "需重新认证",
+    "needs-reauth": "需重新授权",
     ok: "可用",
     exhausted: "已用尽",
     unavailable: "不可用",
@@ -89,13 +89,83 @@ function AccountPrivacyNote({ onOpenSecurity }: { onOpenSecurity: () => void }) 
   );
 }
 
+function ReauthPrompt({
+  accounts,
+  disabled,
+  showManageLink,
+  onReauthorize,
+  onOpenAccounts,
+  onDismiss,
+}: {
+  accounts: readonly Account[];
+  disabled: boolean;
+  showManageLink: boolean;
+  onReauthorize: (principalRef: string) => void;
+  onOpenAccounts: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <section
+      className="reauth-prompt"
+      role="alertdialog"
+      aria-labelledby="reauth-prompt-title"
+      aria-describedby="reauth-prompt-desc"
+      data-testid="reauth-prompt"
+    >
+      <div className="reauth-prompt-head">
+        <StatusPill value="needs-reauth" />
+        <button type="button" className="reauth-prompt-close" aria-label="稍后处理" onClick={onDismiss}>×</button>
+      </div>
+      <h2 id="reauth-prompt-title">凭据已过期，请重新授权</h2>
+      <p id="reauth-prompt-desc">
+        以下账户的访问凭据已失效，当前仅展示最近缓存。点击「重新授权」将打开 macOS 原生安全窗口完成登录，凭据仅保存于 Keychain。
+      </p>
+      <ul className="reauth-prompt-list">
+        {accounts.map((account) => (
+          <li key={account.principal_ref}>
+            <div className="reauth-prompt-account">
+              <span className="reauth-prompt-avatar" aria-hidden="true">
+                {providerFromAccount(account.display_label).slice(0, 1)}
+              </span>
+              <div>
+                <strong>{account.display_label}</strong>
+                <small>{safeErrorMessage(account.last_error_code ?? "reauth-required")}</small>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="primary compact"
+              disabled={disabled}
+              onClick={() => onReauthorize(account.principal_ref)}
+            >
+              重新授权
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="reauth-prompt-foot">
+        {showManageLink && (
+          <button type="button" className="text-button" onClick={onOpenAccounts}>
+            前往账户管理
+          </button>
+        )}
+        <button type="button" className="secondary compact" onClick={onDismiss}>
+          稍后处理
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export function App() {
   const [view, setView] = useState<View>("overview");
   const [overviewMode, setOverviewMode] = useState<OverviewMode>("window");
   const [query, setQuery] = useState("");
   const [providerQuery, setProviderQuery] = useState("");
   const [providerMode, setProviderMode] = useState<"all" | OverviewMode>("all");
+  const [dismissedReauthSignature, setDismissedReauthSignature] = useState<string | null>(null);
   const { theme } = useAppearance();
+  const { motion, persisted: motionPersisted, setMotion } = useMotion();
   const {
     connection, retryLoad, loading, offline, accounts, capabilities, freshness, scheduler, notice, setNotice,
     busy, refreshState, refresh, nativeCredential, reauthenticate, destructive, exportRedacted,
@@ -103,6 +173,18 @@ export function App() {
 
   const actionsDisabled = busy || loading || connection !== "ready";
   const connectionLabel = { checking: "正在连接", ready: "本机服务正常", offline: "Sidecar 离线", unavailable: "本机连接失败" }[connection];
+  const reauthAccounts = useMemo(() => reauthRequiredAccounts(accounts), [accounts]);
+  const reauthSignature = useMemo(
+    () => reauthAccounts.map((account) => account.principal_ref).sort().join("|"),
+    [reauthAccounts],
+  );
+  const showReauthPrompt =
+    !loading && reauthAccounts.length > 0 && dismissedReauthSignature !== reauthSignature;
+
+  const triggerRefresh = (scopeRef = "scope-all") => {
+    setDismissedReauthSignature(null);
+    void refresh(scopeRef);
+  };
 
   const filteredCapabilities = useMemo(() => {
     const kind = overviewMode === "window" ? "window" : "balance";
@@ -124,6 +206,12 @@ export function App() {
     .map(windowFamily)), [capabilities]);
 
   const filteredProviders = useMemo(() => filterProducts(providerQuery, providerMode), [providerMode, providerQuery]);
+  const catalogSummary = useMemo(() => {
+    const creatableCount = launchProducts.filter((product) => product.creatable).length;
+    const blockedCount = launchProducts.filter((product) => product.candidate && !product.creatable).length;
+    const infoCount = launchProducts.filter((product) => !product.candidate).length;
+    return `${launchProducts.length} 项产品 · ${creatableCount} 项可添加 · ${blockedCount} 项桥接/接入中 · ${infoCount} 项仅展示`;
+  }, []);
 
   const pageTitle = view === "overview" ? "额度总览" : nav.find((item) => item.id === view)?.label;
 
@@ -174,18 +262,54 @@ export function App() {
             {view === "accounts" ? (
               <button type="button" className="primary" disabled={actionsDisabled} onClick={() => void nativeCredential()}><Icon name="plus"/>添加 Provider</button>
             ) : (view === "overview" || view === "queue") ? (
-              <button type="button" className="primary" aria-label="全部刷新" onClick={() => void refresh()} disabled={actionsDisabled}><Icon name="refresh"/>{busy ? "刷新中…" : "全部刷新"}</button>
+              <button type="button" className={busy ? "primary is-busy" : "primary"} aria-label="全部刷新" onClick={() => triggerRefresh()} disabled={actionsDisabled}><Icon name="refresh"/>{busy ? "刷新中…" : "全部刷新"}</button>
             ) : null}
           </div>
         </header>
 
         {offline && <div className="banner warning" role="status">当前离线：展示最近一次本机缓存；写操作已暂停。</div>}
         {notice && <div className={`banner ${notice.tone}`} role="status" aria-live="polite"><span>{notice.text}</span><button type="button" aria-label="关闭通知" onClick={() => setNotice(null)}>×</button></div>}
+        {!loading && reauthAccounts.length > 0 && !showReauthPrompt && (
+          <div className="banner danger reauth-banner" role="alert" data-testid="reauth-banner">
+            <span>
+              {reauthAccounts.length === 1
+                ? `${reauthAccounts[0].display_label} 凭据已过期，无法同步最新额度。`
+                : `${reauthAccounts.length} 个账户凭据已过期，无法同步最新额度。`}
+            </span>
+            <div className="reauth-banner-actions">
+              {reauthAccounts.length === 1 ? (
+                <button
+                  type="button"
+                  className="primary compact"
+                  disabled={actionsDisabled}
+                  onClick={() => void reauthenticate(reauthAccounts[0].principal_ref)}
+                >
+                  重新授权
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="primary compact"
+                  disabled={actionsDisabled}
+                  onClick={() => setDismissedReauthSignature(null)}
+                >
+                  查看并重新授权
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {(connection === "unavailable" || connection === "offline") && <button type="button" className="secondary" disabled={busy || loading} onClick={() => void retryLoad()}>重新连接本机服务</button>}
 
         {loading ? (
-          <section className="loading-grid" aria-label="正在加载"><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></section>
+          <section className="loading-stage" aria-label="正在加载">
+            <div className="loading-pulse" aria-hidden="true">
+              <span className="motion-bars"><i /><i /><i /></span>
+              <span>正在同步本机额度快照…</span>
+            </div>
+            <div className="loading-grid"><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></div>
+          </section>
         ) : view === "overview" ? (
           accounts.length === 0 ? <EmptyState disabled={actionsDisabled} onAdd={() => void nativeCredential()}/> : (
             <section aria-label="额度摘要">
@@ -228,22 +352,34 @@ export function App() {
             <AccountPrivacyNote onOpenSecurity={() => setView("settings")}/>
             <h2 className="section-title">已配置 Provider</h2>
             <div className="provider-grid">
-              {accounts.map((account) => (
-                <article className="provider-card" key={account.principal_ref}>
+              {accounts.map((account) => {
+                const needsReauth = account.lifecycle === "needs-reauth" && !isLocalBridgeAccount(account.display_label);
+                return (
+                <article className={`provider-card ${needsReauth ? "needs-reauth" : ""}`} key={account.principal_ref}>
                   <div className="provider-card-head"><div className="provider-avatar">{providerFromAccount(account.display_label).slice(0, 1)}</div><div><h3>{providerFromAccount(account.display_label)}</h3><p>{account.display_label}</p></div><StatusPill value={account.lifecycle}/></div>
                   <p className="last-refresh">{isLocalBridgeAccount(account.display_label) ? "凭据：agy statusLine 本地推送 · 无密钥存储" : "凭据：macOS Keychain · 查询：只读"}</p>
                   {account.last_error_code && (
                     <p className="last-refresh">最近错误：{safeErrorMessage(account.last_error_code)}</p>
                   )}
                   <div className="provider-actions">
-                    <button type="button" className="primary compact" disabled={actionsDisabled} onClick={() => { setView("queue"); void refresh(account.principal_ref); }}>刷新</button>
-                    {!isLocalBridgeAccount(account.display_label) && (
-                      <button type="button" className="secondary compact" disabled={actionsDisabled} onClick={() => void reauthenticate(account.principal_ref)}>{account.lifecycle === "needs-reauth" ? "重新认证" : "更换凭据"}</button>
+                    {needsReauth ? (
+                      <>
+                        <button type="button" className="primary compact" disabled={actionsDisabled} onClick={() => void reauthenticate(account.principal_ref)}>重新授权</button>
+                        <button type="button" className="secondary compact" disabled={actionsDisabled} onClick={() => { setView("queue"); triggerRefresh(account.principal_ref); }}>刷新</button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className="primary compact" disabled={actionsDisabled} onClick={() => { setView("queue"); triggerRefresh(account.principal_ref); }}>刷新</button>
+                        {!isLocalBridgeAccount(account.display_label) && (
+                          <button type="button" className="secondary compact" disabled={actionsDisabled} onClick={() => void reauthenticate(account.principal_ref)}>更换凭据</button>
+                        )}
+                      </>
                     )}
                     <button type="button" className="text-button danger-text" disabled={actionsDisabled} onClick={() => void destructive("delete", account.principal_ref)}>删除</button>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
             {accounts.length === 0 && (
               <EmptyState disabled={actionsDisabled} onAdd={() => void nativeCredential()} />
@@ -252,7 +388,7 @@ export function App() {
               <div className="catalog-heading">
                 <div>
                   <h2 id="provider-catalog-title" className="section-title">Provider Preset</h2>
-                  <p>11 项产品 · 5 项可添加 · 3 项桥接/接入中 · 3 项仅展示</p>
+                  <p>{catalogSummary}</p>
                 </div>
                 <label className="search catalog-search"><Icon name="search"/><input value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} placeholder="搜索 Provider" aria-label="搜索 Provider Preset"/></label>
               </div>
@@ -300,7 +436,28 @@ export function App() {
         ) : (
           <section className="settings-page">
             <h2 className="settings-label">显示</h2>
-            <div className="settings-panel"><div><span>主题</span><strong>{theme === "dark" ? "深色（已同步）" : "浅色（已同步）"}</strong></div><div><span>时区</span><strong>Asia/Shanghai (UTC+8)（固定）</strong></div><div><span>减少动效</span><strong>跟随系统（固定）</strong></div></div>
+            <div className="settings-panel">
+              <div><span>主题</span><strong>{theme === "dark" ? "深色（已同步）" : "浅色（已同步）"}</strong></div>
+              <div><span>时区</span><strong>Asia/Shanghai (UTC+8)（固定）</strong></div>
+              <div className="settings-motion-row">
+                <div className="settings-row-copy">
+                  <span>动效加载</span>
+                  <small>{motionPersisted ? "微交互过渡、进度回弹与脉冲加载（主窗与悬浮窗同步）" : "动效偏好未能保存，本次窗口仍已切换"}</small>
+                </div>
+                <button
+                  type="button"
+                  className={`motion-switch ${motion === "on" ? "is-on" : ""}`}
+                  aria-label="开启动效加载"
+                  aria-pressed={motion === "on"}
+                  onClick={() => setMotion(motion === "on" ? "off" : "on")}
+                >
+                  <span className="motion-switch-track" aria-hidden="true"><i /></span>
+                  <span className="motion-bars mini" aria-hidden="true"><i /><i /><i /></span>
+                  <span>{motion === "on" ? "动效加载：已开启" : "开启动效加载"}</span>
+                </button>
+              </div>
+              <div><span>减少动效</span><strong>跟随系统（固定）</strong></div>
+            </div>
             <h2 className="settings-label">安全</h2>
             <div className="settings-panel"><div><span>凭据后端</span><strong>macOS Keychain（固定）</strong></div><div><span>Renderer 隔离</span><strong>已启用（默认）</strong></div><div><span>诊断日志</span><button type="button" className="text-button" disabled={actionsDisabled} onClick={() => void exportRedacted()}>导出脱敏诊断</button></div></div>
             <h2 className="settings-label">无障碍</h2>
@@ -310,6 +467,19 @@ export function App() {
           </section>
         )}
       </main>
+      {showReauthPrompt && (
+        <ReauthPrompt
+          accounts={reauthAccounts}
+          disabled={actionsDisabled}
+          showManageLink={view !== "accounts"}
+          onReauthorize={(principalRef) => void reauthenticate(principalRef)}
+          onOpenAccounts={() => {
+            setDismissedReauthSignature(reauthSignature);
+            setView("accounts");
+          }}
+          onDismiss={() => setDismissedReauthSignature(reauthSignature)}
+        />
+      )}
     </div>
   );
 }

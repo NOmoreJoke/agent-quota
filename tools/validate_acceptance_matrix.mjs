@@ -28,10 +28,18 @@ const approvedClaimedCells = new Set([
   "kimi-code-token-plan/extra_usage_wallet_when_present",
   "minimax-token-plan-cn/window_5h",
   "minimax-token-plan-cn/window_week",
+  "minimax-token-plan-cn/extra_usage_wallet_when_present",
   "glm-coding-plan-cn/token_window_5h",
+  "glm-coding-plan-cn/window_week",
   "glm-coding-plan-cn/mcp_monthly_usage",
+  "glm-coding-plan-cn/extra_usage_wallet_when_present",
+  "google-antigravity/window_5h",
+  "google-antigravity/window_week",
+  "google-antigravity/ai_credits_balance",
   "volcengine-ark-agent-plan-personal/window_5h",
   "volcengine-ark-agent-plan-personal/window_week",
+  "workbuddy-personal-cn/credits_cycle",
+  "workbuddy-personal-cn/extra_usage_wallet_when_present",
 ]);
 const approvedRequiredGates = new Set([
   "holder_live_lifecycle",

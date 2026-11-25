@@ -9,11 +9,10 @@
 ## Scope & engineering status
 
 - Machine authority: `docs/acceptance-matrix-v2.json` -> `src/agent_quota/resources/launch_products_v1.json`.
-- Launch product matrix: **11 product cards / 8 brands**:
-  - **5 creatable Keychain/OAuth cards**: DeepSeek API 余额、Kimi API 余额（中国区）、Kimi Code Token Plan、MiniMax Token Plan（中国区）、GLM Coding Plan（中国区）.
-  - **1 official local CLI bridge card**: Google Antigravity (`agy` `statusLine` JSON stdin push via `setup-antigravity` / `ingest-antigravity-statusline`, zero Keychain secret storage).
+- Launch product matrix: **15 product cards / 10 brands**:
+  - **7 creatable Keychain/OAuth cards**: DeepSeek API 余额、Kimi API 余额（中国区）、Kimi Code Token Plan、MiniMax Token Plan（中国区）（含加油包 Wallet）、GLM Coding Plan（中国区）（含周窗口与加油包 Wallet）、Google Antigravity（Google OAuth + CloudCode 只读查询，同时兼容 `agy statusLine` 本地零密钥桥接共存）、WorkBuddy 个人版（中国区）（官方无端口 OAuth + Billing 周期积分与加油包 Wallet）.
   - **2 holder-gated candidate cards**: 火山方舟 Agent Plan（个人版）and 火山引擎账户余额 (adapters, official `GET` signature, strict 5-string decimal parser, and dynamic dual-secret AppKit dialog implemented; kept `current_creatable=false` until live holder verification).
-  - **3 disabled information cards**: 百炼 Coding Plan、百炼 Token Plan 个人版、Xiaomi MiMo Token Plan.
+  - **6 disabled information cards**: 百炼 Coding Plan、百炼 Token Plan 个人版、Xiaomi MiMo Token Plan、智谱 GLM API 账户余额、MiniMax API 账户余额、Qoder 个人版（中国区）.
 
 ## Required holder-controlled acceptance
 
@@ -29,9 +28,10 @@
 | Gate | Current result |
 |---|---|
 | Scope machine contract (`validate_acceptance_matrix.sh`) |Implemented & validated (`status=blocked` until live cells pass) |
-| Eleven-card launch UI & cross-language minimizer/parser invariants | PASS |
+| Fifteen-card launch UI & cross-language minimizer/parser invariants | PASS |
 | Volcengine `volc-plan` / `volc-wallet` code & dual-secret selector | Implemented; awaiting live holder promotion |
-| Antigravity `agy` `statusLine` zero-PII local bridge & packaged CLI | PASS |
+| Antigravity OAuth/CloudCode + `agy` `statusLine` zero-PII bridge coexistence | PASS |
+| WorkBuddy CN Personal OAuth/Billing & GLM/MiniMax boost-pack minimizer/parser | PASS |
 | Claimed Provider live holder acceptance | `BLOCKED_ACCOUNT` |
 | Developer ID signing / notarization / stapling | `BLOCKED_IDENTITY` |
 | Local `.app` (`<= 40 MiB`), `.dmg` (`<= 20 MiB`), SBOM & license closure | Verified in `adhoc-test-only` mode; must be re-run with `Developer ID` on final tag |

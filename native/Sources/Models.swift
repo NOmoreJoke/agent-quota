@@ -11,11 +11,19 @@ let maxResponseBytes = 384 * 1024
 let maxProviderBodyBytes = 256 * 1024
 let kimiCodeOAuthHost = "auth.kimi.com"
 let kimiCodeOAuthClientID = "17e5f671-d194-4dfb-9706-5516cb48c098"
+let antigravityOAuthAuthHost = "accounts.google.com"
+let antigravityOAuthTokenHost = "oauth2.googleapis.com"
+let antigravityCloudCodePrimaryHost = "daily-cloudcode-pa.googleapis.com"
+let antigravityCloudCodeFallbackHost = "cloudcode-pa.googleapis.com"
+let workbuddyCNHost = "www.workbuddy.cn"
+let workbuddyCNBackupHost = "copilot.tencent.com"
 
 enum ProviderAuthMode: Equatable {
     case bearer
     case raw
     case kimiCodeOAuth
+    case antigravityOAuth
+    case workbuddyCNOAuth
     case volcAKSK(service: String, region: String, action: String, version: String, method: String)
     case aliyunRPC(action: String, version: String)
 }
@@ -48,6 +56,7 @@ struct ProviderDefinition {
 }
 
 let providers = [
+    ProviderDefinition(id: "antigravity", label: "Google Antigravity", host: "daily-cloudcode-pa.googleapis.com", path: "/v1internal:fetchAvailableModels", authMode: .antigravityOAuth),
     ProviderDefinition(id: "bailian-wallet", label: "阿里云账户余额（百炼）", host: "business.aliyuncs.com", path: "/", authMode: .aliyunRPC(action: "QueryAccountBalance", version: "2017-12-14")),
     ProviderDefinition(id: "deepseek", label: "DeepSeek", host: "api.deepseek.com", path: "/user/balance", authMode: .bearer),
     ProviderDefinition(id: "glm-cn", label: "GLM Coding Plan（中国区）", host: "open.bigmodel.cn", path: "/api/monitor/usage/quota/limit", authMode: .raw),
@@ -59,15 +68,18 @@ let providers = [
     ProviderDefinition(id: "minimax-global", label: "MiniMax Token Plan（国际区）", host: "www.minimax.io", path: "/v1/token_plan/remains", authMode: .bearer),
     ProviderDefinition(id: "volc-wallet", label: "火山引擎账户余额", host: "open.volcengineapi.com", path: "/", authMode: .volcAKSK(service: "billing", region: "cn-beijing", action: "QueryBalanceAcct", version: "2022-01-01", method: "GET")),
     ProviderDefinition(id: "volc-plan", label: "火山方舟 Coding Plan", host: "ark.cn-beijing.volces.com", path: "/", authMode: .volcAKSK(service: "ark", region: "cn-beijing", action: "GetAFPUsage", version: "2024-01-01", method: "POST")),
+    ProviderDefinition(id: "workbuddy-cn", label: "WorkBuddy 个人版（中国区）", host: "www.workbuddy.cn", path: "/billing/meter/get-user-resource-summary", authMode: .workbuddyCNOAuth),
 ]
 
 // BEGIN GENERATED LAUNCH CREATE IDS
 let creatableProviderIDs = [
+    "antigravity",
     "deepseek",
     "glm-cn",
     "kimi-cn",
     "kimi-code",
     "minimax-cn",
+    "workbuddy-cn",
 ]
 // END GENERATED LAUNCH CREATE IDS
 
@@ -95,6 +107,38 @@ struct KimiCodeTokenBundle: Codable {
         case scope
         case tokenType = "token_type"
         case expiresIn = "expires_in"
+    }
+}
+
+struct AntigravityTokenBundle: Codable {
+    let accessToken: String
+    let refreshToken: String
+    let expiresAt: Int64
+    let projectID: String
+    let clientID: String
+    let clientSecret: String
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresAt = "expires_at"
+        case projectID = "project_id"
+        case clientID = "client_id"
+        case clientSecret = "client_secret"
+    }
+}
+
+struct WorkBuddyTokenBundle: Codable {
+    let accessToken: String
+    let refreshToken: String
+    let expiresAt: Int64
+    let tokenType: String
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresAt = "expires_at"
+        case tokenType = "token_type"
     }
 }
 
@@ -224,7 +268,7 @@ func requiresDualCloudSecret(_ mode: ProviderAuthMode) -> Bool {
     switch mode {
     case .volcAKSK, .aliyunRPC:
         return true
-    case .bearer, .raw, .kimiCodeOAuth:
+    case .bearer, .raw, .kimiCodeOAuth, .antigravityOAuth, .workbuddyCNOAuth:
         return false
     }
 }

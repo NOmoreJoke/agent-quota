@@ -340,8 +340,12 @@ def _validate_internal_response(command_id: str, payload: dict[str, object]) -> 
         _exact(payload, {"status"})
         _bounded_string(payload["status"], 32)
     elif command_id == "host_internal.credential_context":
-        _exact(payload, {"credential_reference", "generation", "provider_id", "status"})
+        _exact(
+            payload,
+            {"credential_reference", "credential_type", "generation", "provider_id", "status"},
+        )
         _bounded_string(payload["credential_reference"])
+        _bounded_string(payload["credential_type"], 64)
         _bounded_integer(payload["generation"])
         _bounded_string(payload["provider_id"], 32)
     elif command_id == "host_internal.credential_candidate_create":
@@ -417,11 +421,11 @@ def _internal_dispatch(
             native.acknowledge_cleanup(cast(list[str], payload["references"]))
             return {"status": "acknowledged"}
         if command_id == "host_internal.credential_context":
-            reference, generation, provider_id = native.credential_context(
-                str(payload["principal_ref"])
-            )
+            principal = str(payload["principal_ref"])
+            reference, generation, provider_id = native.credential_context(principal)
             return {
                 "credential_reference": reference,
+                "credential_type": native.credential_type(principal),
                 "generation": generation,
                 "provider_id": provider_id,
                 "status": "ok",

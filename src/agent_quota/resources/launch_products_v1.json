@@ -1,6 +1,6 @@
 {
   "schema": "aq-launch-products-v1",
-  "source_sha256": "cafcad91eccd66beaeddd25759027e9f469f2e40db0e7a427e89f8d58ee35c15",
+  "source_sha256": "8c621d86bdfb1223be997a5f986fc34ac2eb1fb644cce50875064dc63eb062bf",
   "products": [
     {
       "product_id": "deepseek-api-balance-cn",
@@ -54,10 +54,11 @@
       "candidate": true,
       "creatable": true,
       "window": true,
-      "wallet": false,
+      "wallet": true,
       "capabilities": [
         "5 小时窗口",
-        "周窗口"
+        "周窗口",
+        "额外用量 (存在时)"
       ],
       "state": "creatable"
     },
@@ -69,10 +70,12 @@
       "candidate": true,
       "creatable": true,
       "window": true,
-      "wallet": false,
+      "wallet": true,
       "capabilities": [
         "5 小时 Token 窗口",
-        "MCP 月度用量"
+        "周窗口",
+        "MCP 月度用量",
+        "额外用量 (存在时)"
       ],
       "state": "creatable"
     },
@@ -82,7 +85,7 @@
       "display_name": "Google Antigravity",
       "adapter_id": "antigravity",
       "candidate": true,
-      "creatable": false,
+      "creatable": true,
       "window": true,
       "wallet": true,
       "capabilities": [
@@ -90,7 +93,7 @@
         "周窗口",
         "AI Credits 余额"
       ],
-      "state": "implementation-blocked"
+      "state": "creatable"
     },
     {
       "product_id": "volcengine-ark-agent-plan-personal",
@@ -153,6 +156,63 @@
       "product_id": "xiaomi-mimo-token-plan",
       "brand": "Xiaomi MiMo",
       "display_name": "Xiaomi MiMo Token Plan",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": false,
+      "wallet": false,
+      "capabilities": [
+        "月度 / 年度固定积分"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "glm-api-balance-cn",
+      "brand": "Zhipu GLM",
+      "display_name": "智谱 GLM API 账户余额",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": false,
+      "wallet": true,
+      "capabilities": [
+        "账户余额"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "minimax-api-balance-cn",
+      "brand": "MiniMax",
+      "display_name": "MiniMax API 账户余额",
+      "adapter_id": null,
+      "candidate": false,
+      "creatable": false,
+      "window": false,
+      "wallet": true,
+      "capabilities": [
+        "账户余额"
+      ],
+      "state": "information-only"
+    },
+    {
+      "product_id": "workbuddy-personal-cn",
+      "brand": "WorkBuddy",
+      "display_name": "WorkBuddy 个人版（中国区）",
+      "adapter_id": "workbuddy-cn",
+      "candidate": true,
+      "creatable": true,
+      "window": true,
+      "wallet": true,
+      "capabilities": [
+        "周期积分",
+        "额外用量 (存在时)"
+      ],
+      "state": "creatable"
+    },
+    {
+      "product_id": "qoder-personal-cn",
+      "brand": "Qoder",
+      "display_name": "Qoder 个人版（中国区）",
       "adapter_id": null,
       "candidate": false,
       "creatable": false,

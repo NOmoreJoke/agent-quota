@@ -1,0 +1,35 @@
+{
+  "schema": "aq-provider-recording-v1",
+  "provider_id": "workbuddy-cn",
+  "source_kind": "official-schema",
+  "live_verified": false,
+  "recorded_at": null,
+  "evidence_url": "https://www.workbuddy.cn/docs/workbuddy/Overview",
+  "sanitization": "Synthetic contract fixture derived from WorkBuddy Desktop parseResourceSummary schema; all uid/enterprise/email fields omitted.",
+  "response_sha256": "946481e261fe449624e2048479fc6fc76f1100ab2d6c102af5dd6f5f3dfb1126",
+  "response": {
+    "code": 0,
+    "data": {
+      "IsPaidUser": true,
+      "SubscriptionPackageCode": "TCACA_code_002_AkiJS3ZHF5",
+      "Packages": [
+        {
+          "PackageCode": "TCACA_code_002_AkiJS3ZHF5",
+          "CycleTotalCapacity": 1000,
+          "CycleRemainCapacity": 750,
+          "CycleUsedCapacity": 250
+        },
+        {
+          "PackageCode": "TCACA_extra_001",
+          "CycleTotalCapacity": 500,
+          "CycleRemainCapacity": 400,
+          "CycleUsedCapacity": 100
+        }
+      ]
+    }
+  },
+  "expected_projection": [
+    "周期积分 (750 / 1000) · 剩余 75%",
+    "加油包剩余 400 / 500"
+  ]
+}

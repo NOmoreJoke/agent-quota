@@ -19,35 +19,37 @@ def test_launch_acceptance_matrix_is_closed_and_complete() -> None:
         "is PASS and every formal release gate is PASS"
     )
     assert summary == {
-        "brand_count": 8,
-        "product_card_count": 11,
-        "target_actionable_candidate_count": 8,
-        "current_creatable_count": 5,
-        "implementation_blocked_candidate_count": 3,
-        "disabled_information_card_count": 3,
+        "brand_count": 10,
+        "product_card_count": 15,
+        "target_actionable_candidate_count": 9,
+        "current_creatable_count": 7,
+        "implementation_blocked_candidate_count": 2,
+        "disabled_information_card_count": 6,
     }
     assert len(products) == summary["product_card_count"]
     assert len({product["brand"] for product in products}) == summary["brand_count"]
     assert len({product["product_id"] for product in products}) == len(products)
-    assert sum(product["target_actionable_candidate"] for product in products) == 8
-    assert sum(product["current_creatable"] for product in products) == 5
+    assert sum(product["target_actionable_candidate"] for product in products) == 9
+    assert sum(product["current_creatable"] for product in products) == 7
     assert (
         sum(
             product["target_actionable_candidate"] and not product["current_creatable"]
             for product in products
         )
-        == 3
+        == 2
     )
     assert (
         sum(product["release_status"] == "blocked-out-of-release-scope" for product in products)
-        == 3
+        == 6
     )
     assert {product["adapter_id"] for product in products if product["current_creatable"]} == {
+        "antigravity",
         "deepseek",
         "glm-cn",
         "kimi-cn",
         "kimi-code",
         "minimax-cn",
+        "workbuddy-cn",
     }
     target_adapters = {
         product["adapter_id"] for product in products if product["target_actionable_candidate"]
@@ -61,6 +63,7 @@ def test_launch_acceptance_matrix_is_closed_and_complete() -> None:
         "minimax-cn",
         "volc-plan",
         "volc-wallet",
+        "workbuddy-cn",
     }
     disabled = [product for product in products if not product["target_actionable_candidate"]]
     assert all(product["adapter_id"] is None for product in disabled)

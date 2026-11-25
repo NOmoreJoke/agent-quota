@@ -89,15 +89,17 @@ test("launch catalog separates creatable, blocked and information products", asy
   await page.getByRole("button", { name: "账户与 Provider" }).click();
 
   const catalog = page.locator("[data-provider-id]");
-  await expect(catalog).toHaveCount(11);
-  await expect(catalog.locator("button:enabled")).toHaveCount(5);
-  await expect(catalog.locator("button:disabled")).toHaveCount(6);
+  await expect(catalog).toHaveCount(15);
+  await expect(catalog.locator("button:enabled")).toHaveCount(7);
+  await expect(catalog.locator("button:disabled")).toHaveCount(8);
 
   expect(await catalog.evaluateAll((cards) => cards.map((card) => card.getAttribute("data-provider-id")))).toEqual([
     "deepseek-api-balance-cn", "kimi-api-balance-cn", "kimi-code-token-plan",
     "minimax-token-plan-cn", "glm-coding-plan-cn", "google-antigravity",
     "volcengine-ark-agent-plan-personal", "volcengine-billing-balance",
     "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
+    "glm-api-balance-cn", "minimax-api-balance-cn",
+    "workbuddy-personal-cn", "qoder-personal-cn",
   ]);
 
   const search = page.getByRole("textbox", { name: "搜索 Provider Preset" });
@@ -120,11 +122,11 @@ test("launch catalog separates creatable, blocked and information products", asy
     .toBe(true);
 
   await filter.getByRole("button", { name: "Window View" }).click();
-  await expect(catalog).toHaveCount(7);
+  await expect(catalog).toHaveCount(8);
   await expect(page.locator('[data-provider-id="xiaomi-mimo-token-plan"]')).toHaveCount(0);
 
   await filter.getByRole("button", { name: "Wallet View" }).click();
-  await expect(catalog).toHaveCount(5);
+  await expect(catalog).toHaveCount(10);
   await expect(page.locator('[data-provider-id="volcengine-billing-balance"] button')).toBeDisabled();
 
   for (const width of [1024, 390]) {
@@ -163,4 +165,142 @@ test("latest prototype keeps five operable navigation items and a left sidebar",
     await page.getByRole("button", { name, exact: true }).click();
     await expect(page.locator('[aria-current="page"]')).toHaveCount(1);
   }
+});
+
+test("action buttons stay single-line, unclipped, and bottom-aligned across adaptive viewports", async ({ page }) => {
+  for (const scenarioUrl of ["/?scenario=floating", "/", "/?scenario=antigravity"]) {
+    await page.goto(scenarioUrl);
+    await page.getByRole("button", { name: "账户与 Provider", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "已配置 Provider" })).toBeVisible();
+
+    for (const width of [1280, 1120, 1024, 820, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const metrics = await page.evaluate(() => {
+        const pageFits = document.documentElement.scrollWidth <= document.documentElement.clientWidth;
+        const selectors = [
+          ".topbar button",
+          ".sidebar-foot button",
+          ".contract-note button",
+          ".segmented button",
+          ".provider-actions button",
+          ".preset-card button",
+        ];
+        const buttons = selectors
+          .flatMap((selector) => [...document.querySelectorAll<HTMLButtonElement>(selector)])
+          .filter((button) => button.offsetParent !== null);
+
+        const clippedOrWrapped = buttons
+          .filter((button) => {
+            const box = button.getBoundingClientRect();
+            return button.scrollWidth > button.clientWidth + 1 || box.height > 42;
+          })
+          .map((button) => ({
+            text: button.textContent?.trim(),
+            height: Math.round(button.getBoundingClientRect().height),
+            scrollWidth: button.scrollWidth,
+            clientWidth: button.clientWidth,
+          }));
+
+        const overflowingCards = [...document.querySelectorAll<HTMLElement>(".provider-card, .preset-card")]
+          .filter((card) => card.scrollWidth > card.clientWidth + 1)
+          .map((card) => card.className);
+
+        const cardsByRow = new Map<number, number[]>();
+        for (const card of document.querySelectorAll<HTMLElement>(".provider-card")) {
+          const cardTop = Math.round(card.getBoundingClientRect().top);
+          const actions = card.querySelector<HTMLElement>(".provider-actions");
+          if (!actions) continue;
+          const rowKey = [...cardsByRow.keys()].find((key) => Math.abs(key - cardTop) <= 2) ?? cardTop;
+          const list = cardsByRow.get(rowKey) ?? [];
+          list.push(Math.round(actions.getBoundingClientRect().bottom));
+          cardsByRow.set(rowKey, list);
+        }
+        const misalignedRows = [...cardsByRow.values()].filter(
+          (bottoms) => Math.max(...bottoms) - Math.min(...bottoms) > 2,
+        );
+
+        return { pageFits, clippedOrWrapped, overflowingCards, misalignedRows };
+      });
+
+      expect(metrics).toEqual({
+        pageFits: true,
+        clippedOrWrapped: [],
+        overflowingCards: [],
+        misalignedRows: [],
+      });
+      if (scenarioUrl === "/?scenario=floating" && (width === 1280 || width === 1120)) {
+        await page.screenshot({ path: `output/playwright/accounts-adaptive-${width}.png` });
+      }
+    }
+  }
+});
+
+test("expired credential prompts reauthorization in main and floating surfaces", async ({ page }) => {
+  await page.goto("/?scenario=reauth");
+  const prompt = page.getByTestId("reauth-prompt");
+  await expect(prompt).toBeVisible();
+  await expect(prompt).toContainText("凭据已过期，请重新授权");
+  await expect(prompt).toContainText("Kimi Code Token Plan");
+
+  await prompt.getByRole("button", { name: "稍后处理" }).first().click();
+  await expect(prompt).toHaveCount(0);
+  await expect(page.getByTestId("reauth-banner")).toContainText("Kimi Code Token Plan 凭据已过期");
+
+  await page.getByRole("button", { name: "全部刷新" }).click();
+  await expect(prompt).toBeVisible();
+  await prompt.getByRole("button", { name: "重新授权" }).click();
+  await expect(prompt).toHaveCount(0);
+  await expect(page.getByTestId("reauth-banner")).toHaveCount(0);
+
+  await page.goto("/?surface=floating&scenario=reauth");
+  await expect(page.locator(".floating-summary")).toHaveText("1 项需授权");
+  await page.getByRole("button", { name: "展开用量悬浮窗" }).click();
+  const floatingAlert = page.getByTestId("floating-reauth-alert");
+  await expect(floatingAlert).toBeVisible();
+  await expect(floatingAlert).toContainText("Kimi Code Token Plan");
+  await floatingAlert.getByRole("button", { name: "重新授权" }).click();
+  await expect(floatingAlert).toHaveCount(0);
+});
+
+test("settings motion switch toggles animated loading, persists across reload, and syncs to floating window", async ({ page, context }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await page.goto("/?scenario=floating");
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "on");
+
+  const floating = await context.newPage();
+  await floating.emulateMedia({ reducedMotion: "no-preference" });
+  await floating.setViewportSize({ width: 384, height: 536 });
+  await floating.goto("/?surface=floating&scenario=floating");
+  await expect(floating.locator("html")).toHaveAttribute("data-motion", "on");
+
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  const motionButton = page.getByRole("button", { name: "开启动效加载" });
+  await expect(motionButton).toBeVisible();
+  await expect(motionButton).toHaveAttribute("aria-pressed", "true");
+  await expect(motionButton).toContainText("动效加载：已开启");
+
+  const activePulse = await motionButton.locator(".motion-bars i").first()
+    .evaluate((el) => getComputedStyle(el).animationName);
+  expect(activePulse).toBe("bars-fade");
+  await page.screenshot({ path: "output/playwright/settings-motion-on.png" });
+
+  await motionButton.click();
+  await expect(motionButton).toHaveAttribute("aria-pressed", "false");
+  await expect(motionButton).toContainText("开启动效加载");
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+  await expect(floating.locator("html")).toHaveAttribute("data-motion", "off");
+
+  const disabledPulse = await motionButton.locator(".motion-bars i").first()
+    .evaluate((el) => ({ animationName: getComputedStyle(el).animationName, transitionDuration: getComputedStyle(el).transitionDuration }));
+  expect(disabledPulse).toEqual({ animationName: "none", transitionDuration: "0s" });
+
+  await page.reload();
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+  await expect(motionButton).toHaveAttribute("aria-pressed", "false");
+
+  await motionButton.click();
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "on");
+  await expect(floating.locator("html")).toHaveAttribute("data-motion", "on");
 });

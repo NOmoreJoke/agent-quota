@@ -20,7 +20,59 @@ func selectedArray(_ value: Any?, _ keys: [String], maximum: Int) -> [[String: A
     return result
 }
 
+func isSafeFiniteNumber(_ value: Any?) -> Bool {
+    if let number = value as? NSNumber {
+        return CFGetTypeID(number) != CFBooleanGetTypeID() && number.doubleValue.isFinite
+    }
+    if let text = value as? String, !text.isEmpty, text.utf8.count <= 64, let number = Double(text) {
+        return number.isFinite
+    }
+    return false
+}
+
+func boundedShortString(_ value: Any?, maximumBytes: Int) -> String? {
+    guard let text = value as? String, !text.isEmpty, text.utf8.count <= maximumBytes else {
+        return nil
+    }
+    return text
+}
+
 func minimizedProviderDocument(provider: String, document: [String: Any]) -> [String: Any]? {
+    if provider == "antigravity" {
+        var result: [String: Any] = [:]
+        if let tier = boundedShortString(document["tier"], maximumBytes: 48) {
+            result["tier"] = tier
+        }
+        if isSafeFiniteNumber(document["aiCredits"]), let credits = document["aiCredits"] {
+            result["aiCredits"] = credits
+        }
+        if let rawBuckets = document["buckets"] as? [Any] {
+            guard rawBuckets.count <= 16 else { return nil }
+            var sanitizedBuckets: [[String: Any]] = []
+            for item in rawBuckets {
+                guard
+                    let bucket = item as? [String: Any],
+                    let bucketID = boundedShortString(bucket["id"], maximumBytes: 64),
+                    isSafeFiniteNumber(bucket["remainingFraction"])
+                else { return nil }
+                var entry: [String: Any] = [
+                    "id": bucketID,
+                    "remainingFraction": bucket["remainingFraction"] as Any,
+                ]
+                if let window = boundedShortString(bucket["window"], maximumBytes: 16) {
+                    entry["window"] = window
+                }
+                if let resetTime = boundedShortString(bucket["resetTime"], maximumBytes: 48) {
+                    entry["resetTime"] = resetTime
+                }
+                sanitizedBuckets.append(entry)
+            }
+            result["buckets"] = sanitizedBuckets
+        }
+        let nonEmptyBuckets = (result["buckets"] as? [[String: Any]])?.isEmpty == false
+        guard nonEmptyBuckets || result["aiCredits"] != nil else { return nil }
+        return result
+    }
     if provider == "deepseek" {
         guard let balances = selectedArray(
             document["balance_infos"],
@@ -82,20 +134,51 @@ func minimizedProviderDocument(provider: String, document: [String: Any]) -> [St
                 maximum: 32
             )
         else { return nil }
-        return [
+        var result: [String: Any] = [
             "base_resp": selected(base, ["status_code"]),
             "model_remains": models,
         ]
+        for extraKey in ["extra_remains", "boost_remains", "package_remains", "wallet_remains"] {
+            if let extra = document[extraKey] as? [String: Any] {
+                result[extraKey] = selected(
+                    extra,
+                    [
+                        "remaining", "remain", "total", "limit", "used",
+                        "available", "balance", "remaining_percent", "unit", "currency", "name",
+                    ]
+                )
+            }
+        }
+        return result
     }
     if provider == "glm-cn" || provider == "glm-global" {
         if document["success"] as? Bool == false {
             return selected(document, ["success", "code"])
         }
         let data = document["data"] as? [String: Any] ?? document
-        guard let limits = selectedArray(data["limits"], ["type", "percentage"], maximum: 16)
+        guard let limits = selectedArray(
+            data["limits"],
+            [
+                "type", "unit", "number", "percentage", "usage",
+                "currentValue", "remaining", "limitValue", "nextResetTime",
+            ],
+            maximum: 16
+        )
         else { return nil }
+        var sanitizedData: [String: Any] = ["limits": limits]
+        if let level = boundedShortString(data["level"], maximumBytes: 32) {
+            sanitizedData["level"] = level
+        }
+        for extraKey in ["extra", "extraPackage", "boostPack", "fuelPack"] {
+            if let extra = data[extraKey] as? [String: Any] {
+                sanitizedData[extraKey] = selected(
+                    extra,
+                    ["remaining", "total", "limit", "used", "balance", "available", "unit", "currency", "type"]
+                )
+            }
+        }
         var result = selected(document, ["code", "success"])
-        result["data"] = ["limits": limits]
+        result["data"] = sanitizedData
         return result
     }
     if provider == "volc-wallet" {
@@ -123,6 +206,24 @@ func minimizedProviderDocument(provider: String, document: [String: Any]) -> [St
             data,
             ["AvailableAmount", "AvailableCashAmount", "CreditAmount", "Currency", "MybankCreditAmount", "QuotaLimit"]
         )
+        return result
+    }
+    if provider == "workbuddy-cn" {
+        if let code = document["code"] as? Int, code != 0 {
+            return selected(document, ["code"])
+        }
+        guard
+            let data = document["data"] as? [String: Any],
+            let packages = selectedArray(
+                data["Packages"],
+                ["PackageCode", "CycleTotalCapacity", "CycleRemainCapacity", "CycleUsedCapacity"],
+                maximum: 32
+            )
+        else { return nil }
+        var sanitizedData = selected(data, ["IsPaidUser", "SubscriptionPackageCode"])
+        sanitizedData["Packages"] = packages
+        var result = selected(document, ["code"])
+        result["data"] = sanitizedData
         return result
     }
     return nil

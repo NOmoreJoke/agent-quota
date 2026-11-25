@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from agent_quota.providers import MANIFESTS, manifest, parse_provider_response
 
@@ -43,11 +45,13 @@ def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
     fixture_root = Path(__file__).parent / "fixtures/providers"
     recordings = [json.loads(path.read_text()) for path in sorted(fixture_root.glob("*.json"))]
     assert {item["provider_id"] for item in recordings} == {
+        "antigravity",
         "deepseek",
         "glm-cn",
         "kimi-code",
         "kimi-cn",
         "minimax-cn",
+        "workbuddy-cn",
     }
     assert {item["provider_id"] for item in recordings if item["live_verified"]} == {
         "deepseek",
@@ -65,7 +69,7 @@ def test_sanitized_recordings_match_parser_contract_and_digest() -> None:
 
 
 def test_manifests_are_fixed_https_official_endpoints() -> None:
-    assert len(MANIFESTS) == 11
+    assert len(MANIFESTS) == 13
     assert all(item.endpoint.startswith("https://") for item in MANIFESTS.values())
     assert all("example" not in item.endpoint for item in MANIFESTS.values())
     with pytest.raises(ValueError, match="unsupported"):
@@ -869,3 +873,348 @@ def test_invalid_base64_json_scalar_and_unknown_provider_fail_closed() -> None:
     assert parse_provider_response("deepseek", 200, encoded([])).safe_error_code == "contract-error"
     with pytest.raises(ValueError, match="unsupported"):
         parse_provider_response("unknown", 200, encoded({}))
+
+
+def test_kimi_code_limits_and_booster_wallet_bounds_fail_closed() -> None:
+    valid_usage = {"remaining": 50, "limit": 100}
+    valid_5h = {
+        "window": {"duration": 5, "timeUnit": "TIME_UNIT_HOUR"},
+        "detail": {"used": 1, "limit": 10},
+    }
+    cases = [
+        {"usage": valid_usage, "limits": "bad"},
+        {"usage": {"used": 1, "remaining": 9, "limit": 10}, "limits": [valid_5h]},
+        {"usage": {"remaining": 11, "limit": 10}, "limits": [valid_5h]},
+        {"usage": {"remaining": 1, "limit": 0}, "limits": [valid_5h]},
+        {"usage": valid_usage, "limits": ["bad"]},
+        {"usage": valid_usage, "limits": [{"window": {}, "detail": "bad"}]},
+        {
+            "usage": valid_usage,
+            "limits": [
+                {
+                    "window": {"duration": 0, "timeUnit": "TIME_UNIT_HOUR"},
+                    "detail": {"used": 1, "limit": 10},
+                }
+            ],
+        },
+        {
+            "usage": valid_usage,
+            "limits": [
+                {
+                    "name": "",
+                    "window": {"duration": 1, "timeUnit": "TIME_UNIT_HOUR"},
+                    "detail": {"used": 1, "limit": 10},
+                }
+            ],
+        },
+        {"usage": valid_usage, "limits": [valid_5h], "boosterWallet": "bad"},
+        {
+            "usage": valid_usage,
+            "limits": [valid_5h],
+            "boosterWallet": {"balance": {"type": "OTHER"}},
+        },
+        {
+            "usage": valid_usage,
+            "limits": [valid_5h],
+            "boosterWallet": {"balance": {"type": "BOOSTER", "amount": 0, "amountLeft": 0}},
+        },
+    ]
+    for document in cases:
+        assert parse_provider_response("kimi-code", 200, encoded(document)).safe_error_code == (
+            "contract-error"
+        )
+
+
+def test_antigravity_edge_cases_and_bounds_fail_closed() -> None:
+    from agent_quota.providers import sanitize_antigravity_statusline
+
+    assert (
+        parse_provider_response("antigravity", 200, encoded({"product": "other"})).safe_error_code
+        == "contract-error"
+    )
+    assert (
+        parse_provider_response(
+            "antigravity", 200, encoded({"product": "antigravity", "quota": {}})
+        ).safe_error_code
+        == "contract-error"
+    )
+    for bad_entry in (
+        "bad",
+        {"remaining_fraction": 0.5, "disabled": "no"},
+        {"remaining_fraction": 0.5, "remaining_amount": 10},
+        {"remaining_fraction": 1.5},
+        {"remaining_amount": -1},
+    ):
+        assert (
+            parse_provider_response(
+                "antigravity",
+                200,
+                encoded({"product": "antigravity", "quota": {"gemini-5h": bad_entry}}),
+            ).safe_error_code
+            == "contract-error"
+        )
+    with pytest.raises(ValueError, match="product"):
+        sanitize_antigravity_statusline(json.dumps({"product": "other", "quota": {}}).encode())
+    with pytest.raises(ValueError, match="quota"):
+        sanitize_antigravity_statusline(
+            json.dumps({"product": "antigravity", "quota": {}}).encode()
+        )
+    with pytest.raises(ValueError, match="plan tier"):
+        sanitize_antigravity_statusline(
+            json.dumps(
+                {
+                    "product": "antigravity",
+                    "plan_tier": "x" * 33,
+                    "quota": {"gemini-5h": {"remaining_fraction": 0.5}},
+                }
+            ).encode()
+        )
+
+
+def test_antigravity_cloudcode_projection_and_bounds() -> None:
+    valid_generic = parse_provider_response(
+        "antigravity",
+        200,
+        encoded({"buckets": [{"id": "custom-bucket", "remainingFraction": 0.4}], "aiCredits": 12}),
+    )
+    assert valid_generic.ok
+    assert [
+        (r["capability_ref"], r["display_kind"], r["value_display"]) for r in valid_generic.rows
+    ] == [
+        ("cap-antigravity-bucket-0", "window", "custom-bucket · 剩余 40%"),
+        ("cap-antigravity-ai-credits", "balance", "AI Credits 剩余 12"),
+    ]
+    for bad_payload in (
+        {"tier": 123, "buckets": [{"id": "gemini-5h", "remainingFraction": 0.5}]},
+        {"tier": "x" * 49, "buckets": [{"id": "gemini-5h", "remainingFraction": 0.5}]},
+        {"buckets": "not-list"},
+        {"buckets": []},
+        {"buckets": ["bad-item"]},
+        {"buckets": [{"id": "bad id!", "remainingFraction": 0.5}]},
+        {"buckets": [{"id": "gemini-5h", "remainingFraction": 1.2}]},
+        {"aiCredits": -5},
+    ):
+        assert (
+            parse_provider_response("antigravity", 200, encoded(bad_payload)).safe_error_code
+            == "contract-error"
+        )
+
+
+def test_glm_and_minimax_boost_pack_wallet_and_bounds() -> None:
+    credit_limit = parse_provider_response(
+        "glm-global",
+        200,
+        encoded(
+            {
+                "code": 200,
+                "success": True,
+                "data": {
+                    "limits": [
+                        {"type": "TOKENS_LIMIT", "unit": 3, "percentage": 15},
+                        {
+                            "type": "CREDIT_LIMIT",
+                            "limitValue": 200,
+                            "currentValue": 50,
+                            "currency": "CNY",
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+    assert credit_limit.ok
+    assert [
+        (r["capability_ref"], r["display_kind"], r["value_display"]) for r in credit_limit.rows
+    ] == [
+        ("cap-glm-global-limit-0-5h", "window", "5小时已用 15%"),
+        ("cap-glm-global-boost-wallet", "balance", "加油包剩余 CNY 150 / 200"),
+    ]
+    rem_only = parse_provider_response(
+        "minimax-global",
+        200,
+        encoded(
+            {
+                "base_resp": {"status_code": 0},
+                "model_remains": [
+                    {
+                        "model_name": "M2.7",
+                        "current_interval_remaining_percent": 60,
+                        "current_weekly_status": 3,
+                    }
+                ],
+                "boost_remains": {"remaining": 42},
+            }
+        ),
+    )
+    assert rem_only.ok
+    assert rem_only.rows[-1]["value_display"] == "加油包剩余 42"
+    for bad_boost in (
+        "bad",
+        {"remaining": -1, "total": 10},
+        {"remaining": 5, "total": -1},
+        {"total": 100, "used": 120},
+        {"currency": "CNY"},
+    ):
+        assert (
+            parse_provider_response(
+                "minimax-cn",
+                200,
+                encoded(
+                    {
+                        "base_resp": {"status_code": 0},
+                        "model_remains": [
+                            {
+                                "model_name": "M2.7",
+                                "current_interval_remaining_percent": 60,
+                                "current_weekly_status": 3,
+                            }
+                        ],
+                        "extra_remains": bad_boost,
+                    }
+                ),
+            ).safe_error_code
+            == "contract-error"
+        )
+
+
+@given(
+    pct_5h=st.integers(min_value=0, max_value=100),
+    pct_week=st.integers(min_value=0, max_value=100),
+    rem=st.integers(min_value=0, max_value=10_000),
+    delta=st.integers(min_value=1, max_value=10_000),
+)
+def test_glm_boost_property(pct_5h: int, pct_week: int, rem: int, delta: int) -> None:
+    total = rem + delta
+    result = parse_provider_response(
+        "glm-cn",
+        200,
+        encoded(
+            {
+                "code": 200,
+                "success": True,
+                "data": {
+                    "limits": [
+                        {"type": "TOKENS_LIMIT", "unit": 3, "percentage": pct_5h},
+                        {"type": "TOKENS_LIMIT", "unit": 6, "percentage": pct_week},
+                    ],
+                    "extraPackage": {"remaining": rem, "total": total},
+                },
+            }
+        ),
+    )
+    assert result.ok
+    assert [(r["display_kind"], r["value_display"]) for r in result.rows] == [
+        ("window", f"5小时已用 {pct_5h}%"),
+        ("window", f"周已用 {pct_week}%"),
+        ("balance", f"加油包剩余 {rem} / {total}"),
+    ]
+
+
+def test_workbuddy_cn_edges_and_bounds_fail_closed() -> None:
+    used_derived = parse_provider_response(
+        "workbuddy-cn",
+        200,
+        encoded(
+            {
+                "code": 0,
+                "data": {
+                    "Packages": [
+                        {
+                            "PackageCode": "TCACA_code_001",
+                            "CycleTotalCapacity": 200,
+                            "CycleUsedCapacity": 50,
+                        },
+                        {
+                            "PackageCode": "TCACA_extra_zero_total",
+                            "CycleTotalCapacity": 0,
+                            "CycleRemainCapacity": 25,
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+    assert used_derived.ok
+    assert [(r["display_kind"], r["value_display"]) for r in used_derived.rows] == [
+        ("window", "周期积分 (150 / 200) · 剩余 75%"),
+        ("balance", "加油包剩余 25"),
+    ]
+    for bad_payload in (
+        {"code": 1, "data": {"Packages": []}},
+        {"code": 0, "data": {"Packages": []}},
+        {"code": 0, "data": {"Packages": ["bad"]}},
+        {"code": 0, "data": {"Packages": [{"PackageCode": "", "CycleTotalCapacity": 100}]}},
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": -1, "CycleRemainCapacity": 0}
+                ]
+            },
+        },
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": 100, "CycleUsedCapacity": 150}
+                ]
+            },
+        },
+        {"code": 0, "data": {"Packages": [{"PackageCode": "p", "CycleTotalCapacity": 100}]}},
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": 100, "CycleRemainCapacity": -1}
+                ]
+            },
+        },
+        {
+            "code": 0,
+            "data": {
+                "Packages": [
+                    {"PackageCode": "p", "CycleTotalCapacity": 0, "CycleRemainCapacity": 0}
+                ]
+            },
+        },
+    ):
+        assert (
+            parse_provider_response("workbuddy-cn", 200, encoded(bad_payload)).safe_error_code
+            == "contract-error"
+        )
+
+
+@given(
+    rem=st.integers(min_value=0, max_value=10_000),
+    delta=st.integers(min_value=1, max_value=10_000),
+    extra_rem=st.integers(min_value=1, max_value=5_000),
+)
+def test_workbuddy_cn_property(rem: int, delta: int, extra_rem: int) -> None:
+    total = rem + delta
+    result = parse_provider_response(
+        "workbuddy-cn",
+        200,
+        encoded(
+            {
+                "code": 0,
+                "data": {
+                    "Packages": [
+                        {
+                            "PackageCode": "TCACA_code_002",
+                            "CycleTotalCapacity": total,
+                            "CycleRemainCapacity": rem,
+                        },
+                        {
+                            "PackageCode": "TCACA_extra_boost",
+                            "CycleTotalCapacity": extra_rem * 2,
+                            "CycleRemainCapacity": extra_rem,
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+    assert result.ok
+    assert result.rows[0]["display_kind"] == "window"
+    assert result.rows[1]["display_kind"] == "balance"
+    assert result.rows[1]["value_display"] == f"加油包剩余 {extra_rem} / {extra_rem * 2}"

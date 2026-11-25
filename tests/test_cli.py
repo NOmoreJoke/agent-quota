@@ -102,7 +102,7 @@ def test_cli_ingest_antigravity_and_desktop_status(
     )
     rendered = capsys.readouterr().out.strip()  # type: ignore[attr-defined]
     assert render_code == 0
-    assert "Antigravity (Pro)" in rendered
+    assert "Antigravity (CLI Bridge · Pro)" in rendered
     assert "75%" in rendered
     assert "hidden@example.com" not in rendered
 
@@ -248,3 +248,79 @@ def test_sidecar_cli_bridge_and_local_bridge_destructive_cleanup(
     assert removed == ()
     assert control.cleanup_pending() == []
     assert control.renderer_accounts() == []
+
+
+def test_cli_purge_plan_and_antigravity_settings_validation_edges(
+    tmp_path: Path,
+    capsys: object,
+    monkeypatch: object,
+) -> None:
+    import io
+    import os
+
+    database = tmp_path / "data" / "state.sqlite"
+    assert invoke(capsys, ["--db", str(database), "init"])[0] == 0
+    code, purge = invoke(capsys, ["--db", str(database), "purge-plan", "--generation", "2"])
+    assert code == 0 and purge["status"] == "ok"
+
+    # Empty stdin fails closed
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "sys.stdin",
+        type("FakeStdin", (), {"buffer": io.BytesIO(b"")})(),
+    )
+    assert (
+        invoke(capsys, ["--data-root", str(tmp_path / "ag"), "ingest-antigravity-statusline"])[0]
+        == 1
+    )
+
+    # Non-existent parent with --check returns configured=False without creating dirs
+    missing_parent = tmp_path / "missing-dir" / "settings.json"
+    chk_code, chk_out = invoke(
+        capsys,
+        ["setup-antigravity", "--settings-path", str(missing_parent), "--check"],
+    )
+    assert chk_code == 0 and chk_out["configured"] is False
+    assert not missing_parent.parent.exists()
+
+    # Invalid JSON / non-object JSON / world-writable dir fail closed cleanly
+    unsafe_dir = tmp_path / "unsafe-dir"
+    unsafe_dir.mkdir()
+    os.chmod(unsafe_dir, 0o777)
+    bad_dir_code, bad_dir_out = invoke(
+        capsys,
+        ["setup-antigravity", "--settings-path", str(unsafe_dir / "settings.json")],
+    )
+    assert bad_dir_code == 1 and bad_dir_out == {
+        "status": "error",
+        "error": "settings_directory_unsafe",
+    }
+
+    safe_dir = tmp_path / "safe-dir"
+    safe_dir.mkdir(mode=0o700)
+    bad_json = safe_dir / "settings.json"
+    bad_json.write_text("{broken", encoding="utf-8")
+    bad_json_code, bad_json_out = invoke(
+        capsys,
+        ["setup-antigravity", "--settings-path", str(bad_json)],
+    )
+    assert bad_json_code == 1 and bad_json_out == {
+        "status": "error",
+        "error": "settings_invalid_json",
+    }
+
+    bad_json.write_text("[]", encoding="utf-8")
+    root_code, root_out = invoke(
+        capsys,
+        ["setup-antigravity", "--settings-path", str(bad_json)],
+    )
+    assert root_code == 1 and root_out == {"status": "error", "error": "settings_root_not_object"}
+
+    bad_json.write_text(json.dumps({"statusLine": {"command": "echo other"}}), encoding="utf-8")
+    uninst_code, uninst_out = invoke(
+        capsys,
+        ["setup-antigravity", "--settings-path", str(bad_json), "--uninstall"],
+    )
+    assert uninst_code == 1 and uninst_out == {
+        "status": "error",
+        "error": "existing_statusline_conflict",
+    }

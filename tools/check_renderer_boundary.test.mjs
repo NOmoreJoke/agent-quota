@@ -23,9 +23,11 @@ function check(mutate) {
 test("only the reviewed fixed-key enum adapters receive the storage exception", () => {
   assert.equal(check(() => {}).status, 0);
   for (const file of adapters) {
-    const result = check((directory) => writeFileSync(resolve(directory, file), readFileSync(resolve(root, file), "utf8").replaceAll("agent-quota.appearance.v1", "other-sensitive-data")));
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /appearance storage boundary changed/);
+    for (const fixedKey of ["agent-quota.appearance.v1", "agent-quota.motion.v1"]) {
+      const result = check((directory) => writeFileSync(resolve(directory, file), readFileSync(resolve(root, file), "utf8").replaceAll(fixedKey, "other-sensitive-data")));
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /appearance storage boundary changed/);
+    }
   }
 });
 

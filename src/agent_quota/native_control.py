@@ -17,11 +17,22 @@ from typing import Final, cast
 from agent_quota.filesystem import atomic_write_private, open_directory_nofollow, read_regular_at
 from agent_quota.providers import (
     LOCAL_BRIDGE_MANIFESTS,
+    MANIFESTS,
     PROVIDER_IDS,
     manifest,
     parse_provider_response,
     sanitize_antigravity_statusline,
 )
+
+
+def _allowed_credential_types(provider_id: str) -> set[str]:
+    allowed = {manifest(provider_id).credential_type}
+    if provider_id in LOCAL_BRIDGE_MANIFESTS:
+        allowed.add(LOCAL_BRIDGE_MANIFESTS[provider_id].credential_type)
+    if provider_id in MANIFESTS:
+        allowed.add(MANIFESTS[provider_id].credential_type)
+    return allowed
+
 
 STATE_SCHEMA: Final = "aq-native-account-state-v1"
 MAX_ACCOUNTS: Final = 64
@@ -202,7 +213,7 @@ class NativeControlPlane:
                 or not 1 <= account_generation <= generation
                 or not isinstance(provider_id, str)
                 or provider_id not in PROVIDER_IDS
-                or account["credential_type"] != manifest(provider_id).credential_type
+                or account["credential_type"] not in _allowed_credential_types(provider_id)
                 or not isinstance(projection, list)
                 or len(projection) > 256
                 or isinstance(last_refresh, bool)
@@ -329,6 +340,15 @@ class NativeControlPlane:
                 provider_id = account["provider_id"]
                 assert isinstance(provider_id, str)
                 return reference, generation, provider_id
+        raise ValueError("unknown principal")
+
+    def credential_type(self, principal_ref: str) -> str:
+        self._validate_principal(principal_ref)
+        for account in self.accounts:
+            if account["principal_ref"] == principal_ref:
+                cred_type = account["credential_type"]
+                assert isinstance(cred_type, str)
+                return cred_type
         raise ValueError("unknown principal")
 
     def quota_projection(self, scope_ref: str) -> dict[str, object]:
@@ -610,18 +630,21 @@ class NativeControlPlane:
             raise ValueError(result.safe_error_code or "contract-error")
         new_rows = [dict(row) for row in result.rows]
         plan_tier = sanitized.get("plan_tier")
-        provider = manifest("antigravity")
+        provider = LOCAL_BRIDGE_MANIFESTS["antigravity"]
         display_label = (
-            f"{provider.display_name} ({plan_tier})"
+            f"{provider.display_name} (CLI Bridge · {plan_tier})"
             if isinstance(plan_tier, str) and plan_tier
-            else provider.display_name
+            else f"{provider.display_name} (CLI Bridge)"
         )
         observed_ms = int(time.time() * 1000) if now_ms is None else now_ms
         if observed_ms < 0 or observed_ms > 2**63 - 1:
             raise ValueError("invalid observation timestamp")
 
         for account in self.accounts:
-            if account["provider_id"] != "antigravity":
+            if (
+                account["provider_id"] != "antigravity"
+                or account["credential_type"] != provider.credential_type
+            ):
                 continue
             last_ms = cast(int, account["last_refresh_epoch_ms"])
             if (
@@ -796,7 +819,7 @@ class NativeControlPlane:
             removed_references = [
                 cast(str, account["credential_reference"])
                 for account in self.accounts
-                if account.get("provider_id") not in LOCAL_BRIDGE_MANIFESTS
+                if account.get("credential_type") != "agy-statusline-stdin"
             ]
             complete_cleanup = list(self.pending_keychain_deletions)
             complete_cleanup.extend(
@@ -813,7 +836,7 @@ class NativeControlPlane:
                 cast(str, account["credential_reference"])
                 for account in self.accounts
                 if account["principal_ref"] == plan.opaque_selection_handle
-                and account.get("provider_id") not in LOCAL_BRIDGE_MANIFESTS
+                and account.get("credential_type") != "agy-statusline-stdin"
             ]
             self.accounts[:] = [
                 account

@@ -165,6 +165,8 @@ describe("App", () => {
       "minimax-token-plan-cn", "glm-coding-plan-cn", "google-antigravity",
       "volcengine-ark-agent-plan-personal", "volcengine-billing-balance",
       "bailian-coding-plan", "bailian-token-plan-personal", "xiaomi-mimo-token-plan",
+      "glm-api-balance-cn", "minimax-api-balance-cn",
+      "workbuddy-personal-cn", "qoder-personal-cn",
     ]);
     expect(host.querySelector('[aria-label^="Cursor "]')).toBeNull();
 
@@ -188,6 +190,101 @@ describe("App", () => {
     );
     await act(async () => settings?.click());
     expect(host.textContent).toContain("Provider 行为");
+    const callsBeforeMotion = vi.mocked(invokeHost).mock.calls.length;
+    const motionToggle = host.querySelector<HTMLButtonElement>('[aria-label="开启动效加载"]');
+    expect(motionToggle?.getAttribute("aria-pressed")).toBe("true");
+    expect(motionToggle?.textContent).toContain("动效加载：已开启");
+    await act(async () => motionToggle?.click());
+    expect(motionToggle?.getAttribute("aria-pressed")).toBe("false");
+    expect(motionToggle?.textContent).toContain("开启动效加载");
+    expect(document.documentElement.dataset.motion).toBe("off");
+    await act(async () => motionToggle?.click());
+    expect(motionToggle?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.documentElement.dataset.motion).toBe("on");
+    expect(vi.mocked(invokeHost).mock.calls.length).toBe(callsBeforeMotion);
+    root.unmount();
+  });
+
+  it("pops up a reauth prompt when a credential expires, falls back to a banner when dismissed, and reauthorizes on click", async () => {
+    const invoke = vi.mocked(invokeHost);
+    let expired = true;
+    invoke.mockImplementation(async (command: string) => {
+      if (command === "bootstrap_state") {
+        return { application_state: { launch_state: "ready", offline: false }, status: "ok" };
+      }
+      if (command === "accounts_read") {
+        return {
+          accounts: [
+            {
+              display_label: "Kimi Code Token Plan",
+              last_error_code: expired ? "reauth-required" : undefined,
+              lifecycle: expired ? "needs-reauth" : "active",
+              principal_ref: "p-kimi-code",
+            },
+          ],
+          status: "ok",
+        };
+      }
+      if (command === "quota_overview") {
+        return {
+          projection: {
+            capability_rows: [
+              { capability_ref: "cap-kimi-code-weekly", display_kind: "window", health: "ok", value_display: "周剩余 80%" },
+            ],
+            freshness: expired ? "stale" : "fresh",
+            scope_ref: "scope-all",
+          },
+          status: "ok",
+        };
+      }
+      if (command === "scheduler_state") {
+        return { scheduler_state: { health: "healthy", installed: true }, status: "ok" };
+      }
+      if (command === "reauthenticate") {
+        expired = false;
+        return { reauth_state: "succeeded", status: "ok" };
+      }
+      return {
+        refresh_state: { phase: expired ? "failed" : "completed" },
+        safe_error: expired ? { code: "reauth-required", retryable: false } : undefined,
+        status: expired ? "error" : "ok",
+      };
+    });
+
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => root.render(<App />));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    const prompt = host.querySelector('[data-testid="reauth-prompt"]');
+    expect(prompt).not.toBeNull();
+    expect(prompt?.textContent).toContain("凭据已过期，请重新授权");
+    expect(prompt?.textContent).toContain("Kimi Code Token Plan");
+    expect(host.querySelector('[data-testid="reauth-banner"]')).toBeNull();
+
+    const dismissButton = [...(prompt?.querySelectorAll("button") ?? [])].find(
+      (node) => node.textContent === "稍后处理",
+    );
+    await act(async () => dismissButton?.click());
+    expect(host.querySelector('[data-testid="reauth-prompt"]')).toBeNull();
+    expect(host.querySelector('[data-testid="reauth-banner"]')?.textContent).toContain("Kimi Code Token Plan 凭据已过期");
+
+    const refreshAll = host.querySelector<HTMLButtonElement>('[aria-label="全部刷新"]');
+    await act(async () => refreshAll?.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    const reopenedPrompt = host.querySelector('[data-testid="reauth-prompt"]');
+    expect(reopenedPrompt).not.toBeNull();
+
+    const reauthButton = [...(reopenedPrompt?.querySelectorAll("button") ?? [])].find(
+      (node) => node.textContent === "重新授权",
+    );
+    await act(async () => reauthButton?.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(invoke).toHaveBeenCalledWith("reauthenticate", { principal_ref: "p-kimi-code" });
+    expect(host.querySelector('[data-testid="reauth-prompt"]')).toBeNull();
+    expect(host.querySelector('[data-testid="reauth-banner"]')).toBeNull();
     root.unmount();
   });
 });

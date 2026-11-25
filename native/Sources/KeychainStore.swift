@@ -267,3 +267,93 @@ func keychainACLSnapshot(account: String, keychain: SecKeychain? = nil) throws -
     return snapshot
 }
 
+let antigravityOAuthClientConfigAccount = "antigravity-oauth-client-config-v1"
+let antigravityOAuthClientConfigLabel = "Agent Quota · Google Antigravity OAuth Client"
+
+struct AntigravityOAuthClientConfig: Codable, Equatable {
+    let clientID: String
+    let clientSecret: String
+
+    enum CodingKeys: String, CodingKey {
+        case clientID = "client_id"
+        case clientSecret = "client_secret"
+    }
+}
+
+func resolveAntigravityOAuthClient(
+    clientIDOverride: String,
+    clientSecretOverride: String,
+    savedConfig: AntigravityOAuthClientConfig?,
+    defaultClientID: String = antigravityDefaultOAuthClientID,
+    defaultClientSecret: String = antigravityDefaultOAuthClientSecret
+) -> AntigravityOAuthClientConfig? {
+    let trimmedID = clientIDOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmedSecret = clientSecretOverride.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !trimmedID.isEmpty {
+        guard isSafeCredential(trimmedID),
+              trimmedSecret.isEmpty || isSafeCredential(trimmedSecret)
+        else { return nil }
+        return AntigravityOAuthClientConfig(clientID: trimmedID, clientSecret: trimmedSecret)
+    }
+    if let saved = savedConfig,
+       isSafeCredential(saved.clientID),
+       saved.clientSecret.isEmpty || isSafeCredential(saved.clientSecret)
+    {
+        return saved
+    }
+    if isSafeCredential(defaultClientID),
+       defaultClientSecret.isEmpty || isSafeCredential(defaultClientSecret)
+    {
+        return AntigravityOAuthClientConfig(
+            clientID: defaultClientID,
+            clientSecret: defaultClientSecret
+        )
+    }
+    return nil
+}
+
+func loadAntigravityOAuthClientConfig(
+    keychain: SecKeychain? = nil
+) -> AntigravityOAuthClientConfig? {
+    guard
+        let data = try? keychainRead(
+            account: antigravityOAuthClientConfigAccount,
+            keychain: keychain
+        ),
+        let config = try? JSONDecoder().decode(AntigravityOAuthClientConfig.self, from: data),
+        isSafeCredential(config.clientID),
+        config.clientSecret.isEmpty || isSafeCredential(config.clientSecret)
+    else { return nil }
+    return config
+}
+
+func saveAntigravityOAuthClientConfig(
+    _ config: AntigravityOAuthClientConfig,
+    keychain: SecKeychain? = nil
+) throws {
+    guard
+        isSafeCredential(config.clientID),
+        config.clientSecret.isEmpty || isSafeCredential(config.clientSecret)
+    else { throw NativeFailure.invalidRequest }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    let data = try encoder.encode(config)
+    var updateBytes = Array(data)
+    do {
+        try keychainUpdate(
+            account: antigravityOAuthClientConfigAccount,
+            secret: &updateBytes,
+            keychain: keychain
+        )
+    } catch NativeFailure.keychain(let status) where status == errSecItemNotFound {
+        var addBytes = Array(data)
+        try keychainAdd(
+            account: antigravityOAuthClientConfigAccount,
+            label: antigravityOAuthClientConfigLabel,
+            secret: &addBytes,
+            keychain: keychain
+        )
+    }
+}
+
+
