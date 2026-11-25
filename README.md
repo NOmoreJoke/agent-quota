@@ -10,12 +10,14 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/NOmoreJoke/agent-quota/releases/latest"><img src="https://img.shields.io/badge/download-macOS%20DMG%20v0.1.0-0969da?style=flat" alt="Download macOS DMG"></a>
   <img src="https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey" alt="macOS 13+">
   <img src="https://img.shields.io/badge/architecture-Apple%20Silicon-lightgrey" alt="Apple Silicon">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
 </p>
 
 <p align="center">
+  <a href="#下载安装">下载安装</a> ·
   <a href="#核心能力">核心能力</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#provider-支持">Provider</a> ·
@@ -32,8 +34,20 @@
 
 Agent Quota 将不同 Provider 的额度投影到统一桌面视图：窗口额度保持各自周期，钱包余额保持各自币种，跨类型不求和。凭据生命周期由 macOS 原生安全窗口与 Keychain 管理；Renderer 不接触秘密，Provider 查询只访问固定官方接口。
 
-> [!IMPORTANT]
-> 当前仓库只允许发布 Source Preview。公开 Release 不附带 `.app`、`.dmg` 或 `.pkg`；正式 macOS 二进制仍需 Developer ID 签名、Apple notarization/stapling 与原生资源身份绑定闭环。
+## 下载安装
+
+前往 [GitHub Releases](https://github.com/NOmoreJoke/agent-quota/releases/latest) 直接下载 macOS 安装包（Apple Silicon / macOS 13.0+）：
+
+- **直接下载 DMG**：[`Agent-Quota-0.1.0-arm64.dmg`](https://github.com/NOmoreJoke/agent-quota/releases/download/v0.1.0/Agent-Quota-0.1.0-arm64.dmg)
+- **安装步骤**：双击打开 `.dmg`，将 `Agent Quota.app` 拖入 `Applications`（应用程序）文件夹即可。
+
+> [!NOTE]
+> 当前安装包使用 Apple Development 开发者证书稳定签名（支持跨版本保留钥匙串授权），但尚未经过 Apple 公证（Notarization）。首次打开若 macOS 提示“无法验证开发者”或“已损坏”，请通过以下任一方式放行：
+> 1. 在“应用程序”中右键点击 `Agent Quota.app` → 选择“打开”（或在 **系统设置 → 隐私与安全性** 底部点击“仍要打开”）；
+> 2. 或在终端执行一次清除隔离属性命令：
+>    ```bash
+>    xattr -cr "/Applications/Agent Quota.app"
+>    ```
 
 ## 核心能力
 
